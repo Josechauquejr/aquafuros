@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Projects/laragon/bin/php/php-8.3.30-Win32-vs16-x64/**)",
+      "Bash(php -v)",
+      "PowerShell($env:PATH = \"D:\\\\Projects\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64;\" + $env:PATH; php -v; php -m | Select-String pgsql)",
+      "PowerShell($env:PATH = \"D:\\\\Projects\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64;\" + $env:PATH; php -m | Select-String pgsql)",
+      "PowerShell($env:PATH = \"D:\\\\Projects\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64;\" + $env:PATH; Set-Location \"D:\\\\Projects\\\\laragon\\\\www\\\\aquafuros\"; php artisan db:show)"
+    ],
+    "additionalDirectories": [
+      "D:\\Projects\\laragon\\bin\\php\\php-8.3.30-Win32-vs16-x64"
+    ]
+  }
+}

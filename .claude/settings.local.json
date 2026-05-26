@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php --ini)",
+      "Bash(php -m)",
+      "Bash(findstr -i pgsql)",
+      "Bash(php -r \"echo PHP_VERSION . PHP_EOL; echo php_ini_loaded_file\\(\\) . PHP_EOL; echo PHP_EXTENSION_DIR . PHP_EOL;\")",
+      "Bash(dir \"C:\\\\php\\\\ext\")",
+      "Bash(findstr pgsql *)",
+      "Bash(dir \"C:\\\\Users\\\\Microsoft Surface 4\\\\.config\\\\herd-lite\\\\bin\")"
+    ]
+  }
+}

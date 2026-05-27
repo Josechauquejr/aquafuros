@@ -33,5 +33,4 @@ class Leitura extends Model
     {
         return $this->hasOne(Factura::class);
     }
-
 }

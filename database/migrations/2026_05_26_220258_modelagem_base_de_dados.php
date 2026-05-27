@@ -29,7 +29,7 @@ return new class extends Migration
             $table->string('nome');
             $table->string('endereco')->nullable();
             $table->string('telefone', 20)->nullable();
-            $table->string('bairro')->nullable();
+            $table->string('bairro')->nullable();        
             $table->foreignId('tarifa_id')->constrained('tarifas')->restrictOnDelete();
             $table->enum('estado',['ativo','inativo','cortado'])->default('ativo');
             $table->date('data_adesao')->nullable();
@@ -41,7 +41,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('cliente_id')->constrained('clientes')->onDelete('cascade');
             $table->tinyInteger('mes')->unsigned();
-            $table->year('ano')->unsigned();
+            $table->smallInteger('ano')->unsigned();
             $table->decimal('leitura_anterior', 10, 2)->default(0.00);
             $table->decimal('leitura_actual', 10, 2);
             $table->boolean('confirmado')->default(false);
@@ -57,7 +57,7 @@ return new class extends Migration
             $table->foreignId('cliente_id')->constrained('clientes')->restrictOnDelete();
             $table->foreignId('leitura_id')->nullable()->constrained('leituras')->nullOnDelete();
             $table->tinyInteger('mes')->unsigned();
-            $table->year('ano')->unsigned();
+            $table->smallInteger('ano')->unsigned();
             $table->decimal('valor_consumo', 10, 2)->default(0.00);
             $table->decimal('divida_anterior', 10, 2)->default(0.00);
             $table->decimal('multa', 10, 2)->default(0.00);

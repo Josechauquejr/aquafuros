@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Formulário de Cadastro</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }
+            h1 {
+                color: #2c3e50;
+                text-align: center;
+            }
+            form {
+                max-width: 500px;
+                margin: 20px auto;
+                background: white;
+                padding: 25px;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+            label {
+                display: block;
+                margin-top: 15px;
+                font-weight: bold;
+                color: #333;
+            }
+            input {
+                width: 100%;
+                padding: 10px;
+                margin-top: 5px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                box-sizing: border-box;
+            }
+            input:focus {
+                border-color: #3498db;
+                outline: none;
+            }
+            button {
+                width: 100%;
+                padding: 12px;
+                margin-top: 20px;
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 16px;
+                cursor: pointer;
+            }
+            button:hover {
+                background-color: #2980b9;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Cadastro de Aluno</h1>
+        <form action="/enviar" method="POST">
+            <label for="nome">Nome:</label>
+            <input
+                type="text"
+                id="nome"
+                name="nome"
+                placeholder="Digite seu nome"
+                value="Jose"
+                required
+            />
+
+            <label for="idade">Idade:</label>
+            <input
+                type="number"
+                +
+                id="idade"
+                name="idade"
+                placeholder="Digite sua idade"
+                value="19"
+                min="1"
+                max="120"
+                required
+            />
+
+            <label for="curso">Curso:</label>
+            <input
+                type="text"
+                id="curso"
+                name="curso"
+                placeholder="Digite seu curso"
+                value="Computer Science"
+                required
+            />
+
+            <label for="email">Email:</label>
+            <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="exemplo@email.com"
+                value="jrchauque@gmail.com"
+                required
+            />
+
+            <label for="numero">Número:</label>
+            <input
+                type="tel"
+                id="numero"
+                name="numero"
+                placeholder="844356830"
+                value="844356830"
+                pattern="[0-9]{9}"
+                required
+            />
+
+            <label for="mensagem">Mensagem</label>
+            <textarea
+                name="mensagem"
+                id="mensagem"
+                rows="5"
+                required
+            ></textarea>
+
+            <button type="submit">Enviar</button>
+        </form>
+    </body>
+</html>

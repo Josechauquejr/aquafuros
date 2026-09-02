@@ -7,7 +7,18 @@
       "Bash(php -r \"echo PHP_VERSION . PHP_EOL; echo php_ini_loaded_file\\(\\) . PHP_EOL; echo PHP_EXTENSION_DIR . PHP_EOL;\")",
       "Bash(dir \"C:\\\\php\\\\ext\")",
       "Bash(findstr pgsql *)",
-      "Bash(dir \"C:\\\\Users\\\\Microsoft Surface 4\\\\.config\\\\herd-lite\\\\bin\")"
+      "Bash(dir \"C:\\\\Users\\\\Microsoft Surface 4\\\\.config\\\\herd-lite\\\\bin\")",
+      "Bash(composer require *)",
+      "Bash(grep -n \"AnimatedPanel delay={0.28}\\\\|</AnimatedPanel>\\\\|Modal$\\\\|show={showModal\\\\|title={editando ? \\\\\"Editar cliente\\\\\"\" resources/js/Pages/Clientes/Index.jsx)",
+      "Bash(npm run *)",
+      "Bash(grep -n \"</AnimatedPanel>\\\\s*$\" resources/js/Pages/Leituras/Index.jsx)",
+      "Bash(php artisan *)",
+      "Bash(php -l app/Http/Controllers/Admin/DashboardController.php)",
+      "Bash(curl -s -b /tmp/ck.txt http://aquafuros.test/dashboard -o /tmp/dash.html -w 'STATUS:%{http_code}\\\\n')",
+      "Read(//tmp/**)",
+      "Bash(grep -o '\"message\":\"[^\"]*\"' /tmp/kpis.html | head -3 *)",
+      "Bash(php -l app/Support/ResolvedorPeriodo.php)",
+      "Bash(curl -s -b /tmp/ck.txt http://aquafuros.test/admin/kpis -o /tmp/kpis.html -w 'STATUS:%{http_code}\\\\n')"
     ]
   }
 }

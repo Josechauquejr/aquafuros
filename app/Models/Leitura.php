@@ -33,4 +33,46 @@ class Leitura extends Model
     {
         return $this->hasOne(Factura::class);
     }
+
+    /**
+     * Indica se esta é a primeira leitura já registada para o cliente —
+     * usado nos recibos/facturas impressas para não tratar a leitura
+     * anterior (0) como se fosse um período real.
+     */
+    public function ehPrimeira(): bool
+    {
+        return ! static::where('cliente_id', $this->cliente_id)
+            ->where('id', '!=', $this->id)
+            ->where(function ($query) {
+                $query->where('ano', '<', $this->ano)
+                    ->orWhere(function ($query) {
+                        $query->where('ano', $this->ano)->where('mes', '<', $this->mes);
+                    });
+            })
+            ->exists();
+    }
+
+    /**
+     * A leitura do período imediatamente anterior deste mesmo cliente —
+     * usada para mostrar o consumo do mês anterior nas facturas impressas.
+     */
+    public function anterior(): ?self
+    {
+        return static::where('cliente_id', $this->cliente_id)
+            ->where('id', '!=', $this->id)
+            ->where(function ($query) {
+                $query->where('ano', '<', $this->ano)
+                    ->orWhere(function ($query) {
+                        $query->where('ano', $this->ano)->where('mes', '<', $this->mes);
+                    });
+            })
+            ->orderByDesc('ano')
+            ->orderByDesc('mes')
+            ->first();
+    }
+
+    public function consumo(): float
+    {
+        return max(0, (float) $this->leitura_actual - (float) $this->leitura_anterior);
+    }
 }

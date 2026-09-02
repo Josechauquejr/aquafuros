@@ -21,6 +21,7 @@ class User extends Authenticatable
         return [
             'password'  => 'hashed',
             'is_active' => 'boolean',
+            'email_verified_at' => 'datetime',
         ];
     }
 

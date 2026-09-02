@@ -2,29 +2,50 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cliente;
+use App\Models\Leitura;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class LeituraController extends Controller
 {
     /**
-     * Listar todas as leituras.
+     * Listar leituras paginadas, com pesquisa por cliente e filtro de
+     * estado (confirmada/pendente) aplicados no servidor.
      */
-    public function index()
+    public function index(Request $request)
     {
-        // TODO: Buscar leituras do mês/ano corrente por defeito, com paginação
-        // TODO: Carregar relações 'cliente' e 'registadoPor'
-        // TODO: Suportar filtros: por cliente, por mês, por ano, por estado de confirmação
-        // TODO: Retornar a view 'leituras.index' com $leituras
-    }
+        $search = $request->query('search');
+        $estado = $request->query('estado');
 
-    /**
-     * Mostrar o formulário de registo de leitura.
-     */
-    public function create()
-    {
-        // TODO: Buscar clientes activos (estado = 'ativo')
-        // TODO: Pré-seleccionar o mês e ano corrente
-        // TODO: Retornar a view 'leituras.create' com $clientes
+        // withTrashed() no cliente: uma leitura antiga não deve perder o
+        // nome do cliente só porque este foi entretanto removido.
+        $query = Leitura::with(['cliente' => fn ($q) => $q->withTrashed(), 'registadoPor', 'factura']);
+
+        if ($search) {
+            $query->whereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"));
+        }
+
+        if ($estado === 'confirmada') {
+            $query->where('confirmado', true);
+        } elseif ($estado === 'pendente') {
+            $query->where('confirmado', false);
+        }
+
+        return Inertia::render('Leituras/Index', [
+            'leituras' => $query->orderByDesc('ano')->orderByDesc('mes')->paginate(15)->withQueryString(),
+            'clientes' => Cliente::where('estado', 'ativo')->orderBy('nome')->get(['id', 'nome']),
+            'totais' => [
+                'total' => Leitura::count(),
+                'confirmadas' => Leitura::where('confirmado', true)->count(),
+                'pendentes' => Leitura::where('confirmado', false)->count(),
+                'semFactura' => Leitura::where('confirmado', true)->whereDoesntHave('factura')->count(),
+            ],
+            'filtros' => [
+                'search' => $search ?? '',
+                'estado' => $estado ?? 'todos',
+            ],
+        ]);
     }
 
     /**
@@ -32,57 +53,80 @@ class LeituraController extends Controller
      */
     public function store(Request $request)
     {
-        // TODO: Validar: cliente_id (existe), mes (1-12), ano, leitura_actual (numérico positivo)
-        // TODO: Verificar que não existe já uma leitura para o mesmo cliente/mes/ano (unique na BD)
-        // TODO: Preencher leitura_anterior automaticamente a partir da última leitura do cliente
-        // TODO: Validar que leitura_actual >= leitura_anterior
-        // TODO: Definir registado_por = auth()->id()
-        // TODO: Guardar com Leitura::create($data)
-        // TODO: Redirecionar para leituras.index com mensagem de sucesso
+        $data = $request->validate([
+            'cliente_id' => 'required|exists:clientes,id',
+            'mes' => 'required|integer|min:1|max:12',
+            'ano' => 'required|integer|min:2000|max:2100',
+            'leitura_actual' => 'required|numeric|min:0',
+        ]);
+
+        $existe = Leitura::where('cliente_id', $data['cliente_id'])
+            ->where('mes', $data['mes'])
+            ->where('ano', $data['ano'])
+            ->exists();
+
+        if ($existe) {
+            return back()->withErrors(['leitura_actual' => 'Já existe uma leitura para este cliente neste período.'])->withInput();
+        }
+
+        $ultima = Leitura::where('cliente_id', $data['cliente_id'])
+            ->orderByDesc('ano')->orderByDesc('mes')->first();
+
+        $leituraAnterior = $ultima->leitura_actual ?? 0;
+
+        if ($data['leitura_actual'] < $leituraAnterior) {
+            return back()->withErrors([
+                'leitura_actual' => "A leitura actual não pode ser menor que a leitura anterior ({$leituraAnterior}).",
+            ])->withInput();
+        }
+
+        Leitura::create([
+            'cliente_id' => $data['cliente_id'],
+            'mes' => $data['mes'],
+            'ano' => $data['ano'],
+            'leitura_anterior' => $leituraAnterior,
+            'leitura_actual' => $data['leitura_actual'],
+            'confirmado' => false,
+            'registado_por' => $request->user()->id,
+        ]);
+
+        return redirect()->route('leituras.index')->with('status', 'Leitura registada com sucesso.');
     }
 
     /**
-     * Mostrar uma leitura específica.
+     * Actualizar (ou confirmar) uma leitura — bloqueado depois de confirmada.
      */
-    public function show(string $id)
+    public function update(Request $request, Leitura $leitura)
     {
-        // TODO: Usar Route Model Binding — trocar (string $id) por (Leitura $leitura)
-        // TODO: Carregar relações: cliente, registadoPor, factura
-        // TODO: Retornar a view 'leituras.show' com $leitura
+        if ($leitura->confirmado) {
+            return back()->with('error', 'Esta leitura já foi confirmada e não pode ser alterada.');
+        }
+
+        $data = $request->validate([
+            'leitura_actual' => "required|numeric|min:{$leitura->leitura_anterior}",
+            'confirmado' => 'boolean',
+        ]);
+
+        $leitura->update($data);
+
+        return redirect()->route('leituras.index')->with('status', 'Leitura actualizada com sucesso.');
     }
 
     /**
-     * Mostrar o formulário de edição de leitura.
+     * Eliminar uma leitura — bloqueado se confirmada ou com factura associada.
      */
-    public function edit(string $id)
+    public function destroy(Leitura $leitura)
     {
-        // TODO: Usar Route Model Binding — trocar (string $id) por (Leitura $leitura)
-        // TODO: Bloquear edição se confirmado = true (leitura já validada não pode ser alterada)
-        // TODO: Retornar a view 'leituras.edit' com $leitura
-    }
+        if ($leitura->factura) {
+            return back()->with('error', 'Não é possível eliminar uma leitura com factura associada.');
+        }
 
-    /**
-     * Actualizar os dados de uma leitura.
-     */
-    public function update(Request $request, string $id)
-    {
-        // TODO: Usar Route Model Binding — trocar (string $id) por (Leitura $leitura)
-        // TODO: Bloquear se confirmado = true
-        // TODO: Validar leitura_actual >= leitura_anterior
-        // TODO: Actualizar com $leitura->update($data)
-        // TODO: Se já existir factura associada, recalcular os valores da factura
-        // TODO: Redirecionar para leituras.show com mensagem de sucesso
-    }
+        if ($leitura->confirmado) {
+            return back()->with('error', 'Não é possível eliminar uma leitura já confirmada.');
+        }
 
-    /**
-     * Eliminar uma leitura.
-     */
-    public function destroy(string $id)
-    {
-        // TODO: Usar Route Model Binding — trocar (string $id) por (Leitura $leitura)
-        // TODO: Bloquear eliminação se a leitura tiver uma factura associada
-        // TODO: Bloquear eliminação se confirmado = true
-        // TODO: Apagar com $leitura->delete()
-        // TODO: Redirecionar para leituras.index com mensagem de sucesso
+        $leitura->delete();
+
+        return redirect()->route('leituras.index')->with('status', 'Leitura eliminada com sucesso.');
     }
 }

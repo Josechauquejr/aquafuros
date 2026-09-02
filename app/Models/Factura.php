@@ -10,6 +10,7 @@ class Factura extends Model
         'numero_factura',
         'cliente_id',
         'leitura_id',
+        'tipo',
         'mes',
         'ano',
         'valor_consumo',

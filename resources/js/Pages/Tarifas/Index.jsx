@@ -123,12 +123,15 @@ export default function Index({ tarifas, taxaLigacao }) {
 
     const submitTarifa = (event) => {
         event.preventDefault();
-        const payload = { ...form.data, percentagem_multa: Number(form.data.percentagem_multa) / 100 };
+
+        // form.transform() só define a transformação (não devolve o form
+        // para encadear) — tem de ser chamado à parte do post/put.
+        form.transform((data) => ({ ...data, percentagem_multa: Number(data.percentagem_multa) / 100 }));
 
         if (editandoId) {
-            form.transform(() => payload).put(`/tarifas/${editandoId}`, { onSuccess: () => setShowModal(false) });
+            form.put(`/tarifas/${editandoId}`, { onSuccess: () => setShowModal(false) });
         } else {
-            form.transform(() => payload).post("/tarifas", { onSuccess: () => setShowModal(false) });
+            form.post("/tarifas", { onSuccess: () => setShowModal(false) });
         }
     };
 

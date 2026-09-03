@@ -22,6 +22,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'sair.paginas.publicas' => \App\Http\Middleware\TerminarSessaoEmPaginasPublicas::class,
         ]);
         $middleware->web(append:
         [
@@ -53,6 +54,21 @@ $app = Application::configure(basePath: dirname(__DIR__))
             } catch (\Throwable) {
                 // Nunca deixar a gravação do erro causar outro erro.
             }
+        });
+
+        // Quem não tem o papel exigido por uma rota (middleware `role:`) via
+        // uma página em vez do 403 em branco do Symfony — se ainda estiver
+        // autenticado, explica que não tem acesso; sem sessão, manda para o
+        // login (nunca deveria acontecer aqui, já que `auth` corre primeiro,
+        // mas serve de rede de segurança).
+        $exceptions->render(function (\Spatie\Permission\Exceptions\UnauthorizedException|\Illuminate\Auth\Access\AuthorizationException $e, \Illuminate\Http\Request $request) {
+            if (! $request->user()) {
+                return redirect()->guest(route('login'));
+            }
+
+            return \Inertia\Inertia::render('AcessoBloqueado', ['motivo' => 'permissao'])
+                ->toResponse($request)
+                ->setStatusCode(403);
         });
     })->create();
 

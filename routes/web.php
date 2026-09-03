@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
-});
+})->middleware('sair.paginas.publicas');
 
 // Verificação pública de autenticidade de documentos (QR code impresso nas
 // facturas/recibos) — sem autenticação, protegida por assinatura de URL
@@ -109,6 +109,8 @@ Route::middleware(['auth', 'role:desenvolvedor'])->prefix('dev')->name('dev.')->
     Route::get('configuracoes', [DevConfiguracaoController::class, 'index'])->name('configuracoes.index');
     Route::put('configuracoes/funcionalidades/{funcionalidade}', [DevConfiguracaoController::class, 'actualizarFuncionalidade'])->name('configuracoes.funcionalidade');
     Route::put('configuracoes/horario', [DevConfiguracaoController::class, 'actualizarHorario'])->name('configuracoes.horario');
+    // POST em vez de PUT: envia ficheiro (logotipo) via multipart/form-data.
+    Route::post('configuracoes/empresa', [DevConfiguracaoController::class, 'actualizarEmpresa'])->name('configuracoes.empresa');
     Route::get('logs/acessos', [DevLogController::class, 'acessos'])->name('logs.acessos');
     Route::get('logs/erros', [DevLogController::class, 'erros'])->name('logs.erros');
     Route::put('logs/erros/{erro}/resolver', [DevLogController::class, 'marcarResolvido'])->name('logs.erros.resolver');

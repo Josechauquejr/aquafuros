@@ -1,5 +1,5 @@
-import { Head, useForm } from "@inertiajs/react";
-import { Clock, Droplets, LogOut, ShieldOff } from "lucide-react";
+import { Head, Link, useForm } from "@inertiajs/react";
+import { ArrowLeft, Clock, Droplets, LogOut, ShieldOff } from "lucide-react";
 import { motion } from "motion/react";
 
 export default function AcessoBloqueado({ motivo, janela }) {
@@ -11,6 +11,7 @@ export default function AcessoBloqueado({ motivo, janela }) {
     };
 
     const ehHorario = motivo === "horario";
+    const ehPermissao = motivo === "permissao";
     const Icon = ehHorario ? Clock : ShieldOff;
 
     return (
@@ -53,6 +54,16 @@ export default function AcessoBloqueado({ motivo, janela }) {
                                 Tente novamente dentro desse horário.
                             </p>
                         </>
+                    ) : ehPermissao ? (
+                        <>
+                            <h1 className="mt-4 text-lg font-bold text-slate-950 dark:text-white">
+                                Sem permissão para aceder
+                            </h1>
+                            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                                A tua conta não tem acesso a esta página. Se achas que devia ter, contacta um
+                                administrador.
+                            </p>
+                        </>
                     ) : (
                         <>
                             <h1 className="mt-4 text-lg font-bold text-slate-950 dark:text-white">
@@ -65,15 +76,26 @@ export default function AcessoBloqueado({ motivo, janela }) {
                         </>
                     )}
 
-                    <form onSubmit={submitLogout} className="mt-6">
-                        <button
-                            type="submit"
-                            className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                        >
-                            <LogOut className="h-4 w-4" aria-hidden="true" />
-                            Terminar sessão
-                        </button>
-                    </form>
+                    <div className="mt-6 flex items-center justify-center gap-3">
+                        {ehPermissao && (
+                            <Link
+                                href="/dashboard"
+                                className="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-800 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
+                            >
+                                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                                Voltar à minha página
+                            </Link>
+                        )}
+                        <form onSubmit={submitLogout}>
+                            <button
+                                type="submit"
+                                className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                            >
+                                <LogOut className="h-4 w-4" aria-hidden="true" />
+                                Terminar sessão
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </motion.div>
         </div>

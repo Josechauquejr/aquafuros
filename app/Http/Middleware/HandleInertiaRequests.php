@@ -49,6 +49,9 @@ class HandleInertiaRequests extends Middleware
                 // Usado para propor o próximo passo do fluxo logo após criar
                 // um registo (ex.: "factura emitida — pagar agora?").
                 'novaFactura' => fn () => $request->session()->get('novaFactura'),
+                // Senha temporária gerada ao criar um utilizador ou repor a
+                // senha — mostrada uma única vez, nunca persistida em claro.
+                'novaSenha' => fn () => $request->session()->get('novaSenha'),
             ],
         ];
     }

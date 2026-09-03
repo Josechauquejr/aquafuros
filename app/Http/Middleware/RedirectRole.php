@@ -24,6 +24,10 @@ class RedirectRole
                 return redirect()->route('admin.dashboard');
             }
 
+            if ($request->user()->hasRole('desenvolvedor')) {
+                return redirect()->route('dev.painel');
+            }
+
             if ($request->user()->hasRole('gestor')) {
                 return redirect()->route('gestor.dashboard');
             }

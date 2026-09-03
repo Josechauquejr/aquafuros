@@ -2,6 +2,10 @@
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\LogController;
+use App\Http\Controllers\Dev\ConfiguracaoController as DevConfiguracaoController;
+use App\Http\Controllers\Dev\LogController as DevLogController;
+use App\Http\Controllers\Dev\PainelController as DevPainelController;
+use App\Http\Controllers\Dev\TarefaController as DevTarefaController;
 use App\Http\Controllers\CaixaDashboardController;
 use App\Http\Controllers\GestorDashboardController;
 use App\Http\Controllers\TecnicoDashboardController;
@@ -38,9 +42,15 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Apenas administrador
+// Leitor de QR code — abre a factura/recibo internamente (não a página
+// pública de verificação), disponível a quem lida com facturação e caixa.
+Route::middleware(['auth', 'role:administrador|gestor|caixa'])->group(function () {
+    Route::get('/ler-qr', fn () => Inertia::render('LerQr'))->name('qr.ler');
+});
+
+// Apenas administrador — o desenvolvedor tem a sua própria área isolada
+// (grupo dev/* mais abaixo), sem acesso às páginas do administrador.
 Route::middleware(['auth', 'role:administrador'])->group(function () {
-    Route::resource('users', UserController::class)->only(['index']);
     // Antes do resource: evita que "taxa-ligacao" seja capturado pelo
     // wildcard {tarifa} de PUT tarifas/{tarifa}.
     Route::put('tarifas/taxa-ligacao', [TarifaController::class, 'actualizarTaxaLigacao'])->name('tarifas.taxa-ligacao');
@@ -72,13 +82,12 @@ Route::middleware(['auth', 'role:administrador|gestor|tecnico'])->group(function
     Route::resource('leituras', LeituraController::class)->only(['index', 'store', 'update', 'destroy']);
 });
 
-// Dashboards específicos por role
+// Página principal e KPIs do administrador — exclusivo dele, o
+// desenvolvedor não acede a esta área.
 Route::middleware(['auth', 'role:administrador'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/exportar', [AdminDashboardController::class, 'exportar'])->name('dashboard.exportar');
     Route::get('kpis', [AdminDashboardController::class, 'kpis'])->name('kpis');
-    Route::get('logs', [LogController::class, 'index'])->name('logs.index');
-    Route::delete('logs', [LogController::class, 'limpar'])->name('logs.limpar');
 });
 
 Route::middleware(['auth', 'role:gestor'])->prefix('gestor')->name('gestor.')->group(function () {
@@ -91,6 +100,23 @@ Route::middleware(['auth', 'role:caixa'])->prefix('caixa')->name('caixa.')->grou
 
 Route::middleware(['auth', 'role:tecnico'])->prefix('tecnico')->name('tecnico.')->group(function () {
     Route::get('dashboard', [TecnicoDashboardController::class, 'index'])->name('dashboard');
+});
+
+// Área exclusiva do Desenvolvedor — totalmente isolada dos restantes
+// papéis, incluindo administrador (nem um acede às páginas do outro).
+Route::middleware(['auth', 'role:desenvolvedor'])->prefix('dev')->name('dev.')->group(function () {
+    Route::get('painel', [DevPainelController::class, 'index'])->name('painel');
+    Route::get('configuracoes', [DevConfiguracaoController::class, 'index'])->name('configuracoes.index');
+    Route::put('configuracoes/funcionalidades/{funcionalidade}', [DevConfiguracaoController::class, 'actualizarFuncionalidade'])->name('configuracoes.funcionalidade');
+    Route::put('configuracoes/horario', [DevConfiguracaoController::class, 'actualizarHorario'])->name('configuracoes.horario');
+    Route::get('logs/acessos', [DevLogController::class, 'acessos'])->name('logs.acessos');
+    Route::get('logs/erros', [DevLogController::class, 'erros'])->name('logs.erros');
+    Route::put('logs/erros/{erro}/resolver', [DevLogController::class, 'marcarResolvido'])->name('logs.erros.resolver');
+    Route::get('actividade', [LogController::class, 'index'])->name('logs.actividade');
+    Route::delete('actividade', [LogController::class, 'limpar'])->name('logs.actividade.limpar');
+    Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+    Route::resource('users', UserController::class)->only(['index', 'store', 'update']);
+    Route::resource('tarefas', DevTarefaController::class)->only(['index', 'store', 'update', 'destroy']);
 });
 
 require __DIR__.'/auth.php';

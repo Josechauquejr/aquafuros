@@ -18,7 +18,12 @@
       "Read(//tmp/**)",
       "Bash(grep -o '\"message\":\"[^\"]*\"' /tmp/kpis.html | head -3 *)",
       "Bash(php -l app/Support/ResolvedorPeriodo.php)",
-      "Bash(curl -s -b /tmp/ck.txt http://aquafuros.test/admin/kpis -o /tmp/kpis.html -w 'STATUS:%{http_code}\\\\n')"
+      "Bash(curl -s -b /tmp/ck.txt http://aquafuros.test/admin/kpis -o /tmp/kpis.html -w 'STATUS:%{http_code}\\\\n')",
+      "Bash(sed -i \"s/route\\('users.index'\\)/route\\('dev.users.index'\\)/g\" app/Http/Controllers/UserController.php)",
+      "Bash(sed -i \"s/route\\('admin.logs.index'\\)/route\\('dev.logs.actividade'\\)/g\" app/Http/Controllers/Admin/LogController.php)",
+      "Bash(sed -i '57s/Dashboard/Página Principal/;124s/Dashboard/Página Principal/' resources/js/Layouts/AuthenticatedLayout.jsx)",
+      "Bash(sed -i '30s/Dashboard/Página Principal/' resources/js/Pages/Welcome.jsx)",
+      "Bash(sed -i '57s/Dashboard/Página Principal/;67s/title=\"Dashboard\"/title=\"Página Principal\"/' resources/js/Pages/Dashboard.jsx)"
     ]
   }
 }

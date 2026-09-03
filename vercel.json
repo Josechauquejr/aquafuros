@@ -1,0 +1,17 @@
+{
+    "framework": null,
+    "installCommand": "composer install --no-dev --optimize-autoloader --no-interaction && npm install",
+    "buildCommand": "npm run build",
+    "outputDirectory": "public",
+    "functions": {
+        "api/index.php": {
+            "runtime": "vercel-php@0.7.4"
+        }
+    },
+    "rewrites": [
+        { "source": "/build/(.*)", "destination": "/build/$1" },
+        { "source": "/favicon.ico", "destination": "/favicon.ico" },
+        { "source": "/robots.txt", "destination": "/robots.txt" },
+        { "source": "/(.*)", "destination": "/api/index.php" }
+    ]
+}

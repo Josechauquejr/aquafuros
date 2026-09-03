@@ -19,6 +19,7 @@ import IconButton from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
+import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
 import Pagination from "@/Components/Pagination";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -409,18 +410,21 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                     {!editando && (
                         <div>
                             <InputLabel htmlFor="cliente_id" value="Cliente" />
-                            <select
-                                id="cliente_id"
-                                value={form.data.cliente_id}
-                                onChange={(event) => form.setData("cliente_id", event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                {clientes.map((cliente) => (
-                                    <option key={cliente.id} value={cliente.id}>
-                                        {cliente.nome}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="mt-1">
+                                <ListaPesquisavel
+                                    itens={clientes}
+                                    valorSeleccionado={form.data.cliente_id}
+                                    onSeleccionar={(cliente) => form.setData("cliente_id", cliente.id)}
+                                    obterId={(cliente) => cliente.id}
+                                    obterOrdenacao={(cliente) => cliente.nome}
+                                    obterTexto={(cliente) => cliente.nome}
+                                    placeholder="Pesquisar cliente..."
+                                    vazioTexto="Nenhum cliente encontrado."
+                                    renderItem={(cliente) => (
+                                        <span className="font-medium text-slate-900 dark:text-white">{cliente.nome}</span>
+                                    )}
+                                />
+                            </div>
                             <InputError message={form.errors.cliente_id} className="mt-1" />
                         </div>
                     )}

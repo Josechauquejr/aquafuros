@@ -8,11 +8,12 @@ const meses = [
 ];
 
 // Mesma paleta categórica validada (skill de dataviz) usada no resto dos
-// gráficos do painel.
-const CORES = {
-    facturado: { linha: "#2a78d6", fill: "rgba(42,120,214,0.15)" },
-    recebido: { linha: "#1baf7a", fill: "rgba(27,175,122,0.18)" },
-};
+// gráficos do painel — série por omissão (facturado/recebido, uso actual
+// em /admin/kpis). Outros consumidores passam a sua própria `series`.
+const SERIES_OMISSAO = [
+    { chave: "facturado", label: "Facturado", cor: "#2a78d6", fill: "rgba(42,120,214,0.15)" },
+    { chave: "recebido", label: "Recebido", cor: "#1baf7a", fill: "rgba(27,175,122,0.18)" },
+];
 
 const LARGURA = 600;
 const ALTURA = 180;
@@ -41,18 +42,31 @@ function caminhoArea(pontos) {
 }
 
 /**
- * Gráfico de área/"montanha" — tendência de facturado vs. recebido ao
+ * Gráfico de área/"montanha" — tendência de até duas séries numéricas ao
  * longo do tempo, com desenho animado do traço (pathLength) e da área
  * preenchida. Segue o mês sob o cursor com uma linha-guia (crosshair) e
  * uma tooltip com os valores exactos — mover o rato é o que "activa" o
  * gráfico, não apenas o desenho inicial.
+ *
+ * `series`: [{ chave, label, cor, fill }] — por omissão, facturado/recebido
+ * (uso original em /admin/kpis). `valorFormatter`: como formatar os valores
+ * na tooltip (por omissão, moeda). `obterRotulo`/`obterRotuloEixo`: rótulo
+ * completo (tooltip) e curto (eixo X) de cada ponto — por omissão assumem
+ * dados mensais (`mes`/`ano`); outros consumidores (ex.: performance por
+ * dia) passam as suas próprias funções.
  */
-export default function AreaChart({ dados }) {
+export default function AreaChart({
+    dados,
+    series: seriesConfig = SERIES_OMISSAO,
+    valorFormatter = formatCurrency,
+    obterRotulo = (d) => `${meses[d.mes - 1]}/${d.ano}`,
+    obterRotuloEixo = (d) => meses[d.mes - 1],
+}) {
     const svgRef = useRef(null);
     const [indiceActivo, setIndiceActivo] = useState(null);
 
-    const maximo = Math.max(1, ...dados.flatMap((d) => [Number(d.facturado) || 0, Number(d.recebido) || 0]));
-    const semDados = dados.every((d) => !d.facturado && !d.recebido);
+    const maximo = Math.max(1, ...dados.flatMap((d) => seriesConfig.map((s) => Number(d[s.chave]) || 0)));
+    const semDados = dados.every((d) => seriesConfig.every((s) => !d[s.chave]));
 
     if (semDados) {
         return (
@@ -63,10 +77,7 @@ export default function AreaChart({ dados }) {
     }
 
     const passo = dados.length > 1 ? (LARGURA - MARGEM * 2) / (dados.length - 1) : 0;
-    const series = [
-        { chave: "facturado", pontos: construirPontos(dados, "facturado", maximo) },
-        { chave: "recebido", pontos: construirPontos(dados, "recebido", maximo) },
-    ];
+    const series = seriesConfig.map((s) => ({ ...s, pontos: construirPontos(dados, s.chave, maximo) }));
 
     const localizarIndice = (clientX) => {
         const rect = svgRef.current?.getBoundingClientRect();
@@ -83,14 +94,12 @@ export default function AreaChart({ dados }) {
     return (
         <div>
             <div className="flex items-center gap-4 text-xs font-medium text-slate-600 dark:text-slate-300">
-                <span className="inline-flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: CORES.facturado.linha }} aria-hidden="true" />
-                    Facturado
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: CORES.recebido.linha }} aria-hidden="true" />
-                    Recebido
-                </span>
+                {series.map((s) => (
+                    <span key={s.chave} className="inline-flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: s.cor }} aria-hidden="true" />
+                        {s.label}
+                    </span>
+                ))}
             </div>
 
             <div className="relative mt-4">
@@ -108,33 +117,29 @@ export default function AreaChart({ dados }) {
                     }}
                     onTouchEnd={() => setIndiceActivo(null)}
                 >
-                    {series.map(({ chave, pontos }, serieIndex) => {
-                        const cor = CORES[chave];
-
-                        return (
-                            <g key={chave}>
-                                <motion.path
-                                    d={caminhoArea(pontos)}
-                                    fill={cor.fill}
-                                    stroke="none"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ duration: 0.6, delay: 0.2 + serieIndex * 0.15 }}
-                                />
-                                <motion.path
-                                    d={caminhoLinha(pontos)}
-                                    fill="none"
-                                    stroke={cor.linha}
-                                    strokeWidth={2}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    initial={{ pathLength: 0 }}
-                                    animate={{ pathLength: 1 }}
-                                    transition={{ duration: 0.9, delay: serieIndex * 0.15, ease: [0.22, 1, 0.36, 1] }}
-                                />
-                            </g>
-                        );
-                    })}
+                    {series.map((s, serieIndex) => (
+                        <g key={s.chave}>
+                            <motion.path
+                                d={caminhoArea(s.pontos)}
+                                fill={s.fill}
+                                stroke="none"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.6, delay: 0.2 + serieIndex * 0.15 }}
+                            />
+                            <motion.path
+                                d={caminhoLinha(s.pontos)}
+                                fill="none"
+                                stroke={s.cor}
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                initial={{ pathLength: 0 }}
+                                animate={{ pathLength: 1 }}
+                                transition={{ duration: 0.9, delay: serieIndex * 0.15, ease: [0.22, 1, 0.36, 1] }}
+                            />
+                        </g>
+                    ))}
 
                     {/* Linha-guia + pontos do mês sob o cursor */}
                     {indiceActivo !== null && (
@@ -149,12 +154,12 @@ export default function AreaChart({ dados }) {
                                 strokeDasharray="3 3"
                                 className="text-slate-300 dark:text-slate-700"
                             />
-                            {series.map(({ chave, pontos }) => (
+                            {series.map((s) => (
                                 <motion.circle
-                                    key={chave}
-                                    cx={pontos[indiceActivo].x}
-                                    cy={pontos[indiceActivo].y}
-                                    fill={CORES[chave].linha}
+                                    key={s.chave}
+                                    cx={s.pontos[indiceActivo].x}
+                                    cy={s.pontos[indiceActivo].y}
+                                    fill={s.cor}
                                     stroke="white"
                                     strokeWidth={1.5}
                                     initial={{ r: 0 }}
@@ -181,17 +186,16 @@ export default function AreaChart({ dados }) {
                                 left: `${Math.min(94, Math.max(6, xActivoPct))}%`,
                             }}
                         >
-                            <p className="font-semibold text-slate-900 dark:text-white">
-                                {meses[activo.mes - 1]}/{activo.ano}
-                            </p>
-                            <p className="mt-1 flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                                <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: CORES.facturado.linha }} aria-hidden="true" />
-                                Facturado: <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(activo.facturado)}</span>
-                            </p>
-                            <p className="mt-0.5 flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                                <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: CORES.recebido.linha }} aria-hidden="true" />
-                                Recebido: <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(activo.recebido)}</span>
-                            </p>
+                            <p className="font-semibold text-slate-900 dark:text-white">{obterRotulo(activo)}</p>
+                            {series.map((s) => (
+                                <p key={s.chave} className="mt-1 flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                    <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: s.cor }} aria-hidden="true" />
+                                    {s.label}:{" "}
+                                    <span className="font-medium text-slate-900 dark:text-white">
+                                        {valorFormatter(activo[s.chave])}
+                                    </span>
+                                </p>
+                            ))}
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -200,12 +204,12 @@ export default function AreaChart({ dados }) {
             <div className="mt-2 flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
                 {dados.map((d, index) => (
                     <span
-                        key={`${d.mes}/${d.ano}`}
+                        key={`${obterRotuloEixo(d)}-${index}`}
                         className={`flex-1 text-center transition-colors ${
                             indiceActivo === index ? "font-semibold text-slate-900 dark:text-white" : ""
                         }`}
                     >
-                        {meses[d.mes - 1]}
+                        {obterRotuloEixo(d)}
                     </span>
                 ))}
             </div>

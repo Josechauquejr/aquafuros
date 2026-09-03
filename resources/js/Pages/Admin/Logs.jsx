@@ -2,7 +2,7 @@ import { Head, router, usePage } from "@inertiajs/react";
 import { ChevronDown, Eraser, PlusCircle, Search, ScrollText, SquarePen, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
-import AdminLayout from "@/Layouts/AdminLayout";
+import DevLayout from "@/Layouts/DevLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import InlineNotice from "@/Components/InlineNotice";
@@ -68,7 +68,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
     const dados = registos.data;
 
     const aplicarFiltros = (novosFiltros) => {
-        router.get("/admin/logs", { ...filtros, ...novosFiltros }, { preserveState: true, preserveScroll: true, replace: true });
+        router.get("/dev/actividade", { ...filtros, ...novosFiltros }, { preserveState: true, preserveScroll: true, replace: true });
     };
 
     useEffect(() => {
@@ -80,11 +80,11 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
 
     const confirmarLimpeza = (event) => {
         event.preventDefault();
-        router.delete("/admin/logs", { data: { dias: Number(dias) }, onSuccess: () => setShowLimparModal(false) });
+        router.delete("/dev/actividade", { data: { dias: Number(dias) }, onSuccess: () => setShowLimparModal(false) });
     };
 
     return (
-        <AdminLayout
+        <DevLayout
             header={
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -264,6 +264,6 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                     </div>
                 </form>
             </Modal>
-        </AdminLayout>
+        </DevLayout>
     );
 }

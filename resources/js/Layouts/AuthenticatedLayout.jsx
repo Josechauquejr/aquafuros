@@ -54,7 +54,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     active={window.location.pathname === "/dashboard"}
                                     icon={Gauge}
                                 >
-                                    Dashboard
+                                    Página Principal
                                 </NavLink>
                             </div>
                         </div>
@@ -121,7 +121,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                 className="flex items-center gap-2 border-l-4 border-cyan-600 bg-cyan-50 py-2 pe-4 ps-3 text-base font-medium text-cyan-700 dark:border-cyan-400 dark:bg-cyan-950/50 dark:text-cyan-200"
                             >
                                 <Gauge className="h-4 w-4" aria-hidden="true" />
-                                Dashboard
+                                Página Principal
                             </Link>
                         </div>
 

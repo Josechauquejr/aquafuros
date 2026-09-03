@@ -54,7 +54,7 @@ export default function Dashboard() {
                             Operacao Aquafuros
                         </p>
                         <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">
-                            Dashboard
+                            Página Principal
                         </h2>
                     </div>
                     <div className="inline-flex w-fit items-center gap-2 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-800 dark:border-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-200">
@@ -64,7 +64,7 @@ export default function Dashboard() {
                 </div>
             }
         >
-            <Head title="Dashboard" />
+            <Head title="Página Principal" />
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">

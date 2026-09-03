@@ -15,6 +15,7 @@ class UserSeeder extends Seeder
     {
         $utilizadores = [
             ['name' => 'Admin', 'username' => 'admin', 'email' => 'admin@aquafuros.local', 'role' => 'administrador'],
+            ['name' => 'Developer', 'username' => 'dev', 'email' => 'dev@aquafuros.local', 'role' => 'desenvolvedor'],
             ['name' => 'Graça Simbine', 'username' => 'graca.simbine', 'email' => 'graca.simbine@aquafuros.local', 'role' => 'gestor'],
             ['name' => 'Rui Matsimbe', 'username' => 'rui.matsimbe', 'email' => 'rui.matsimbe@aquafuros.local', 'role' => 'gestor'],
             ['name' => 'Célia Machel', 'username' => 'celia.machel', 'email' => 'celia.machel@aquafuros.local', 'role' => 'caixa'],

@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             TarifaSeeder::class,
             ClienteSeeder::class,
             FacturacaoSeeder::class,
+            FuncionalidadeSeeder::class,
         ]);
     }
 }

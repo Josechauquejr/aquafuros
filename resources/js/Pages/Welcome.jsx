@@ -27,7 +27,7 @@ export default function Welcome() {
                                 href="/dashboard"
                                 className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
                             >
-                                Dashboard
+                                Página Principal
                                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
                             </Link>
                         ) : (

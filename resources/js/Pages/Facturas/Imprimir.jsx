@@ -1,5 +1,5 @@
-import { Head, Link } from "@inertiajs/react";
-import { ArrowLeft, Printer } from "lucide-react";
+import { Head, Link, router } from "@inertiajs/react";
+import { ArrowLeft, Banknote, Printer } from "lucide-react";
 import { useRef, useState } from "react";
 import BotaoDescarregarPdf from "@/Components/print/BotaoDescarregarPdf";
 import FacturaA4 from "@/Components/print/FacturaA4";
@@ -9,6 +9,11 @@ import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/Formato
 export default function Imprimir({ factura, primeiraLeitura, consumoAnterior, qrUrl }) {
     const [formato, setFormato] = useState("a4");
     const conteudoRef = useRef(null);
+    const aceitaPagamento = factura.estado === "pendente" || factura.estado === "parcial";
+
+    const irParaPagamento = () => {
+        router.visit(`/pagamentos?factura_id=${factura.id}`);
+    };
 
     return (
         <div className="min-h-screen bg-slate-100 py-8 print:bg-white print:py-0">
@@ -30,6 +35,16 @@ export default function Imprimir({ factura, primeiraLeitura, consumoAnterior, qr
                         nomeFicheiro={`factura-${factura.numero_factura}.pdf`}
                         formato={formato}
                     />
+                    {aceitaPagamento && (
+                        <button
+                            type="button"
+                            onClick={irParaPagamento}
+                            className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                        >
+                            <Banknote className="h-4 w-4" aria-hidden="true" />
+                            Efectuar pagamento
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => window.print()}

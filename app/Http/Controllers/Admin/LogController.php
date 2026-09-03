@@ -25,6 +25,8 @@ class LogController extends Controller
         'leitura' => 'Leitura',
         'tarifa' => 'Tarifa',
         'configuracao' => 'Configuração',
+        'utilizador' => 'Utilizador',
+        'funcionalidade' => 'Funcionalidade',
     ];
 
     public function index(Request $request)
@@ -78,7 +80,7 @@ class LogController extends Controller
         $limite = Carbon::now()->subDays($data['dias']);
         $eliminados = Activity::where('created_at', '<', $limite)->delete();
 
-        return redirect()->route('admin.logs.index')
+        return redirect()->route('dev.logs.actividade')
             ->with('status', "{$eliminados} registo(s) de actividade com mais de {$data['dias']} dias foram eliminados.");
     }
 }

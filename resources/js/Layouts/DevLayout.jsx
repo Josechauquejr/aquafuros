@@ -1,85 +1,67 @@
 import { Link, useForm, usePage } from "@inertiajs/react";
 import {
-    Banknote,
     ChevronDown,
-    FileText,
+    ClipboardList,
     Gauge,
     LogOut,
     Menu,
     PanelLeftClose,
     PanelLeftOpen,
-    PieChart,
-    QrCode,
+    ScrollText,
     SlidersHorizontal,
+    Terminal,
     User,
-    Users,
-    Waves,
+    UserCog,
     X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import ApplicationLogo from "@/Components/ApplicationLogo";
 import SidebarNav from "@/Components/SidebarNav";
-import ThemeToggle from "@/Components/ThemeToggle";
 import { cn } from "@/lib/utils";
 
-// Layout partilhado por administrador, gestor, caixa e técnico — o
-// desenvolvedor usa o DevLayout, totalmente à parte (nem partilha itens de
-// menu, nem rotas). `roles: undefined` = visível a qualquer um destes
-// quatro papéis. Espelha exactamente o gating de `role:` já aplicado às
-// rotas em routes/web.php — evita mostrar um link que devolveria 403.
+// Área exclusiva do Desenvolvedor — sidebar totalmente separada da do
+// AdminLayout (nenhum item partilhado), reflectindo o isolamento também
+// aplicado nas rotas: o developer não vê nem acede às páginas do
+// administrador/gestor/caixa/técnico, e vice-versa.
 const navGroups = [
     {
         categoria: "Geral",
-        items: [{ label: "Página Principal", href: "/dashboard", icon: Gauge }],
+        items: [{ label: "Página Principal", href: "/dev/painel", icon: Gauge }],
     },
     {
-        categoria: "Facturação e Clientes",
+        categoria: "Sistema",
         items: [
-            { label: "Clientes", href: "/clientes", icon: Users, roles: ["administrador", "gestor"] },
-            { label: "Leituras", href: "/leituras", icon: Waves, roles: ["administrador", "gestor", "tecnico"] },
-            { label: "Facturas", href: "/facturas", icon: FileText, roles: ["administrador", "gestor"] },
-            { label: "Pagamentos", href: "/pagamentos", icon: Banknote, roles: ["administrador", "gestor", "caixa"] },
-            { label: "Ler QR Code", href: "/ler-qr", icon: QrCode, roles: ["administrador", "gestor", "caixa"] },
+            { label: "Gestão de Usuários", href: "/dev/users", icon: UserCog },
+            { label: "Configurações do Sistema", href: "/dev/configuracoes", icon: SlidersHorizontal },
+            { label: "Registo de Actividade", href: "/dev/actividade", icon: ScrollText },
+            { label: "Logs Técnicos", href: "/dev/logs/acessos", icon: Terminal },
         ],
     },
     {
-        categoria: "Administração",
-        items: [
-            { label: "KPIs", href: "/admin/kpis", icon: PieChart, roles: ["administrador"] },
-            { label: "Valores e Regras", href: "/tarifas", icon: SlidersHorizontal, roles: ["administrador"] },
-        ],
+        categoria: "Produtividade",
+        items: [{ label: "Checklist", href: "/dev/tarefas", icon: ClipboardList }],
     },
 ];
 
-function gruposVisiveis(roles) {
-    return navGroups
-        .map((grupo) => ({
-            ...grupo,
-            items: grupo.items.filter((item) => !item.roles || item.roles.some((papel) => roles.includes(papel))),
-        }))
-        .filter((grupo) => grupo.items.length > 0);
-}
-
-export default function AdminLayout({ header, children }) {
+export default function DevLayout({ header, children }) {
     const { auth } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [accountOpen, setAccountOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(() => {
         try {
-            return localStorage.getItem("aquafuros-sidebar-collapsed") === "1";
+            return localStorage.getItem("aquafuros-dev-sidebar-collapsed") === "1";
         } catch {
             return false;
         }
     });
     const logout = useForm({});
-    const groups = gruposVisiveis(auth.roles ?? []);
 
     const toggleCollapsed = () => {
         setCollapsed((prev) => {
             const next = !prev;
             try {
-                localStorage.setItem("aquafuros-sidebar-collapsed", next ? "1" : "0");
+                localStorage.setItem("aquafuros-dev-sidebar-collapsed", next ? "1" : "0");
             } catch {
                 // ignora falha ao persistir preferência
             }
@@ -95,58 +77,51 @@ export default function AdminLayout({ header, children }) {
     const { url } = usePage();
 
     return (
-        <div className="flex min-h-screen flex-col bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
+        <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
             <motion.nav
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+                className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/90 backdrop-blur"
             >
                 <div className="flex h-16 items-center justify-between px-4 sm:px-6">
                     <div className="flex items-center gap-3">
                         <button
                             type="button"
                             onClick={() => setSidebarOpen((open) => !open)}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white lg:hidden"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 lg:hidden"
                             aria-label="Alternar menu"
                         >
-                            {sidebarOpen ? (
-                                <X className="h-5 w-5" aria-hidden="true" />
-                            ) : (
-                                <Menu className="h-5 w-5" aria-hidden="true" />
-                            )}
+                            {sidebarOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
                         </button>
 
                         <button
                             type="button"
                             onClick={toggleCollapsed}
-                            className="hidden h-10 w-10 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white lg:inline-flex"
+                            className="hidden h-10 w-10 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 lg:inline-flex"
                             aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
                             title={collapsed ? "Expandir menu" : "Recolher menu"}
                         >
-                            {collapsed ? (
-                                <PanelLeftOpen className="h-5 w-5" aria-hidden="true" />
-                            ) : (
-                                <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
-                            )}
+                            {collapsed ? <PanelLeftOpen className="h-5 w-5" aria-hidden="true" /> : <PanelLeftClose className="h-5 w-5" aria-hidden="true" />}
                         </button>
 
-                        <Link href="/dashboard" className="flex items-center gap-3">
+                        <Link href="/dev/painel" className="flex items-center gap-3">
                             <ApplicationLogo className="h-9 w-9 text-sm" />
-                            <span className="hidden text-sm font-bold text-slate-900 dark:text-white sm:block">
+                            <span className="hidden text-sm font-bold text-white sm:flex sm:items-center sm:gap-1.5">
                                 Aquafuros
+                                <span className="rounded bg-cyan-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-300">
+                                    Dev
+                                </span>
                             </span>
                         </Link>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <ThemeToggle />
-
                         <div className="relative">
                             <button
                                 type="button"
                                 onClick={() => setAccountOpen((open) => !open)}
-                                className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium leading-4 text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                                className="inline-flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium leading-4 text-slate-300 shadow-sm transition hover:bg-slate-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                             >
                                 <User className="h-4 w-4" aria-hidden="true" />
                                 <span className="hidden sm:inline">{auth.user?.name}</span>
@@ -160,11 +135,11 @@ export default function AdminLayout({ header, children }) {
                                         animate={{ opacity: 1, scale: 1, y: 0 }}
                                         exit={{ opacity: 0, scale: 0.96, y: -6 }}
                                         transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-                                        className="absolute right-0 z-50 mt-2 w-52 origin-top-right rounded-md border border-slate-200 bg-white py-1 shadow-lg shadow-slate-950/10 dark:border-slate-800 dark:bg-slate-900"
+                                        className="absolute right-0 z-50 mt-2 w-52 origin-top-right rounded-md border border-slate-700 bg-slate-900 py-1 shadow-lg shadow-black/30"
                                     >
                                         <Link
                                             href="/profile"
-                                            className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                                            className="flex items-center gap-2 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
                                         >
                                             <User className="h-4 w-4" aria-hidden="true" />
                                             Perfil
@@ -172,7 +147,7 @@ export default function AdminLayout({ header, children }) {
                                         <form onSubmit={submitLogout}>
                                             <button
                                                 type="submit"
-                                                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                                                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-200 hover:bg-slate-800"
                                             >
                                                 <LogOut className="h-4 w-4" aria-hidden="true" />
                                                 Sair
@@ -189,20 +164,16 @@ export default function AdminLayout({ header, children }) {
             <div className="flex flex-1">
                 <aside
                     className={cn(
-                        "hidden shrink-0 border-r border-slate-200 bg-white transition-[width] duration-200 dark:border-slate-800 dark:bg-slate-950 lg:sticky lg:top-16 lg:flex lg:h-[calc(100vh-4rem)] lg:flex-col",
+                        "hidden shrink-0 border-r border-slate-800 bg-slate-950 transition-[width] duration-200 lg:sticky lg:top-16 lg:flex lg:h-[calc(100vh-4rem)] lg:flex-col",
                         collapsed ? "lg:w-20" : "lg:w-72",
                     )}
                 >
-                    <SidebarNav groups={groups} collapsed={collapsed} pillLayoutId="sidebar-active-pill-desktop" />
+                    <SidebarNav groups={navGroups} collapsed={collapsed} pillLayoutId="dev-sidebar-active-pill-desktop" />
                     {!collapsed && (
-                        <div className="border-t border-slate-200 p-4 dark:border-slate-800">
-                            <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                                Aquafuros &middot; Gestão de furos de água
-                            </p>
-                            <p className="mt-1 text-[11px] leading-snug text-slate-400 dark:text-slate-600">
-                                Desenvolvido pela RJM Consultórios e Serviços
-                                <br />
-                                José Zeferino Chaúque Júnior
+                        <div className="border-t border-slate-800 p-4">
+                            <p className="text-xs font-medium text-slate-500">Aquafuros &middot; Área do Desenvolvedor</p>
+                            <p className="mt-1 text-[11px] leading-snug text-slate-600">
+                                Configuração técnica do sistema — separada das áreas operacionais.
                             </p>
                         </div>
                     )}
@@ -216,7 +187,7 @@ export default function AdminLayout({ header, children }) {
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.2 }}
-                                className="absolute inset-0 bg-slate-950/50"
+                                className="absolute inset-0 bg-black/60"
                                 onClick={() => setSidebarOpen(false)}
                                 aria-hidden="true"
                             />
@@ -225,9 +196,9 @@ export default function AdminLayout({ header, children }) {
                                 animate={{ x: 0 }}
                                 exit={{ x: "-100%" }}
                                 transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                                className="absolute inset-y-0 left-0 flex w-80 flex-col border-r border-slate-200 bg-white pt-16 dark:border-slate-800 dark:bg-slate-950"
+                                className="absolute inset-y-0 left-0 flex w-80 flex-col border-r border-slate-800 bg-slate-950 pt-16"
                             >
-                                <SidebarNav groups={groups} onNavigate={() => setSidebarOpen(false)} pillLayoutId="sidebar-active-pill-mobile" />
+                                <SidebarNav groups={navGroups} onNavigate={() => setSidebarOpen(false)} pillLayoutId="dev-sidebar-active-pill-mobile" />
                             </motion.aside>
                         </div>
                     )}
@@ -235,7 +206,7 @@ export default function AdminLayout({ header, children }) {
 
                 <div className="flex min-w-0 flex-1 flex-col">
                     {header && (
-                        <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+                        <header className="border-b border-slate-800 bg-slate-950">
                             <div className="px-4 py-6 sm:px-6 lg:px-8">{header}</div>
                         </header>
                     )}

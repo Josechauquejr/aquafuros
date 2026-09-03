@@ -14,13 +14,19 @@ function formatarM3(valor) {
     return `${Number(valor).toLocaleString("pt-MZ", { maximumFractionDigits: 1 })} m³`;
 }
 
+const rotuloMensalOmissao = (d) => meses[d.mes - 1];
+
 /**
  * Gráfico de linha de série única (SVG, sem biblioteca de gráficos) — usado
  * para tendências de quantidade (não monetárias, ex.: consumo de água em
  * m³). Mesmo padrão de interacção do AreaChart: linha-guia + tooltip a
  * seguir o cursor, marcadores sempre visíveis nos pontos de dados.
+ *
+ * `obterRotulo(d)`: rótulo de cada ponto no eixo X e na tooltip — por
+ * omissão assume dados mensais (`mes`/`ano`); outros consumidores (ex.:
+ * performance por dia) passam a sua própria função.
  */
-export default function LineChart({ dados, chave = "valor", cor = "#2a78d6", valorFormatter = formatarM3 }) {
+export default function LineChart({ dados, chave = "valor", cor = "#2a78d6", valorFormatter = formatarM3, obterRotulo = rotuloMensalOmissao }) {
     const svgRef = useRef(null);
     const [indiceActivo, setIndiceActivo] = useState(null);
 
@@ -90,7 +96,7 @@ export default function LineChart({ dados, chave = "valor", cor = "#2a78d6", val
 
                     {pontos.map((p, index) => (
                         <motion.circle
-                            key={`${dados[index].mes}/${dados[index].ano}`}
+                            key={`${obterRotulo(dados[index])}-${index}`}
                             cx={p.x}
                             cy={p.y}
                             fill={cor}
@@ -126,9 +132,7 @@ export default function LineChart({ dados, chave = "valor", cor = "#2a78d6", val
                             className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 -translate-y-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900"
                             style={{ left: `${Math.min(94, Math.max(6, xActivoPct))}%` }}
                         >
-                            <p className="font-semibold text-slate-900 dark:text-white">
-                                {meses[activo.mes - 1]}/{activo.ano}
-                            </p>
+                            <p className="font-semibold text-slate-900 dark:text-white">{obterRotulo(activo)}</p>
                             <p className="mt-1 font-medium" style={{ color: cor }}>
                                 {valorFormatter(activo[chave])}
                             </p>
@@ -140,12 +144,12 @@ export default function LineChart({ dados, chave = "valor", cor = "#2a78d6", val
             <div className="mt-2 flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
                 {dados.map((d, index) => (
                     <span
-                        key={`${d.mes}/${d.ano}-label`}
+                        key={`${obterRotulo(d)}-${index}-label`}
                         className={`flex-1 text-center transition-colors ${
                             indiceActivo === index ? "font-semibold text-slate-900 dark:text-white" : ""
                         }`}
                     >
-                        {meses[d.mes - 1]}
+                        {obterRotulo(d)}
                     </span>
                 ))}
             </div>

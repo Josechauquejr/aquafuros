@@ -26,6 +26,7 @@ import ConfirmDialog from "@/Components/ConfirmDialog";
 import IconButton, { IconLink } from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
 import InputLabel from "@/Components/InputLabel";
+import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
 import Pagination from "@/Components/Pagination";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -733,19 +734,33 @@ export default function Index({
                     {leiturasDisponiveis.length > 0 ? (
                         <div>
                             <InputLabel htmlFor="leitura_id" value="Leitura confirmada por facturar" />
-                            <select
-                                id="leitura_id"
-                                value={leituraSelecionada}
-                                onChange={(event) => setLeituraSelecionada(event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                {leiturasDisponiveis.map((leitura) => (
-                                    <option key={leitura.id} value={leitura.id}>
-                                        {leitura.cliente?.nome ?? "Cliente removido"} — {meses[leitura.mes - 1]}/{leitura.ano} (
-                                        {(Number(leitura.leitura_actual) - Number(leitura.leitura_anterior)).toFixed(2)} m³)
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="mt-1">
+                                <ListaPesquisavel
+                                    itens={leiturasDisponiveis}
+                                    valorSeleccionado={leituraSelecionada}
+                                    onSeleccionar={(leitura) => setLeituraSelecionada(leitura.id)}
+                                    obterId={(leitura) => leitura.id}
+                                    obterOrdenacao={(leitura) => leitura.cliente?.nome ?? "Cliente removido"}
+                                    obterTexto={(leitura) => leitura.cliente?.nome ?? "Cliente removido"}
+                                    placeholder="Pesquisar cliente..."
+                                    vazioTexto="Nenhuma leitura encontrada."
+                                    renderItem={(leitura) => (
+                                        <>
+                                            <div className="min-w-0">
+                                                <p className="truncate font-medium text-slate-900 dark:text-white">
+                                                    {leitura.cliente?.nome ?? "Cliente removido"}
+                                                </p>
+                                                <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                                    {meses[leitura.mes - 1]}/{leitura.ano}
+                                                </p>
+                                            </div>
+                                            <span className="shrink-0 text-xs font-semibold text-cyan-700 dark:text-cyan-300">
+                                                {(Number(leitura.leitura_actual) - Number(leitura.leitura_anterior)).toFixed(2)} m³
+                                            </span>
+                                        </>
+                                    )}
+                                />
+                            </div>
                             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                                 O valor é calculado automaticamente a partir da tarifa do cliente e da sua
                                 dívida anterior.

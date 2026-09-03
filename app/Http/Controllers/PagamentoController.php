@@ -96,7 +96,7 @@ class PagamentoController extends Controller
             return back()->with('error', 'Esta factura já não aceita pagamentos.');
         }
 
-        Pagamento::create([
+        $pagamento = Pagamento::create([
             'numero_recibo' => $this->proximoRecibo(now()->year),
             'factura_id' => $factura->id,
             'cliente_id' => $factura->cliente_id,
@@ -108,7 +108,10 @@ class PagamentoController extends Controller
 
         $this->recalcularFacturaEDivida($factura);
 
-        return redirect()->route('pagamentos.index')->with('status', 'Pagamento registado com sucesso.');
+        // Vai directo para o recibo — evita o passo extra de procurar o
+        // pagamento acabado de registar na lista.
+        return redirect()->route('pagamentos.imprimir', $pagamento)
+            ->with('status', 'Pagamento registado com sucesso.');
     }
 
     /**

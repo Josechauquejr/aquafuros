@@ -13,7 +13,7 @@ import {
     Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
@@ -22,6 +22,7 @@ import IconButton, { IconLink } from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
+import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
 import Pagination from "@/Components/Pagination";
 import PeriodoFiltro from "@/Components/PeriodoFiltro";
@@ -53,7 +54,6 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
     const [editando, setEditando] = useState(null);
     const [paraEstornar, setParaEstornar] = useState(null);
     const [selecionados, setSelecionados] = useState([]);
-    const [buscaFactura, setBuscaFactura] = useState("");
 
     const form = useForm(formVazio);
     const ehAdministrador = auth.roles?.includes("administrador") ?? false;
@@ -104,7 +104,6 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
             referencia_pagamento: "",
         });
         form.clearErrors();
-        setBuscaFactura("");
         setShowModal(true);
     };
 
@@ -118,16 +117,6 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    const facturasFiltradas = useMemo(() => {
-        const termo = buscaFactura.trim().toLowerCase();
-        if (!termo) return facturasEmAberto;
-        return facturasEmAberto.filter(
-            (f) =>
-                f.numero_factura.toLowerCase().includes(termo) ||
-                (f.cliente?.nome ?? "").toLowerCase().includes(termo),
-        );
-    }, [facturasEmAberto, buscaFactura]);
 
     const abrirEdicao = (pagamento) => {
         setEditando(pagamento);
@@ -501,63 +490,38 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                             <div>
                                 <InputLabel htmlFor="busca_factura" value="Factura em aberto" />
                                 {facturasEmAberto.length > 0 ? (
-                                    <>
-                                        <div className="relative mt-1">
-                                            <Search
-                                                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                                                aria-hidden="true"
-                                            />
-                                            <TextInput
-                                                id="busca_factura"
-                                                value={buscaFactura}
-                                                onChange={(event) => setBuscaFactura(event.target.value)}
-                                                placeholder="Pesquisar por cliente ou número de factura..."
-                                                className="w-full pl-9"
-                                            />
-                                        </div>
-                                        <div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-1 dark:border-slate-800">
-                                            {facturasFiltradas.length === 0 ? (
-                                                <p className="px-3 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
-                                                    Nenhuma factura encontrada.
-                                                </p>
-                                            ) : (
-                                                facturasFiltradas.map((factura) => {
-                                                    const seleccionada = String(form.data.factura_id) === String(factura.id);
-
-                                                    return (
-                                                        <button
-                                                            type="button"
-                                                            key={factura.id}
-                                                            onClick={() => selecionarFactura(factura.id)}
-                                                            className={cn(
-                                                                "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition",
-                                                                seleccionada
-                                                                    ? "bg-cyan-50 ring-1 ring-inset ring-cyan-500 dark:bg-cyan-950/40"
-                                                                    : "hover:bg-slate-50 dark:hover:bg-slate-800/60",
-                                                            )}
-                                                        >
-                                                            <div className="min-w-0">
-                                                                <p className="truncate font-medium text-slate-900 dark:text-white">
-                                                                    {factura.cliente?.nome ?? "Cliente removido"}
-                                                                </p>
-                                                                <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                                                                    {factura.numero_factura} · {meses[factura.mes - 1]}/{factura.ano}
-                                                                </p>
-                                                            </div>
-                                                            <div className="flex shrink-0 flex-col items-end gap-1">
-                                                                <span className="font-semibold text-slate-900 dark:text-white">
-                                                                    {formatCurrency(factura.total_pagar)}
-                                                                </span>
-                                                                <StatusBadge tone={factura.estado === "parcial" ? "cyan" : "amber"}>
-                                                                    {factura.estado === "parcial" ? "Parcial" : "Pendente"}
-                                                                </StatusBadge>
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })
+                                    <div className="mt-1">
+                                        <ListaPesquisavel
+                                            itens={facturasEmAberto}
+                                            valorSeleccionado={form.data.factura_id}
+                                            onSeleccionar={(factura) => selecionarFactura(factura.id)}
+                                            obterId={(factura) => factura.id}
+                                            obterOrdenacao={(factura) => factura.cliente?.nome ?? "Cliente removido"}
+                                            obterTexto={(factura) => `${factura.cliente?.nome ?? ""} ${factura.numero_factura}`}
+                                            placeholder="Pesquisar por cliente ou número de factura..."
+                                            vazioTexto="Nenhuma factura encontrada."
+                                            renderItem={(factura) => (
+                                                <>
+                                                    <div className="min-w-0">
+                                                        <p className="truncate font-medium text-slate-900 dark:text-white">
+                                                            {factura.cliente?.nome ?? "Cliente removido"}
+                                                        </p>
+                                                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                                                            {factura.numero_factura} · {meses[factura.mes - 1]}/{factura.ano}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex shrink-0 flex-col items-end gap-1">
+                                                        <span className="font-semibold text-slate-900 dark:text-white">
+                                                            {formatCurrency(factura.total_pagar)}
+                                                        </span>
+                                                        <StatusBadge tone={factura.estado === "parcial" ? "cyan" : "amber"}>
+                                                            {factura.estado === "parcial" ? "Parcial" : "Pendente"}
+                                                        </StatusBadge>
+                                                    </div>
+                                                </>
                                             )}
-                                        </div>
-                                    </>
+                                        />
+                                    </div>
                                 ) : (
                                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                                         Não há facturas pendentes ou parciais para registar pagamento.

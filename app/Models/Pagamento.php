@@ -2,10 +2,27 @@
 
 namespace App\Models;
 
+use App\Support\Eventos;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Pagamento extends Model
 {
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['valor_pago', 'metodo_pagamento', 'referencia_pagamento'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->useLogName('pagamento')
+            ->setDescriptionForEvent(
+                fn (string $evento) => "Pagamento {$this->numero_recibo} foi " . Eventos::verbo($evento),
+            );
+    }
+
     protected $fillable = [
         'numero_recibo',
         'factura_id',

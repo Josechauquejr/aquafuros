@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Configuracao;
 use App\Models\Tarifa;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -17,7 +18,23 @@ class TarifaController extends Controller
     {
         return Inertia::render('Tarifas/Index', [
             'tarifas' => Tarifa::orderBy('nome')->get(),
+            'taxaLigacao' => Configuracao::valor('taxa_ligacao_nova', 3250.00),
         ]);
+    }
+
+    /**
+     * Actualizar o valor da taxa de ligação de novo contrato — cobrada
+     * automaticamente ao criar um cliente como "novo contrato".
+     */
+    public function actualizarTaxaLigacao(Request $request)
+    {
+        $data = $request->validate([
+            'valor' => 'required|numeric|min:0',
+        ]);
+
+        Configuracao::definir('taxa_ligacao_nova', $data['valor']);
+
+        return redirect()->route('tarifas.index')->with('status', 'Taxa de ligação actualizada com sucesso.');
     }
 
     /**

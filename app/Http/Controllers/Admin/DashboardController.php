@@ -146,9 +146,12 @@ class DashboardController extends Controller
                 'variacaoFacturado' => $this->variacaoPercentual($actual['totalFacturado'], $anterior['totalFacturado']),
                 'variacaoRecebido' => $this->variacaoPercentual($actual['totalRecebido'], $anterior['totalRecebido']),
                 'variacaoClientesNovos' => $this->variacaoPercentual($actual['clientesNovos'], $anterior['clientesNovos']),
+                'variacaoConsumo' => $this->variacaoPercentual($actual['consumoM3'], $anterior['consumoM3']),
             ],
             'distribuicaoPorMetodo' => $this->distribuicaoPorMetodoIntervalo($intervalo['inicio'], $intervalo['fim']),
             'evolucaoMensal' => $this->evolucaoMensal(Carbon::now(), 6),
+            'consumoMensal' => $this->consumoMensal(Carbon::now(), 6),
+            'maioresConsumidores' => $this->maioresConsumidores($intervalo['inicio'], $intervalo['fim']),
             'desempenhoFuncionarios' => $this->desempenhoFuncionarios($intervalo['inicio'], $intervalo['fim']),
             'maioresDevedores' => Divida::where('valor_divida', '>', 0)
                 ->with(['cliente' => fn ($q) => $q->withTrashed()])
@@ -184,6 +187,9 @@ class DashboardController extends Controller
             'numeroFacturas' => $facturas->count(),
             'numeroPagamentos' => $pagamentos->count(),
             'clientesNovos' => Cliente::whereBetween('created_at', [$inicio, $fim])->count(),
+            'consumoM3' => (float) Leitura::whereBetween('created_at', [$inicio, $fim])
+                ->get()
+                ->sum(fn ($l) => max(0, $l->leitura_actual - $l->leitura_anterior)),
         ];
     }
 
@@ -333,6 +339,56 @@ class DashboardController extends Controller
                 'recebido' => $resumo['totalRecebido'],
             ];
         })->toArray();
+    }
+
+    /**
+     * Consumo total (m³) registado por mês, últimos N meses — indicador de
+     * gestão de água, independente da facturação (uma leitura pode ser
+     * registada antes de ser confirmada/facturada).
+     */
+    private function consumoMensal(Carbon $referencia, int $meses): array
+    {
+        $base = $referencia->copy()->startOfMonth();
+
+        $periodos = collect(range(0, $meses - 1))
+            ->map(fn ($i) => $base->copy()->subMonths($i))
+            ->reverse()
+            ->values();
+
+        return $periodos->map(function (Carbon $periodo) {
+            $consumo = (float) Leitura::whereBetween(
+                'created_at',
+                [$periodo->copy()->startOfMonth(), $periodo->copy()->endOfMonth()],
+            )
+                ->get()
+                ->sum(fn ($l) => max(0, $l->leitura_actual - $l->leitura_anterior));
+
+            return [
+                'mes' => $periodo->month,
+                'ano' => $periodo->year,
+                'consumo' => $consumo,
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Clientes com maior consumo (m³) no intervalo seleccionado — ajuda a
+     * identificar grandes consumidores ou possíveis fugas/anomalias.
+     */
+    private function maioresConsumidores(Carbon $inicio, Carbon $fim, int $limite = 5): array
+    {
+        return Leitura::whereBetween('created_at', [$inicio, $fim])
+            ->with(['cliente' => fn ($q) => $q->withTrashed()])
+            ->get()
+            ->groupBy('cliente_id')
+            ->map(fn ($grupo) => [
+                'cliente' => $grupo->first()->cliente?->nome ?? 'Cliente removido',
+                'consumo' => (float) $grupo->sum(fn ($l) => max(0, $l->leitura_actual - $l->leitura_anterior)),
+            ])
+            ->sortByDesc('consumo')
+            ->take($limite)
+            ->values()
+            ->toArray();
     }
 
     private function distribuicaoPorMetodo(int $mes, int $ano): array

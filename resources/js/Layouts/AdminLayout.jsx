@@ -9,6 +9,7 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
     PieChart,
+    ScrollText,
     SlidersHorizontal,
     User,
     UserCog,
@@ -22,15 +23,20 @@ import ApplicationLogo from "@/Components/ApplicationLogo";
 import ThemeToggle from "@/Components/ThemeToggle";
 import { cn } from "@/lib/utils";
 
+// `roles: undefined` = visível a qualquer utilizador autenticado (ex.:
+// Dashboard, que redirecciona automaticamente para o painel do seu papel).
+// Espelha exactamente o gating de `role:` já aplicado às rotas em
+// routes/web.php — evita mostrar um link que devolveria 403 ao clicar.
 const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: Gauge },
-    { label: "KPIs", href: "/admin/kpis", icon: PieChart },
-    { label: "Clientes", href: "/clientes", icon: Users },
-    { label: "Leituras", href: "/leituras", icon: Waves },
-    { label: "Facturas", href: "/facturas", icon: FileText },
-    { label: "Pagamentos", href: "/pagamentos", icon: Banknote },
-    { label: "Gestão de Usuários", href: "/users", icon: UserCog },
-    { label: "Valores e Regras", href: "/tarifas", icon: SlidersHorizontal },
+    { label: "KPIs", href: "/admin/kpis", icon: PieChart, roles: ["administrador"] },
+    { label: "Clientes", href: "/clientes", icon: Users, roles: ["administrador", "gestor"] },
+    { label: "Leituras", href: "/leituras", icon: Waves, roles: ["administrador", "gestor", "tecnico"] },
+    { label: "Facturas", href: "/facturas", icon: FileText, roles: ["administrador", "gestor"] },
+    { label: "Pagamentos", href: "/pagamentos", icon: Banknote, roles: ["administrador", "gestor", "caixa"] },
+    { label: "Gestão de Usuários", href: "/users", icon: UserCog, roles: ["administrador"] },
+    { label: "Valores e Regras", href: "/tarifas", icon: SlidersHorizontal, roles: ["administrador"] },
+    { label: "Registo de Actividade", href: "/admin/logs", icon: ScrollText, roles: ["administrador"] },
 ];
 
 function isActive(href) {
@@ -39,10 +45,12 @@ function isActive(href) {
     return href === "/dashboard" ? path === href : path.startsWith(href);
 }
 
-function SidebarNav({ collapsed = false, onNavigate, pillLayoutId = "sidebar-active-pill" }) {
+function SidebarNav({ collapsed = false, onNavigate, pillLayoutId = "sidebar-active-pill", roles = [] }) {
+    const itensVisiveis = navItems.filter((item) => !item.roles || item.roles.some((papel) => roles.includes(papel)));
+
     return (
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-            {navItems.map((item, index) => {
+            {itensVisiveis.map((item, index) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
 
@@ -223,7 +231,7 @@ export default function AdminLayout({ header, children }) {
                         collapsed ? "lg:w-20" : "lg:w-72",
                     )}
                 >
-                    <SidebarNav collapsed={collapsed} pillLayoutId="sidebar-active-pill-desktop" />
+                    <SidebarNav collapsed={collapsed} pillLayoutId="sidebar-active-pill-desktop" roles={auth.roles} />
                     {!collapsed && (
                         <div className="border-t border-slate-200 p-4 dark:border-slate-800">
                             <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
@@ -257,7 +265,7 @@ export default function AdminLayout({ header, children }) {
                                 transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
                                 className="absolute inset-y-0 left-0 flex w-80 flex-col border-r border-slate-200 bg-white pt-16 dark:border-slate-800 dark:bg-slate-950"
                             >
-                                <SidebarNav onNavigate={() => setSidebarOpen(false)} pillLayoutId="sidebar-active-pill-mobile" />
+                                <SidebarNav onNavigate={() => setSidebarOpen(false)} pillLayoutId="sidebar-active-pill-mobile" roles={auth.roles} />
                             </motion.aside>
                         </div>
                     )}

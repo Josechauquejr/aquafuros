@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\Configuracao;
 use App\Models\Divida;
 use App\Models\Factura;
 use App\Models\Tarifa;
@@ -46,7 +47,7 @@ class ClienteController extends Controller
         return Inertia::render('Clientes/Index', [
             'clientes' => $query->orderBy('nome')->paginate(15)->withQueryString(),
             'tarifas' => Tarifa::where('is_active', true)->orderBy('nome')->get(['id', 'nome']),
-            'taxaLigacao' => (float) config('aquafuros.taxa_ligacao_nova'),
+            'taxaLigacao' => Configuracao::valor('taxa_ligacao_nova', 3250.00),
             'totais' => [
                 'total' => Cliente::count(),
                 'activos' => Cliente::where('estado', 'ativo')->count(),
@@ -84,8 +85,9 @@ class ClienteController extends Controller
         $data['data_adesao'] = now()->toDateString();
 
         $facturaLigacao = null;
+        $taxaLigacao = Configuracao::valor('taxa_ligacao_nova', 3250.00);
 
-        DB::transaction(function () use ($data, $novoContrato, &$facturaLigacao, $request) {
+        DB::transaction(function () use ($data, $novoContrato, $taxaLigacao, &$facturaLigacao, $request) {
             $cliente = Cliente::create($data);
             Divida::create(['cliente_id' => $cliente->id]);
 
@@ -100,7 +102,7 @@ class ClienteController extends Controller
                     'valor_consumo' => 0,
                     'divida_anterior' => 0,
                     'multa' => 0,
-                    'total_pagar' => config('aquafuros.taxa_ligacao_nova'),
+                    'total_pagar' => $taxaLigacao,
                     'estado' => 'pendente',
                     'gerada_por' => $request->user()->id,
                 ]);

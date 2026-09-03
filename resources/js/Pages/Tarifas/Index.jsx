@@ -7,6 +7,7 @@ import {
     Pencil,
     Percent,
     Plus,
+    PlugZap,
     RefreshCcw,
     ShieldAlert,
     SlidersHorizontal,
@@ -83,13 +84,15 @@ const formVazio = {
     is_active: true,
 };
 
-export default function Index({ tarifas }) {
+export default function Index({ tarifas, taxaLigacao }) {
     const { flash } = usePage().props;
     const [editandoId, setEditandoId] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [paraEliminar, setParaEliminar] = useState(null);
     const [precoEmEdicao, setPrecoEmEdicao] = useState(null);
     const [precoEditado, setPrecoEditado] = useState("");
+    const [editandoTaxaLigacao, setEditandoTaxaLigacao] = useState(false);
+    const [taxaLigacaoEditada, setTaxaLigacaoEditada] = useState(String(taxaLigacao));
 
     const form = useForm(formVazio);
 
@@ -148,6 +151,22 @@ export default function Index({ tarifas }) {
     const confirmarEliminacao = () => {
         if (!paraEliminar) return;
         router.delete(`/tarifas/${paraEliminar.id}`, { onFinish: () => setParaEliminar(null), preserveScroll: true });
+    };
+
+    const iniciarEdicaoTaxaLigacao = () => {
+        setTaxaLigacaoEditada(String(taxaLigacao));
+        setEditandoTaxaLigacao(true);
+    };
+
+    const guardarTaxaLigacao = () => {
+        const novoValor = Number(taxaLigacaoEditada);
+        if (Number.isNaN(novoValor) || novoValor < 0) return;
+
+        router.put(
+            "/tarifas/taxa-ligacao",
+            { valor: novoValor },
+            { onSuccess: () => setEditandoTaxaLigacao(false), preserveScroll: true },
+        );
     };
 
     return (
@@ -414,6 +433,60 @@ export default function Index({ tarifas }) {
                                     })}
                                 </motion.tbody>
                             </table>
+                        </div>
+                    </AnimatedPanel>
+
+                    <AnimatedPanel delay={0.24}>
+                        <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-start gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300">
+                                    <PlugZap className="h-5 w-5" aria-hidden="true" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-slate-900 dark:text-white">
+                                        Taxa de ligação de novo contrato
+                                    </p>
+                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                        Cobrada automaticamente, numa factura à parte, quando um cliente é criado
+                                        como &ldquo;novo contrato&rdquo;.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 sm:pl-4">
+                                {editandoTaxaLigacao ? (
+                                    <>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            autoFocus
+                                            value={taxaLigacaoEditada}
+                                            onChange={(event) => setTaxaLigacaoEditada(event.target.value)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Enter") guardarTaxaLigacao();
+                                                if (event.key === "Escape") setEditandoTaxaLigacao(false);
+                                            }}
+                                            className="w-32 rounded-md border-slate-300 bg-white py-1.5 text-right text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                        />
+                                        <IconButton tone="success" onClick={guardarTaxaLigacao} title="Guardar">
+                                            <Check className="h-4 w-4" aria-hidden="true" />
+                                        </IconButton>
+                                        <IconButton onClick={() => setEditandoTaxaLigacao(false)} title="Cancelar">
+                                            <X className="h-4 w-4" aria-hidden="true" />
+                                        </IconButton>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="text-xl font-bold text-slate-950 dark:text-white">
+                                            {formatCurrency(taxaLigacao)}
+                                        </span>
+                                        <IconButton onClick={iniciarEdicaoTaxaLigacao} title="Editar taxa de ligação">
+                                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                                        </IconButton>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </AnimatedPanel>
 

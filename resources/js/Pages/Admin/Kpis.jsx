@@ -4,6 +4,7 @@ import {
     ArrowLeft,
     Award,
     BarChart3,
+    Droplets,
     FileText,
     PieChart,
     Receipt,
@@ -21,11 +22,26 @@ import StatusBadge from "@/Components/StatusBadge";
 import AreaChart from "@/Components/charts/AreaChart";
 import DistribuicaoMetodoChart from "@/Components/charts/DistribuicaoMetodoChart";
 import EvolucaoMensalChart from "@/Components/charts/EvolucaoMensalChart";
+import LineChart from "@/Components/charts/LineChart";
 import { formatCurrency } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
-export default function Kpis({ periodo, distribuicaoPorMetodo, evolucaoMensal, desempenhoFuncionarios, maioresDevedores, dividaTotal, filtros }) {
-    const { actual, anterior, variacaoFacturado, variacaoRecebido, variacaoClientesNovos } = periodo;
+function formatarM3(valor) {
+    return `${Number(valor).toLocaleString("pt-MZ", { maximumFractionDigits: 1 })} m³`;
+}
+
+export default function Kpis({
+    periodo,
+    distribuicaoPorMetodo,
+    evolucaoMensal,
+    consumoMensal,
+    maioresConsumidores,
+    desempenhoFuncionarios,
+    maioresDevedores,
+    dividaTotal,
+    filtros,
+}) {
+    const { actual, anterior, variacaoFacturado, variacaoRecebido, variacaoClientesNovos, variacaoConsumo } = periodo;
 
     const aplicarFiltros = (novosFiltros) => {
         router.get("/admin/kpis", { ...filtros, ...novosFiltros }, { preserveState: true, preserveScroll: true, replace: true });
@@ -66,6 +82,14 @@ export default function Kpis({ periodo, distribuicaoPorMetodo, evolucaoMensal, d
             tone: "rose",
             variacao: variacaoClientesNovos,
         },
+        {
+            label: "Consumo de água",
+            value: formatarM3(actual.consumoM3),
+            detail: `período anterior: ${formatarM3(anterior.consumoM3)}`,
+            icon: Droplets,
+            tone: "cyan",
+            variacao: variacaoConsumo,
+        },
     ];
 
     return (
@@ -102,7 +126,7 @@ export default function Kpis({ periodo, distribuicaoPorMetodo, evolucaoMensal, d
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                         {metrics.map((metric, index) => (
                             <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
                         ))}
@@ -150,6 +174,56 @@ export default function Kpis({ periodo, distribuicaoPorMetodo, evolucaoMensal, d
                             </div>
                         </div>
                     </AnimatedPanel>
+
+                    <section className="grid gap-6 lg:grid-cols-2">
+                        <AnimatedPanel delay={0.39}>
+                            <div className="p-6">
+                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
+                                    <Droplets className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
+                                    Consumo de água — tendência
+                                </h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    Últimos 6 meses, em m&sup3; registados
+                                </p>
+                                <div className="mt-5">
+                                    <LineChart dados={consumoMensal} chave="consumo" />
+                                </div>
+                            </div>
+                        </AnimatedPanel>
+
+                        <AnimatedPanel delay={0.4} className="overflow-hidden">
+                            <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
+                                    <Droplets className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
+                                    Maiores consumidores
+                                </h3>
+                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                    No período seleccionado — ajuda a identificar consumos fora do normal.
+                                </p>
+                            </div>
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {maioresConsumidores.length === 0 ? (
+                                    <p className="px-6 py-6 text-sm text-slate-500 dark:text-slate-400">
+                                        Nenhuma leitura registada neste período.
+                                    </p>
+                                ) : (
+                                    maioresConsumidores.map((linha, index) => (
+                                        <div key={`${linha.cliente}-${index}`} className="flex items-center justify-between gap-3 px-6 py-3">
+                                            <div className="flex items-center gap-3">
+                                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                                    {index + 1}
+                                                </span>
+                                                <p className="font-medium text-slate-900 dark:text-white">{linha.cliente}</p>
+                                            </div>
+                                            <span className="font-semibold text-cyan-700 dark:text-cyan-300">
+                                                {formatarM3(linha.consumo)}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </AnimatedPanel>
+                    </section>
 
                     <AnimatedPanel delay={0.42} className="overflow-hidden">
                         <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">

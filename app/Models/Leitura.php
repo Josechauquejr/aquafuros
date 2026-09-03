@@ -2,10 +2,27 @@
 
 namespace App\Models;
 
+use App\Support\Eventos;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Leitura extends Model
 {
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['leitura_actual', 'confirmado'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->useLogName('leitura')
+            ->setDescriptionForEvent(
+                fn (string $evento) => "Leitura de {$this->mes}/{$this->ano} foi " . Eventos::verbo($evento),
+            );
+    }
+
     protected $fillable = [
         'cliente_id',
         'mes',

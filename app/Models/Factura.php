@@ -2,10 +2,27 @@
 
 namespace App\Models;
 
+use App\Support\Eventos;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Factura extends Model
 {
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['divida_anterior', 'multa', 'total_pagar', 'estado'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->useLogName('factura')
+            ->setDescriptionForEvent(
+                fn (string $evento) => "Factura {$this->numero_factura} foi " . Eventos::verbo($evento),
+            );
+    }
+
     protected $fillable = [
         'numero_factura',
         'cliente_id',

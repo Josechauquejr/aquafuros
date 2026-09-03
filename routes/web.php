@@ -1,6 +1,10 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\LogController;
+use App\Http\Controllers\CaixaDashboardController;
+use App\Http\Controllers\GestorDashboardController;
+use App\Http\Controllers\TecnicoDashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\TarifaController;
@@ -37,6 +41,9 @@ Route::middleware(['auth'])->group(function () {
 // Apenas administrador
 Route::middleware(['auth', 'role:administrador'])->group(function () {
     Route::resource('users', UserController::class)->only(['index']);
+    // Antes do resource: evita que "taxa-ligacao" seja capturado pelo
+    // wildcard {tarifa} de PUT tarifas/{tarifa}.
+    Route::put('tarifas/taxa-ligacao', [TarifaController::class, 'actualizarTaxaLigacao'])->name('tarifas.taxa-ligacao');
     Route::resource('tarifas', TarifaController::class)->only(['index', 'store', 'update', 'destroy']);
 });
 
@@ -70,18 +77,20 @@ Route::middleware(['auth', 'role:administrador'])->prefix('admin')->name('admin.
     Route::get('dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/exportar', [AdminDashboardController::class, 'exportar'])->name('dashboard.exportar');
     Route::get('kpis', [AdminDashboardController::class, 'kpis'])->name('kpis');
+    Route::get('logs', [LogController::class, 'index'])->name('logs.index');
+    Route::delete('logs', [LogController::class, 'limpar'])->name('logs.limpar');
 });
 
 Route::middleware(['auth', 'role:gestor'])->prefix('gestor')->name('gestor.')->group(function () {
-    Route::get('dashboard', fn () => Inertia::render('Gestor/Dashboard'))->name('dashboard');
+    Route::get('dashboard', [GestorDashboardController::class, 'index'])->name('dashboard');
 });
 
 Route::middleware(['auth', 'role:caixa'])->prefix('caixa')->name('caixa.')->group(function () {
-    Route::get('dashboard', fn () => Inertia::render('Caixa/Dashboard'))->name('dashboard');
+    Route::get('dashboard', [CaixaDashboardController::class, 'index'])->name('dashboard');
 });
 
 Route::middleware(['auth', 'role:tecnico'])->prefix('tecnico')->name('tecnico.')->group(function () {
-    Route::get('dashboard', fn () => Inertia::render('Tecnico/Dashboard'))->name('dashboard');
+    Route::get('dashboard', [TecnicoDashboardController::class, 'index'])->name('dashboard');
 });
 
 require __DIR__.'/auth.php';

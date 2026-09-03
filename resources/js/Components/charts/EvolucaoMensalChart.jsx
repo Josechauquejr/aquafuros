@@ -1,4 +1,5 @@
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 
 const meses = [
@@ -23,6 +24,8 @@ function formatCompacto(valor) {
 }
 
 export default function EvolucaoMensalChart({ dados }) {
+    const [indiceActivo, setIndiceActivo] = useState(null);
+
     const maximo = Math.max(1, ...dados.flatMap((d) => [d.facturado, d.recebido]));
     const semDados = dados.every((d) => d.facturado === 0 && d.recebido === 0);
 
@@ -51,23 +54,56 @@ export default function EvolucaoMensalChart({ dados }) {
                     {dados.map((d, index) => {
                         const alturaFacturado = Math.max(2, (d.facturado / maximo) * ALTURA_MAX);
                         const alturaRecebido = Math.max(2, (d.recebido / maximo) * ALTURA_MAX);
+                        const activo = indiceActivo === index;
 
                         return (
-                            <div key={`${d.mes}/${d.ano}`} className="flex flex-1 flex-col items-center gap-1">
+                            <div
+                                key={`${d.mes}/${d.ano}`}
+                                className="relative flex h-full flex-1 flex-col items-center justify-end gap-1"
+                                onMouseEnter={() => setIndiceActivo(index)}
+                                onMouseLeave={() => setIndiceActivo(null)}
+                            >
+                                <AnimatePresence>
+                                    {activo && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 4 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.12 }}
+                                            className="pointer-events-none absolute bottom-full z-10 mb-2 w-max max-w-[9rem] -translate-x-1/2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900"
+                                            style={{ left: "50%" }}
+                                        >
+                                            <p className="font-semibold text-slate-900 dark:text-white">
+                                                {meses[d.mes - 1]}/{d.ano}
+                                            </p>
+                                            <p className="mt-1 flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                                <span className={`h-2 w-2 rounded-sm ${CORES.facturado}`} aria-hidden="true" />
+                                                <span className="font-medium text-slate-900 dark:text-white">
+                                                    {formatCurrency(d.facturado)}
+                                                </span>
+                                            </p>
+                                            <p className="mt-0.5 flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                                <span className={`h-2 w-2 rounded-sm ${CORES.recebido}`} aria-hidden="true" />
+                                                <span className="font-medium text-slate-900 dark:text-white">
+                                                    {formatCurrency(d.recebido)}
+                                                </span>
+                                            </p>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
                                 <div className="flex h-full items-end gap-1">
                                     <motion.div
                                         initial={{ height: 0 }}
-                                        animate={{ height: alturaFacturado }}
+                                        animate={{ height: alturaFacturado, scaleX: activo ? 1.15 : 1 }}
                                         transition={{ duration: 0.5, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                                        title={`Facturado ${meses[d.mes - 1]}/${d.ano}: ${formatCurrency(d.facturado)}`}
-                                        className={`w-3 rounded-t sm:w-4 ${CORES.facturado}`}
+                                        className={`w-3 origin-bottom rounded-t sm:w-4 ${CORES.facturado}`}
                                     />
                                     <motion.div
                                         initial={{ height: 0 }}
-                                        animate={{ height: alturaRecebido }}
+                                        animate={{ height: alturaRecebido, scaleX: activo ? 1.15 : 1 }}
                                         transition={{ duration: 0.5, delay: index * 0.05 + 0.05, ease: [0.22, 1, 0.36, 1] }}
-                                        title={`Recebido ${meses[d.mes - 1]}/${d.ano}: ${formatCurrency(d.recebido)}`}
-                                        className={`w-3 rounded-t sm:w-4 ${CORES.recebido}`}
+                                        className={`w-3 origin-bottom rounded-t sm:w-4 ${CORES.recebido}`}
                                     />
                                 </div>
                             </div>
@@ -78,8 +114,13 @@ export default function EvolucaoMensalChart({ dados }) {
 
             {!semDados && (
                 <div className="mt-2 flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                    {dados.map((d) => (
-                        <span key={`${d.mes}/${d.ano}-label`} className="flex-1 text-center">
+                    {dados.map((d, index) => (
+                        <span
+                            key={`${d.mes}/${d.ano}-label`}
+                            className={`flex-1 text-center transition-colors ${
+                                indiceActivo === index ? "font-semibold text-slate-900 dark:text-white" : ""
+                            }`}
+                        >
                             {meses[d.mes - 1]}
                         </span>
                     ))}

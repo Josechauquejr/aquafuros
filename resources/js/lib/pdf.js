@@ -10,16 +10,25 @@
  * chamada (ao clicar em "Descarregar"), não no carregamento da página.
  */
 export async function baixarElementoComoPdf(elemento, nomeFicheiro, formato = "a4") {
+    const { pdf } = await gerarPdfDeElementos([elemento], formato);
+    pdf.save(nomeFicheiro);
+}
+
+/**
+ * Versão em lote: um documento por elemento do array, cada um a começar
+ * numa página nova do mesmo PDF — usada nas páginas de impressão em lote
+ * (várias facturas/recibos descarregados como um único ficheiro).
+ */
+export async function baixarElementosComoPdf(elementos, nomeFicheiro, formato = "a4") {
+    const { pdf } = await gerarPdfDeElementos(elementos, formato);
+    pdf.save(nomeFicheiro);
+}
+
+async function gerarPdfDeElementos(elementos, formato) {
     const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
         import("html2canvas"),
         import("jspdf"),
     ]);
-
-    const canvas = await html2canvas(elemento, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-    });
 
     const paginaLargura = formato === "58mm" ? 58 : 210;
     const paginaAltura = formato === "58mm" ? 174 : 297;
@@ -30,17 +39,31 @@ export async function baixarElementoComoPdf(elemento, nomeFicheiro, formato = "a
         format: [paginaLargura, paginaAltura],
     });
 
-    const escalaPxParaMm = paginaLargura / canvas.width;
-    const alturaImagemMm = canvas.height * escalaPxParaMm;
+    let primeiraPaginaDoPdf = true;
 
-    if (alturaImagemMm <= paginaAltura) {
-        pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, paginaLargura, alturaImagemMm);
-    } else {
-        // Conteúdo mais alto que uma página — fatia o canvas em blocos, uma
-        // página do PDF por bloco.
+    for (const elemento of elementos) {
+        if (!elemento) continue;
+
+        const canvas = await html2canvas(elemento, {
+            scale: 3,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+        });
+
+        const escalaPxParaMm = paginaLargura / canvas.width;
+        const alturaImagemMm = canvas.height * escalaPxParaMm;
+
+        if (alturaImagemMm <= paginaAltura) {
+            if (!primeiraPaginaDoPdf) pdf.addPage([paginaLargura, paginaAltura]);
+            pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, paginaLargura, alturaImagemMm);
+            primeiraPaginaDoPdf = false;
+            continue;
+        }
+
+        // Este elemento sozinho já é mais alto que uma página — fatia-o
+        // (ex.: uma factura invulgarmente longa dentro de um lote).
         const alturaPaginaPx = Math.floor(paginaAltura / escalaPxParaMm);
         let posicaoY = 0;
-        let primeira = true;
 
         while (posicaoY < canvas.height) {
             const alturaFatia = Math.min(alturaPaginaPx, canvas.height - posicaoY);
@@ -52,13 +75,13 @@ export async function baixarElementoComoPdf(elemento, nomeFicheiro, formato = "a
                 .getContext("2d")
                 .drawImage(canvas, 0, posicaoY, canvas.width, alturaFatia, 0, 0, canvas.width, alturaFatia);
 
-            if (!primeira) pdf.addPage([paginaLargura, paginaAltura]);
+            if (!primeiraPaginaDoPdf) pdf.addPage([paginaLargura, paginaAltura]);
             pdf.addImage(canvasFatia.toDataURL("image/png"), "PNG", 0, 0, paginaLargura, alturaFatia * escalaPxParaMm);
 
             posicaoY += alturaFatia;
-            primeira = false;
+            primeiraPaginaDoPdf = false;
         }
     }
 
-    pdf.save(nomeFicheiro);
+    return { pdf };
 }

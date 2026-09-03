@@ -1,6 +1,8 @@
 import { Head, Link } from "@inertiajs/react";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { useRef } from "react";
+import BotaoDescarregarPdfLote from "@/Components/print/BotaoDescarregarPdfLote";
 import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/FormatoImpressaoToggle";
 import ReciboTermico58mm from "@/Components/print/ReciboTermico58mm";
 import useFormatoImpressao from "@/hooks/useFormatoImpressao";
@@ -121,6 +123,13 @@ function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl }) {
 export default function ImprimirLote({ pagamentos, primeirasLeituras, qrUrls = {} }) {
     const [formato, setFormato] = useFormatoImpressao();
     const paginas = chunk(pagamentos, 3);
+    // Um elemento por "página" descarregável — um recibo em 58mm, um grupo
+    // de 3 em A4 — preenchido pelo ref de callback em cada map() abaixo.
+    const paginasRef = useRef([]);
+    paginasRef.current = [];
+    const registarPagina = (index) => (el) => {
+        paginasRef.current[index] = el;
+    };
 
     return (
         <div className="min-h-screen bg-slate-100 py-8 print:bg-white print:py-0">
@@ -141,6 +150,11 @@ export default function ImprimirLote({ pagamentos, primeirasLeituras, qrUrls = {
                         {formato === "a4" && ` · ${paginas.length} página(s) (3 por folha A4)`}
                     </span>
                     <FormatoImpressaoToggle formato={formato} onChange={setFormato} />
+                    <BotaoDescarregarPdfLote
+                        elementosRef={paginasRef}
+                        nomeFicheiro={`recibos-lote-${Date.now()}.pdf`}
+                        formato={formato}
+                    />
                     <button
                         type="button"
                         onClick={() => window.print()}
@@ -163,6 +177,7 @@ export default function ImprimirLote({ pagamentos, primeirasLeituras, qrUrls = {
                     {pagamentos.map((pagamento, index) => (
                         <div
                             key={pagamento.id}
+                            ref={registarPagina(index)}
                             className="border border-dashed border-slate-300 bg-white p-[2mm] print:border-0"
                             style={index < pagamentos.length - 1 ? { breakAfter: "page" } : undefined}
                         >
@@ -179,6 +194,7 @@ export default function ImprimirLote({ pagamentos, primeirasLeituras, qrUrls = {
                     {paginas.map((grupo, pageIndex) => (
                         <div
                             key={pageIndex}
+                            ref={registarPagina(pageIndex)}
                             className="border border-slate-200 bg-white shadow-sm print:border-0 print:shadow-none"
                             style={pageIndex < paginas.length - 1 ? { breakAfter: "page" } : undefined}
                         >

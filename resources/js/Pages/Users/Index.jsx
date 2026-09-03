@@ -1,5 +1,5 @@
 import { Head, router, useForm, usePage } from "@inertiajs/react";
-import { Check, Copy, KeyRound, Pencil, Plus, Search, Shield, ShieldCheck, UserCheck, Users as UsersIcon } from "lucide-react";
+import { Check, Copy, KeyRound, Pencil, Plus, Search, Shield, ShieldCheck, Trash2, UserCheck, Users as UsersIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import DevLayout from "@/Layouts/DevLayout";
@@ -30,17 +30,19 @@ const roleConfig = {
 const formVazio = { name: "", username: "", email: "", telefone: "", papel: "gestor", is_active: true };
 
 export default function Index({ usuarios, papeis, filtros }) {
-    const { flash } = usePage().props;
+    const { flash, auth } = usePage().props;
     const [search, setSearch] = useState(filtros.search ?? "");
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
     const [paraRepor, setParaRepor] = useState(null);
+    const [paraEliminar, setParaEliminar] = useState(null);
     const [senhaRevelada, setSenhaRevelada] = useState(null);
     const [copiado, setCopiado] = useState(false);
     const ultimaSenhaTratadaRef = useRef(null);
 
     const form = useForm(formVazio);
     const resetForm = useForm({});
+    const deleteForm = useForm({});
 
     const dados = usuarios.data;
 
@@ -117,6 +119,11 @@ export default function Index({ usuarios, papeis, filtros }) {
     const confirmarReposicao = () => {
         if (!paraRepor) return;
         resetForm.post(`/dev/users/${paraRepor.id}/reset-password`, { onFinish: () => setParaRepor(null), preserveScroll: true });
+    };
+
+    const confirmarEliminacao = () => {
+        if (!paraEliminar) return;
+        deleteForm.delete(`/dev/users/${paraEliminar.id}`, { onFinish: () => setParaEliminar(null), preserveScroll: true });
     };
 
     const copiarSenha = async () => {
@@ -275,6 +282,11 @@ export default function Index({ usuarios, papeis, filtros }) {
                                                     <IconButton onClick={() => abrirEdicao(user)} title="Editar usuário">
                                                         <Pencil className="h-4 w-4" aria-hidden="true" />
                                                     </IconButton>
+                                                    {user.id !== auth.user.id && (
+                                                        <IconButton tone="danger" onClick={() => setParaEliminar(user)} title="Eliminar usuário">
+                                                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                                        </IconButton>
+                                                    )}
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -343,6 +355,11 @@ export default function Index({ usuarios, papeis, filtros }) {
                                                                 <IconButton onClick={() => abrirEdicao(user)} title="Editar usuário">
                                                                     <Pencil className="h-4 w-4" aria-hidden="true" />
                                                                 </IconButton>
+                                                                {user.id !== auth.user.id && (
+                                                                    <IconButton tone="danger" onClick={() => setParaEliminar(user)} title="Eliminar usuário">
+                                                                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                                                    </IconButton>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     </motion.tr>
@@ -468,6 +485,20 @@ export default function Index({ usuarios, papeis, filtros }) {
                 description={
                     paraRepor
                         ? `Gerar uma nova senha temporária para ${paraRepor.name}? A senha actual deixa de funcionar imediatamente.`
+                        : ""
+                }
+            />
+
+            <ConfirmDialog
+                show={Boolean(paraEliminar)}
+                onClose={() => setParaEliminar(null)}
+                onConfirm={confirmarEliminacao}
+                title="Eliminar usuário"
+                tone="danger"
+                confirmLabel="Eliminar"
+                description={
+                    paraEliminar
+                        ? `Eliminar ${paraEliminar.name} (@${paraEliminar.username})? Esta acção não pode ser desfeita.`
                         : ""
                 }
             />

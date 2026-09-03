@@ -115,7 +115,7 @@ Route::middleware(['auth', 'role:desenvolvedor'])->prefix('dev')->name('dev.')->
     Route::get('actividade', [LogController::class, 'index'])->name('logs.actividade');
     Route::delete('actividade', [LogController::class, 'limpar'])->name('logs.actividade.limpar');
     Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
-    Route::resource('users', UserController::class)->only(['index', 'store', 'update']);
+    Route::resource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::resource('tarefas', DevTarefaController::class)->only(['index', 'store', 'update', 'destroy']);
 });
 

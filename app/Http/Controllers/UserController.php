@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -131,5 +133,28 @@ class UserController extends Controller
         return redirect()->route('dev.users.index')
             ->with('status', "Senha de {$user->name} reposta com sucesso.")
             ->with('novaSenha', ['utilizador' => $user->name, 'username' => $user->username, 'senha' => $senha]);
+    }
+
+    /**
+     * Eliminar um utilizador. Nunca a própria conta — e se o utilizador
+     * tiver registos ligados por restrição de integridade (ex.: leituras
+     * que registou), a base de dados recusa o apagamento e devolvemos uma
+     * mensagem legível em vez do erro de SQL em bruto.
+     */
+    public function destroy(User $user)
+    {
+        if ($user->id === Auth::id()) {
+            return redirect()->route('dev.users.index')
+                ->with('error', 'Não podes eliminar a tua própria conta.');
+        }
+
+        try {
+            $user->delete();
+        } catch (QueryException) {
+            return redirect()->route('dev.users.index')
+                ->with('error', "Não é possível eliminar {$user->name}: existem registos no sistema associados a este utilizador (ex.: leituras registadas). Desactiva a conta em vez de a eliminar.");
+        }
+
+        return redirect()->route('dev.users.index')->with('status', "Utilizador {$user->name} eliminado com sucesso.");
     }
 }

@@ -110,8 +110,17 @@ class ClienteController extends Controller
         });
 
         if ($facturaLigacao) {
-            return redirect()->route('facturas.imprimir', $facturaLigacao)
-                ->with('status', 'Cliente criado com sucesso. Factura da taxa de ligação emitida.');
+            // Mesmo fluxo de "próximo passo" usado ao emitir uma factura avulsa
+            // (FacturaController::emitir) — propõe pagar já, em vez de forçar
+            // uma navegação para a impressão. A factura continua sempre
+            // acessível/imprimível a partir de Facturas.
+            return redirect()->route('clientes.index')
+                ->with('status', 'Cliente criado com sucesso. Factura da taxa de ligação emitida.')
+                ->with('novaFactura', [
+                    'id' => $facturaLigacao->id,
+                    'numero_factura' => $facturaLigacao->numero_factura,
+                    'total_pagar' => (float) $facturaLigacao->total_pagar,
+                ]);
         }
 
         return redirect()->route('clientes.index')->with('status', 'Cliente criado com sucesso.');

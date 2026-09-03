@@ -1,13 +1,14 @@
 import { Head, Link, router } from "@inertiajs/react";
 import { ArrowLeft, Banknote, Printer } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import BotaoDescarregarPdf from "@/Components/print/BotaoDescarregarPdf";
 import FacturaA4 from "@/Components/print/FacturaA4";
 import FacturaTermica58mm from "@/Components/print/FacturaTermica58mm";
 import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/FormatoImpressaoToggle";
+import useFormatoImpressao from "@/hooks/useFormatoImpressao";
 
 export default function Imprimir({ factura, primeiraLeitura, consumoAnterior, qrUrl }) {
-    const [formato, setFormato] = useState("a4");
+    const [formato, setFormato] = useFormatoImpressao();
     const conteudoRef = useRef(null);
     const aceitaPagamento = factura.estado === "pendente" || factura.estado === "parcial";
 

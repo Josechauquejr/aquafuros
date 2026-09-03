@@ -1,10 +1,11 @@
 import { Head, Link } from "@inertiajs/react";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import BotaoDescarregarPdf from "@/Components/print/BotaoDescarregarPdf";
 import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/FormatoImpressaoToggle";
 import ReciboTermico58mm from "@/Components/print/ReciboTermico58mm";
+import useFormatoImpressao from "@/hooks/useFormatoImpressao";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 const meses = [
@@ -27,7 +28,7 @@ const estadoFacturaConfig = {
 };
 
 export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
-    const [formato, setFormato] = useState("a4");
+    const [formato, setFormato] = useFormatoImpressao();
     const conteudoRef = useRef(null);
     const factura = pagamento.factura;
     const leitura = factura?.leitura;

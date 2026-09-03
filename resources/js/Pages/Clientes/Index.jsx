@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePage } from "@inertiajs/react";
+import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
     ArrowDown,
     ArrowUp,
@@ -22,7 +22,7 @@ import {
     Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
@@ -31,6 +31,7 @@ import IconButton, { IconLink } from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
+import KpiCard from "@/Components/KpiCard";
 import Modal from "@/Components/Modal";
 import Pagination from "@/Components/Pagination";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -74,7 +75,8 @@ const colunas = [
 const formVazio = { nome: "", endereco: "", bairro: "", telefone: "", tarifa_id: "", estado: "ativo", novo_contrato: false };
 
 export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao }) {
-    const { flash } = usePage().props;
+    const { flash, auth } = usePage().props;
+    const ehAdministrador = auth.roles?.includes("administrador");
     const [search, setSearch] = useState(filtros.search ?? "");
     const [sort, setSort] = useState({ key: null, direction: "asc" });
     const [etapaNovo, setEtapaNovo] = useState(null); // null | "escolha" | "formulario"
@@ -82,6 +84,8 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
     const [editando, setEditando] = useState(null);
     const [detalhe, setDetalhe] = useState(null);
     const [paraEliminar, setParaEliminar] = useState(null);
+    const [facturaParaPagar, setFacturaParaPagar] = useState(null);
+    const ultimaFacturaTratadaRef = useRef(null);
 
     const form = useForm(formVazio);
 
@@ -95,6 +99,23 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
         return () => clearTimeout(temporizador);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
+
+    // Depois de criar um "novo contrato" (que gera a factura da taxa de
+    // ligação), propõe o mesmo próximo passo natural que a emissão de uma
+    // factura avulsa em Facturas: registar o pagamento agora. Usa
+    // `flash.novaFactura` e desduplica pelo id, tal como em Facturas/Index.
+    useEffect(() => {
+        const nova = flash.novaFactura;
+        if (nova && nova.id !== ultimaFacturaTratadaRef.current) {
+            ultimaFacturaTratadaRef.current = nova.id;
+            setFacturaParaPagar(nova);
+        }
+    }, [flash.novaFactura]);
+
+    const irParaRegistarPagamento = () => {
+        if (!facturaParaPagar) return;
+        router.visit(`/pagamentos?factura_id=${facturaParaPagar.id}`);
+    };
 
     const mudarEstadoFiltro = (estado) => aplicarFiltros({ estado });
 
@@ -190,7 +211,12 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                             Consumidores associados aos furos de água da rede.
                         </p>
                     </div>
-                    <AnimatedButton variant="primary" onClick={abrirNovo} disabled={tarifas.length === 0}>
+                    <AnimatedButton
+                        variant="primary"
+                        onClick={abrirNovo}
+                        disabled={tarifas.length === 0}
+                        title={tarifas.length === 0 ? "É preciso configurar pelo menos uma tarifa primeiro." : undefined}
+                    >
                         <Plus className="h-4 w-4" aria-hidden="true" />
                         Novo cliente
                     </AnimatedButton>
@@ -203,41 +229,25 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
                     <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
+                    <InlineNotice show={tarifas.length === 0} tone="info">
+                        Ainda não há nenhuma tarifa configurada, por isso não é possível adicionar clientes.{" "}
+                        {ehAdministrador ? (
+                            <>
+                                Configure pelo menos uma em{" "}
+                                <Link href="/tarifas" className="font-semibold underline underline-offset-2">
+                                    Valores e Regras
+                                </Link>
+                                .
+                            </>
+                        ) : (
+                            "Peça a um administrador para configurar em Valores e Regras."
+                        )}
+                    </InlineNotice>
 
                     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        {metrics.map((metric, index) => {
-                            const Icon = metric.icon;
-                            const tones = {
-                                cyan: "bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300",
-                                emerald:
-                                    "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-                                rose: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-                                amber: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-                            };
-
-                            return (
-                                <AnimatedPanel key={metric.label} delay={index * 0.06}>
-                                    <div className="flex items-start justify-between p-5">
-                                        <div>
-                                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                                                {metric.label}
-                                            </p>
-                                            <p className="mt-3 text-2xl font-bold text-slate-950 dark:text-white">
-                                                {metric.value}
-                                            </p>
-                                        </div>
-                                        <div
-                                            className={cn(
-                                                "flex h-11 w-11 items-center justify-center rounded-md",
-                                                tones[metric.tone],
-                                            )}
-                                        >
-                                            <Icon className="h-5 w-5" aria-hidden="true" />
-                                        </div>
-                                    </div>
-                                </AnimatedPanel>
-                            );
-                        })}
+                        {metrics.map((metric, index) => (
+                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
+                        ))}
                     </section>
 
                     <AnimatedPanel delay={0.2} className="p-4">
@@ -632,6 +642,21 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                 description={
                     paraEliminar
                         ? `Tem a certeza que deseja eliminar "${paraEliminar.nome}"?`
+                        : ""
+                }
+            />
+
+            <ConfirmDialog
+                show={Boolean(facturaParaPagar)}
+                onClose={() => setFacturaParaPagar(null)}
+                onConfirm={irParaRegistarPagamento}
+                title="Factura de ligação emitida"
+                tone="primary"
+                confirmLabel="Registar pagamento"
+                cancelLabel="Agora não"
+                description={
+                    facturaParaPagar
+                        ? `Factura ${facturaParaPagar.numero_factura} emitida (${formatCurrency(facturaParaPagar.total_pagar)}). Deseja efectuar o pagamento agora?`
                         : ""
                 }
             />

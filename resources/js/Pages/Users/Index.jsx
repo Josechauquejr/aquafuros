@@ -10,6 +10,7 @@ import IconButton from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
+import KpiCard from "@/Components/KpiCard";
 import Modal from "@/Components/Modal";
 import Pagination from "@/Components/Pagination";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -166,33 +167,9 @@ export default function Index({ usuarios, papeis, filtros }) {
                     <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
 
                     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        {metrics.map((metric, index) => {
-                            const Icon = metric.icon;
-                            const tones = {
-                                cyan: "bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300",
-                                emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-                                rose: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-                                amber: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-                            };
-
-                            return (
-                                <AnimatedPanel key={metric.label} delay={index * 0.06}>
-                                    <div className="flex items-start justify-between p-5">
-                                        <div>
-                                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                                                {metric.label}
-                                            </p>
-                                            <p className="mt-3 text-2xl font-bold text-slate-950 dark:text-white">
-                                                {metric.value}
-                                            </p>
-                                        </div>
-                                        <div className={cn("flex h-11 w-11 items-center justify-center rounded-md", tones[metric.tone])}>
-                                            <Icon className="h-5 w-5" aria-hidden="true" />
-                                        </div>
-                                    </div>
-                                </AnimatedPanel>
-                            );
-                        })}
+                        {metrics.map((metric, index) => (
+                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
+                        ))}
                     </section>
 
                     <AnimatedPanel delay={0.2} className="p-4">

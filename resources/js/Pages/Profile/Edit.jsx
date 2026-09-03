@@ -2,6 +2,7 @@ import { Head, useForm, usePage } from "@inertiajs/react";
 import { KeyRound, Save, ShieldAlert, Trash2, UserCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
+import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import DangerButton from "@/Components/DangerButton";
 import InlineNotice from "@/Components/InlineNotice";
@@ -19,6 +20,7 @@ const roleConfig = {
     gestor: { label: "Gestor", tone: "emerald" },
     caixa: { label: "Caixa", tone: "amber" },
     tecnico: { label: "Técnico", tone: "slate" },
+    desenvolvedor: { label: "Desenvolvedor", tone: "slate" },
 };
 
 function iniciais(nome) {
@@ -320,9 +322,13 @@ function ZonaPerigo({ delay }) {
 export default function Edit({ user, mustVerifyEmail }) {
     const { flash, auth } = usePage().props;
     const papel = auth.roles?.[0];
+    // O desenvolvedor tem o seu próprio layout (tema escuro, menu isolado) em
+    // toda a app — usar o AdminLayout aqui trocaria-lhe subitamente o tema e
+    // a navegação, já que nenhum item do AdminLayout é visível a este papel.
+    const Layout = papel === "desenvolvedor" ? DevLayout : AdminLayout;
 
     return (
-        <AdminLayout
+        <Layout
             header={
                 <div>
                     <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
@@ -345,6 +351,6 @@ export default function Edit({ user, mustVerifyEmail }) {
                     <ZonaPerigo delay={0.24} />
                 </div>
             </div>
-        </AdminLayout>
+        </Layout>
     );
 }

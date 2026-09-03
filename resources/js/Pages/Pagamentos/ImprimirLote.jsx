@@ -1,9 +1,9 @@
 import { Head, Link } from "@inertiajs/react";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useState } from "react";
 import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/FormatoImpressaoToggle";
 import ReciboTermico58mm from "@/Components/print/ReciboTermico58mm";
+import useFormatoImpressao from "@/hooks/useFormatoImpressao";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 const meses = [
@@ -119,7 +119,7 @@ function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl }) {
 }
 
 export default function ImprimirLote({ pagamentos, primeirasLeituras, qrUrls = {} }) {
-    const [formato, setFormato] = useState("a4");
+    const [formato, setFormato] = useFormatoImpressao();
     const paginas = chunk(pagamentos, 3);
 
     return (

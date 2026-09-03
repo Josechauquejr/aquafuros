@@ -1,9 +1,9 @@
 import { Head, Link } from "@inertiajs/react";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useState } from "react";
 import FacturaTermica58mm from "@/Components/print/FacturaTermica58mm";
 import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/FormatoImpressaoToggle";
+import useFormatoImpressao from "@/hooks/useFormatoImpressao";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const meses = [
@@ -115,7 +115,7 @@ function FacturaCompacta({ factura, primeiraLeitura, consumoAnterior, qrUrl }) {
 }
 
 export default function ImprimirLote({ facturas, primeirasLeituras, consumosAnteriores, qrUrls = {} }) {
-    const [formato, setFormato] = useState("a4");
+    const [formato, setFormato] = useFormatoImpressao();
     const paginas = chunk(facturas, 3);
 
     return (

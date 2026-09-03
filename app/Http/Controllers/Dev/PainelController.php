@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dev;
 
 use App\Http\Controllers\Controller;
 use App\Models\AcessoSistema;
+use App\Models\ErroSistema;
 use App\Models\Factura;
 use App\Models\Pagamento;
 use App\Models\User;
@@ -24,13 +25,21 @@ class PainelController extends Controller
         $periodo = $request->query('periodo', 'mes');
         $intervalo = ResolvedorPeriodo::resolver($periodo, $request->query('data_inicio'), $request->query('data_fim'));
 
+        $acessosPeriodo = AcessoSistema::whereBetween('created_at', [$intervalo['inicio'], $intervalo['fim']]);
+        $acessosComTempo = (clone $acessosPeriodo)->whereNotNull('duracao_ms')->get(['duracao_ms', 'tempo_bd_ms']);
+
         return Inertia::render('Dev/Painel', [
             'utilizadoresMaisActivos' => $this->utilizadoresMaisActivos($intervalo['inicio'], $intervalo['fim']),
             'documentosGerados' => $this->documentosGerados(Carbon::now(), 6),
             'facturasVsRecibos' => $this->facturasVsRecibos(Carbon::now(), 6),
             'usoPorSeccao' => $this->usoPorSeccao($intervalo['inicio'], $intervalo['fim']),
             'desempenhoBaseDados' => $this->desempenhoBaseDados(Carbon::now(), 14),
-            'totalAcessosPeriodo' => AcessoSistema::whereBetween('created_at', [$intervalo['inicio'], $intervalo['fim']])->count(),
+            'totalAcessosPeriodo' => (clone $acessosPeriodo)->count(),
+            // KPIs do desenvolvedor: só sobre a saúde/performance da app, nunca
+            // sobre o negócio (facturação, clientes, etc.).
+            'tempoMedioResposta' => $acessosComTempo->isEmpty() ? null : round((float) $acessosComTempo->avg('duracao_ms'), 1),
+            'tempoMedioBd' => $acessosComTempo->isEmpty() ? null : round((float) $acessosComTempo->avg('tempo_bd_ms'), 1),
+            'errosPorResolver' => ErroSistema::where('resolvido', false)->count(),
             'filtros' => [
                 'periodo' => $periodo,
                 'data_inicio' => $request->query('data_inicio'),

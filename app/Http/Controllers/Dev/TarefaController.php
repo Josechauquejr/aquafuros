@@ -24,11 +24,15 @@ class TarefaController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate(['titulo' => 'required|string|max:255']);
+        $data = $request->validate([
+            'titulo' => 'required|string|max:255',
+            'descricao' => 'nullable|string|max:5000',
+        ]);
 
         TarefaDev::create([
             'user_id' => $request->user()->id,
             'titulo' => $data['titulo'],
+            'descricao' => $data['descricao'] ?? null,
         ]);
 
         return back();
@@ -38,7 +42,11 @@ class TarefaController extends Controller
     {
         abort_unless($tarefa->user_id === $request->user()->id, 403);
 
-        $data = $request->validate(['concluida' => 'required|boolean']);
+        $data = $request->validate([
+            'concluida' => 'sometimes|boolean',
+            'titulo' => 'sometimes|required|string|max:255',
+            'descricao' => 'sometimes|nullable|string|max:5000',
+        ]);
 
         $tarefa->update($data);
 

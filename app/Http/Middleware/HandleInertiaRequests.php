@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\EmpresaPerfil;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -43,6 +44,10 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'roles' => $user?->getRoleNames() ?? [],
             ],
+            // Identidade da empresa (nome/NUIT/localização/logotipo) — usada
+            // como padrão do sistema (ex.: cabeçalho de facturas/recibos),
+            // partilhada globalmente para não ter de passar por cada página.
+            'empresa' => fn () => EmpresaPerfil::atual()->toArray(),
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
                 'error' => fn () => $request->session()->get('error'),

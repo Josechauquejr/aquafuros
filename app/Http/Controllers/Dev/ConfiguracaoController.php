@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Dev;
 
 use App\Http\Controllers\Controller;
 use App\Models\Configuracao;
+use App\Models\EmpresaPerfil;
 use App\Models\Funcionalidade;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 /**
@@ -22,7 +24,38 @@ class ConfiguracaoController extends Controller
                 'inicio' => Configuracao::valor('horario_inicio', 0),
                 'fim' => Configuracao::valor('horario_fim', 24),
             ],
+            'empresa' => EmpresaPerfil::atual()->toArray(),
         ]);
+    }
+
+    /**
+     * Actualizar a identidade da empresa (nome, NUIT, localização e
+     * logotipo) — usada como padrão em toda a app. O logotipo é opcional em
+     * cada submissão: só é substituído quando um novo ficheiro é enviado.
+     */
+    public function actualizarEmpresa(Request $request)
+    {
+        $data = $request->validate([
+            'nome' => 'required|string|max:255',
+            'nuit' => 'nullable|string|max:50',
+            'localizacao' => 'nullable|string|max:255',
+            'logotipo' => 'nullable|image|max:2048',
+        ]);
+
+        $empresa = EmpresaPerfil::atual();
+
+        if ($request->hasFile('logotipo')) {
+            if ($empresa->logotipo_path) {
+                Storage::disk('public')->delete($empresa->logotipo_path);
+            }
+
+            $data['logotipo_path'] = $request->file('logotipo')->store('empresa', 'public');
+        }
+
+        unset($data['logotipo']);
+        $empresa->update($data);
+
+        return redirect()->route('dev.configuracoes.index')->with('status', 'Dados da empresa actualizados com sucesso.');
     }
 
     public function actualizarFuncionalidade(Request $request, Funcionalidade $funcionalidade)

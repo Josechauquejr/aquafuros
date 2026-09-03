@@ -4,13 +4,15 @@ import { motion } from "motion/react";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import IconButton from "@/Components/IconButton";
+import InputLabel from "@/Components/InputLabel";
 import PrimaryButton from "@/Components/PrimaryButton";
+import Textarea from "@/Components/Textarea";
 import TextInput from "@/Components/TextInput";
 import { cn } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
 export default function Tarefas({ tarefas }) {
-    const form = useForm({ titulo: "" });
+    const form = useForm({ titulo: "", descricao: "" });
 
     const pendentes = tarefas.filter((t) => !t.concluida);
     const concluidas = tarefas.filter((t) => t.concluida);
@@ -46,16 +48,34 @@ export default function Tarefas({ tarefas }) {
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-2xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <AnimatedPanel delay={0.1} className="p-4">
-                        <form onSubmit={submit} className="flex gap-2">
-                            <TextInput
-                                value={form.data.titulo}
-                                onChange={(event) => form.setData("titulo", event.target.value)}
-                                placeholder="Nova tarefa..."
-                                className="flex-1"
-                            />
-                            <PrimaryButton type="submit" disabled={form.processing || !form.data.titulo.trim()}>
-                                <Plus className="h-4 w-4" aria-hidden="true" />
-                            </PrimaryButton>
+                        <form onSubmit={submit} className="space-y-3">
+                            <div>
+                                <InputLabel htmlFor="titulo_tarefa" value="Título" />
+                                <TextInput
+                                    id="titulo_tarefa"
+                                    value={form.data.titulo}
+                                    onChange={(event) => form.setData("titulo", event.target.value)}
+                                    placeholder="Nova tarefa..."
+                                    className="mt-1 block w-full"
+                                />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="descricao_tarefa" value="Descrição (opcional)" />
+                                <Textarea
+                                    id="descricao_tarefa"
+                                    value={form.data.descricao}
+                                    onChange={(event) => form.setData("descricao", event.target.value)}
+                                    placeholder="Detalhes, passos, notas..."
+                                    rows={3}
+                                    className="mt-1 block w-full"
+                                />
+                            </div>
+                            <div className="flex justify-end">
+                                <PrimaryButton type="submit" disabled={form.processing || !form.data.titulo.trim()}>
+                                    <Plus className="h-4 w-4" aria-hidden="true" />
+                                    Adicionar
+                                </PrimaryButton>
+                            </div>
                         </form>
                     </AnimatedPanel>
 
@@ -73,11 +93,18 @@ export default function Tarefas({ tarefas }) {
                         ) : (
                             <motion.div variants={listVariants} initial="hidden" animate="show" className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {pendentes.map((tarefa) => (
-                                    <motion.div key={tarefa.id} variants={itemVariants} className="flex items-center gap-3 px-6 py-3">
-                                        <button type="button" onClick={() => alternar(tarefa)} className="text-slate-400 transition hover:text-emerald-600">
+                                    <motion.div key={tarefa.id} variants={itemVariants} className="flex items-start gap-3 px-6 py-3">
+                                        <button type="button" onClick={() => alternar(tarefa)} className="mt-0.5 text-slate-400 transition hover:text-emerald-600">
                                             <Circle className="h-5 w-5" aria-hidden="true" />
                                         </button>
-                                        <p className="flex-1 text-sm text-slate-900 dark:text-white">{tarefa.titulo}</p>
+                                        <div className="flex-1">
+                                            <p className="text-sm text-slate-900 dark:text-white">{tarefa.titulo}</p>
+                                            {tarefa.descricao && (
+                                                <p className="mt-0.5 whitespace-pre-line text-xs text-slate-500 dark:text-slate-400">
+                                                    {tarefa.descricao}
+                                                </p>
+                                            )}
+                                        </div>
                                         <IconButton tone="danger" onClick={() => eliminar(tarefa)} title="Eliminar">
                                             <Trash2 className="h-4 w-4" aria-hidden="true" />
                                         </IconButton>
@@ -94,11 +121,18 @@ export default function Tarefas({ tarefas }) {
                             </div>
                             <motion.div variants={listVariants} initial="hidden" animate="show" className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {concluidas.map((tarefa) => (
-                                    <motion.div key={tarefa.id} variants={itemVariants} className="flex items-center gap-3 px-6 py-3">
-                                        <button type="button" onClick={() => alternar(tarefa)} className="text-emerald-600">
+                                    <motion.div key={tarefa.id} variants={itemVariants} className="flex items-start gap-3 px-6 py-3">
+                                        <button type="button" onClick={() => alternar(tarefa)} className="mt-0.5 text-emerald-600">
                                             <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
                                         </button>
-                                        <p className={cn("flex-1 text-sm text-slate-500 line-through dark:text-slate-500")}>{tarefa.titulo}</p>
+                                        <div className="flex-1">
+                                            <p className={cn("text-sm text-slate-500 line-through dark:text-slate-500")}>{tarefa.titulo}</p>
+                                            {tarefa.descricao && (
+                                                <p className="mt-0.5 whitespace-pre-line text-xs text-slate-400 line-through dark:text-slate-600">
+                                                    {tarefa.descricao}
+                                                </p>
+                                            )}
+                                        </div>
                                         <IconButton tone="danger" onClick={() => eliminar(tarefa)} title="Eliminar">
                                             <Trash2 className="h-4 w-4" aria-hidden="true" />
                                         </IconButton>

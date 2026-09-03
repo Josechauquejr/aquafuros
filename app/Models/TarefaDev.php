@@ -11,7 +11,7 @@ class TarefaDev extends Model
 {
     protected $table = 'tarefas_dev';
 
-    protected $fillable = ['user_id', 'titulo', 'concluida'];
+    protected $fillable = ['user_id', 'titulo', 'descricao', 'concluida'];
 
     protected $casts = [
         'concluida' => 'boolean',

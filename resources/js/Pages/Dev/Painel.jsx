@@ -1,5 +1,5 @@
 import { Head, router } from "@inertiajs/react";
-import { Activity, FileStack, Gauge, LineChart as LineChartIcon, Trophy, Users } from "lucide-react";
+import { Activity, AlertTriangle, Database, FileStack, Gauge, LineChart as LineChartIcon, Timer, Trophy } from "lucide-react";
 import { motion } from "motion/react";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
@@ -23,6 +23,11 @@ function formatarInteiro(valor) {
     return `${Number(valor).toLocaleString("pt-MZ")}`;
 }
 
+function formatarMs(valor) {
+    if (valor === null || valor === undefined) return "—";
+    return valor >= 1000 ? `${(valor / 1000).toFixed(2)} s` : `${Math.round(valor)} ms`;
+}
+
 export default function Painel({
     utilizadoresMaisActivos,
     documentosGerados,
@@ -30,6 +35,9 @@ export default function Painel({
     usoPorSeccao,
     desempenhoBaseDados,
     totalAcessosPeriodo,
+    tempoMedioResposta,
+    tempoMedioBd,
+    errosPorResolver,
     filtros,
 }) {
     const aplicarFiltros = (novosFiltros) => {
@@ -42,11 +50,14 @@ export default function Painel({
     const totalDocumentos = documentosGerados.reduce((soma, d) => soma + d.valor, 0);
     const seccaoMaisUsada = usoPorSeccao[0];
 
+    // KPIs do Desenvolvedor: só sobre a saúde/performance da app (nunca sobre
+    // o negócio de facturação) — o resto do painel abaixo continua a mostrar
+    // uso do sistema (secções, utilizadores, documentos) para fins técnicos.
     const metrics = [
-        { label: "Acessos no período", value: formatarInteiro(totalAcessosPeriodo), icon: Activity, tone: "cyan" },
-        { label: "Utilizador mais activo", value: utilizadoresMaisActivos[0]?.utilizador ?? "—", icon: Trophy, tone: "amber" },
-        { label: "Documentos gerados (6 meses)", value: formatarInteiro(totalDocumentos), icon: FileStack, tone: "emerald" },
-        { label: "Secção mais usada", value: seccaoMaisUsada?.seccao ?? "—", icon: Users, tone: "rose" },
+        { label: "Pedidos no período", value: formatarInteiro(totalAcessosPeriodo), icon: Activity, tone: "cyan" },
+        { label: "Tempo médio de resposta", value: formatarMs(tempoMedioResposta), icon: Timer, tone: "amber" },
+        { label: "Tempo médio de consulta à BD", value: formatarMs(tempoMedioBd), icon: Database, tone: "emerald" },
+        { label: "Erros por resolver", value: formatarInteiro(errosPorResolver), icon: AlertTriangle, tone: errosPorResolver > 0 ? "rose" : "emerald" },
     ];
 
     return (

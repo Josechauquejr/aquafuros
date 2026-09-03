@@ -11,6 +11,12 @@ $app = Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // O Railway (tal como a Vercel, Heroku, etc.) termina o HTTPS na borda
+        // e reencaminha para o container em HTTP simples, indicando o esquema
+        // original via X-Forwarded-Proto. Sem isto, a Laravel gera URLs de
+        // assets/rotas como http:// mesmo em produção (erro de "Mixed Content").
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'redirect.by.role' => \App\Http\Middleware\RedirectRole::class,
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,

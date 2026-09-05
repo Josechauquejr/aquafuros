@@ -211,15 +211,23 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                             Consumidores associados aos furos de água da rede.
                         </p>
                     </div>
-                    <AnimatedButton
-                        variant="primary"
-                        onClick={abrirNovo}
-                        disabled={tarifas.length === 0}
-                        title={tarifas.length === 0 ? "É preciso configurar pelo menos uma tarifa primeiro." : undefined}
-                    >
-                        <Plus className="h-4 w-4" aria-hidden="true" />
-                        Novo cliente
-                    </AnimatedButton>
+                    <div className="flex items-center gap-2">
+                        {ehAdministrador && (
+                            <AnimatedButton as={Link} href="/clientes/lixeira" variant="secondary">
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                Lixeira
+                            </AnimatedButton>
+                        )}
+                        <AnimatedButton
+                            variant="primary"
+                            onClick={abrirNovo}
+                            disabled={tarifas.length === 0}
+                            title={tarifas.length === 0 ? "É preciso configurar pelo menos uma tarifa primeiro." : undefined}
+                        >
+                            <Plus className="h-4 w-4" aria-hidden="true" />
+                            Novo cliente
+                        </AnimatedButton>
+                    </div>
                 </div>
             }
         >

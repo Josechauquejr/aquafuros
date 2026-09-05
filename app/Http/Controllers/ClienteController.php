@@ -146,17 +146,30 @@ class ClienteController extends Controller
     }
 
     /**
-     * Remover um cliente (soft delete).
+     * Remover um cliente — vai para a lixeira (soft delete) durante 30 dias,
+     * juntamente com as suas facturas, leituras e pagamentos, para poder ser
+     * recuperado ou apagado definitivamente pelo administrador. As facturas
+     * em aberto são anuladas (deixam de contar como dívida) tal como ao
+     * anular uma factura avulsa.
      */
     public function destroy(Cliente $cliente)
     {
         try {
-            $cliente->delete();
+            DB::transaction(function () use ($cliente) {
+                $cliente->facturas()->whereIn('estado', ['pendente', 'parcial'])->update(['estado' => 'anulada']);
+                $cliente->divida?->update(['valor_divida' => 0, 'meses_atraso' => 0, 'em_corte' => false]);
+
+                $cliente->pagamentos()->delete();
+                $cliente->facturas()->delete();
+                $cliente->leituras()->delete();
+                $cliente->delete();
+            });
         } catch (QueryException) {
             return back()->with('error', 'Não é possível eliminar este cliente.');
         }
 
-        return redirect()->route('clientes.index')->with('status', 'Cliente removido com sucesso.');
+        return redirect()->route('clientes.index')
+            ->with('status', 'Cliente movido para a lixeira. Pode ser recuperado durante 30 dias.');
     }
 
     /**
@@ -170,8 +183,9 @@ class ClienteController extends Controller
         return Inertia::render('Clientes/Imprimir', [
             'cliente' => $cliente,
             'resumo' => [
-                'numeroFacturas' => $cliente->facturas()->count(),
-                'totalFacturado' => (float) $cliente->facturas()->sum('total_pagar'),
+                // Facturas anuladas não contam nas estatísticas de valores.
+                'numeroFacturas' => $cliente->facturas()->where('estado', '!=', 'anulada')->count(),
+                'totalFacturado' => (float) $cliente->facturas()->where('estado', '!=', 'anulada')->sum('total_pagar'),
                 'numeroPagamentos' => $cliente->pagamentos()->count(),
                 'totalPago' => (float) $cliente->pagamentos()->sum('valor_pago'),
             ],

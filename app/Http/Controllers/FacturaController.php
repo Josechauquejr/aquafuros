@@ -187,9 +187,26 @@ class FacturaController extends Controller
      */
     public function destroy(Factura $factura)
     {
+        $eraEmAberto = in_array($factura->estado, ['pendente', 'parcial'], true);
+
         $factura->update(['estado' => 'anulada']);
 
+        // Sem isto, o saldo em aberto desta factura ficava "preso" para
+        // sempre no registo de dívida do cliente, mesmo depois de anulada.
+        if ($eraEmAberto) {
+            $this->zerarDivida($factura);
+        }
+
         return redirect()->route('facturas.index')->with('status', 'Factura anulada com sucesso.');
+    }
+
+    private function zerarDivida(Factura $factura): void
+    {
+        $divida = $factura->cliente?->divida;
+
+        if ($divida) {
+            $divida->update(['valor_divida' => 0, 'meses_atraso' => 0, 'em_corte' => false]);
+        }
     }
 
     /**
@@ -326,7 +343,8 @@ class FacturaController extends Controller
     private function totaisGerais(): array
     {
         return [
-            'totalFacturado' => (float) Factura::sum('total_pagar'),
+            // Anuladas não contam nas estatísticas de valores.
+            'totalFacturado' => (float) Factura::where('estado', '!=', 'anulada')->sum('total_pagar'),
             'totalPago' => (float) Factura::where('estado', 'paga')->sum('total_pagar'),
             'totalEmAberto' => (float) Factura::whereIn('estado', ['pendente', 'parcial'])->sum('total_pagar'),
             'pendentesCount' => Factura::where('estado', 'pendente')->count(),

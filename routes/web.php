@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\LixeiraController;
 use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\Dev\ConfiguracaoController as DevConfiguracaoController;
 use App\Http\Controllers\Dev\LogController as DevLogController;
@@ -55,6 +56,12 @@ Route::middleware(['auth', 'role:administrador'])->group(function () {
     // wildcard {tarifa} de PUT tarifas/{tarifa}.
     Route::put('tarifas/taxa-ligacao', [TarifaController::class, 'actualizarTaxaLigacao'])->name('tarifas.taxa-ligacao');
     Route::resource('tarifas', TarifaController::class)->only(['index', 'store', 'update', 'destroy']);
+
+    // Lixeira de clientes eliminados (30 dias para restaurar/apagar
+    // definitivamente) — só o administrador tem acesso.
+    Route::get('clientes/lixeira', [LixeiraController::class, 'index'])->name('clientes.lixeira');
+    Route::post('clientes/lixeira/{id}/restaurar', [LixeiraController::class, 'restaurar'])->name('clientes.lixeira.restaurar');
+    Route::delete('clientes/lixeira/{id}', [LixeiraController::class, 'destroyDefinitivo'])->name('clientes.lixeira.destruir');
 });
 
 // Administrador e Gestor

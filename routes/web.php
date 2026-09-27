@@ -90,6 +90,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Técnico regista leituras
     Route::middleware(['role:administrador|gestor|tecnico'])->group(function () {
+        Route::put('leituras/confirmar-todas', [LeituraController::class, 'confirmarTodas'])->name('leituras.confirmar-todas');
         Route::resource('leituras', LeituraController::class)->only(['index', 'store', 'update', 'destroy']);
     });
 

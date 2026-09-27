@@ -1,5 +1,6 @@
 import { Head, router, useForm, usePage } from "@inertiajs/react";
 import {
+    CheckCheck,
     CheckCircle2,
     Clock,
     FileText,
@@ -51,6 +52,8 @@ export default function Index({ leituras, clientes, totais, filtros }) {
     const [editando, setEditando] = useState(null);
     const [paraEliminar, setParaEliminar] = useState(null);
     const [leituraParaFacturar, setLeituraParaFacturar] = useState(null);
+    const [confirmarTodasAberto, setConfirmarTodasAberto] = useState(false);
+    const [confirmandoTodas, setConfirmandoTodas] = useState(false);
 
     const form = useForm(formVazio);
 
@@ -125,6 +128,21 @@ export default function Index({ leituras, clientes, totais, filtros }) {
         router.delete(`/leituras/${paraEliminar.id}`, { onFinish: () => setParaEliminar(null), preserveScroll: true });
     };
 
+    const confirmarTodas = () => {
+        setConfirmandoTodas(true);
+        router.put(
+            "/leituras/confirmar-todas",
+            { search: filtros.search },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setConfirmandoTodas(false);
+                    setConfirmarTodasAberto(false);
+                },
+            },
+        );
+    };
+
     return (
         <AdminLayout
             header={
@@ -183,6 +201,16 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                                 <option value="confirmada">Confirmada</option>
                                 <option value="pendente">Pendente</option>
                             </select>
+                            {totais.pendentes > 0 && (
+                                <AnimatedButton
+                                    variant="secondary"
+                                    onClick={() => setConfirmarTodasAberto(true)}
+                                    className="whitespace-nowrap"
+                                >
+                                    <CheckCheck className="h-4 w-4" aria-hidden="true" />
+                                    Confirmar todas
+                                </AnimatedButton>
+                            )}
                         </div>
                     </AnimatedPanel>
 
@@ -492,6 +520,19 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                     leituraParaFacturar
                         ? `Leitura de ${leituraParaFacturar.cliente?.nome ?? "cliente removido"} (${meses[leituraParaFacturar.mes - 1]}/${leituraParaFacturar.ano}) confirmada. Deseja emitir a factura agora?`
                         : ""
+                }
+            />
+
+            <ConfirmDialog
+                show={confirmarTodasAberto}
+                onClose={() => setConfirmarTodasAberto(false)}
+                onConfirm={confirmarTodas}
+                title="Confirmar todas as leituras"
+                confirmLabel={confirmandoTodas ? "A confirmar..." : "Confirmar todas"}
+                description={
+                    search
+                        ? `Tem a certeza que deseja confirmar todas as leituras pendentes de clientes que correspondam a "${search}"? Depois de confirmadas, ficam bloqueadas para edição.`
+                        : "Tem a certeza que deseja confirmar todas as leituras pendentes? Depois de confirmadas, ficam bloqueadas para edição."
                 }
             />
         </AdminLayout>

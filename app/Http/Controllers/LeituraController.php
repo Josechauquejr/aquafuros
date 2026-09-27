@@ -90,7 +90,7 @@ class LeituraController extends Controller
             'registado_por' => $request->user()->id,
         ]);
 
-        return redirect()->route('leituras.index')->with('status', 'Leitura registada com sucesso.');
+        return back()->with('status', 'Leitura registada com sucesso.');
     }
 
     /**
@@ -109,7 +109,32 @@ class LeituraController extends Controller
 
         $leitura->update($data);
 
-        return redirect()->route('leituras.index')->with('status', 'Leitura actualizada com sucesso.');
+        return back()->with('status', 'Leitura actualizada com sucesso.');
+    }
+
+    /**
+     * Confirmar todas as leituras pendentes que respeitem o filtro de
+     * pesquisa actual — usado pelo botão "Confirmar todas".
+     */
+    public function confirmarTodas(Request $request)
+    {
+        $search = $request->input('search');
+
+        $query = Leitura::where('confirmado', false);
+
+        if ($search) {
+            $query->whereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"));
+        }
+
+        $total = $query->count();
+
+        if ($total === 0) {
+            return back()->with('error', 'Não há leituras pendentes para confirmar.');
+        }
+
+        $query->update(['confirmado' => true]);
+
+        return back()->with('status', "{$total} leitura(s) confirmada(s) com sucesso.");
     }
 
     /**
@@ -127,6 +152,6 @@ class LeituraController extends Controller
 
         $leitura->delete();
 
-        return redirect()->route('leituras.index')->with('status', 'Leitura eliminada com sucesso.');
+        return back()->with('status', 'Leitura eliminada com sucesso.');
     }
 }

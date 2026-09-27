@@ -1,5 +1,6 @@
 import { Link } from "@inertiajs/react";
 import { motion } from "motion/react";
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 const tones = {
@@ -13,14 +14,13 @@ const tones = {
  * toda a app) — hover/tap animados via motion, em vez de um <button> estático.
  */
 export default function IconButton({ as, tone = "default", className = "", children, ...props }) {
-    const Component = motion.create(as ?? "button");
+    const Component = useMemo(() => motion.create(as ?? "button"), [as]);
 
     return (
         <Component
             type={as ? undefined : "button"}
-            whileHover={{ scale: 1.12 }}
-            whileTap={{ scale: 0.9 }}
-            transition={{ type: "spring", stiffness: 500, damping: 25 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 500, damping: 35 }}
             className={cn(
                 "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors disabled:pointer-events-none disabled:opacity-30",
                 tones[tone],

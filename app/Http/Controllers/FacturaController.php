@@ -363,8 +363,10 @@ class FacturaController extends Controller
 
     private function proximoNumero(int $ano): string
     {
+        // withTrashed(): uma factura anulada e movida para a lixeira ainda
+        // ocupa o número — ignorá-la geraria um número duplicado.
         return NumeracaoDocumentos::proximoNumero(
-            Factura::where('numero_factura', 'like', "FAT-{$ano}-%"),
+            Factura::withTrashed()->where('numero_factura', 'like', "FAT-{$ano}-%"),
             'numero_factura',
             "FAT-{$ano}-%04d",
         );

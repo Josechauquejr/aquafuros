@@ -279,8 +279,10 @@ class PagamentoController extends Controller
 
     private function proximoRecibo(int $ano): string
     {
+        // withTrashed(): mesma razão do numero_factura — um recibo na
+        // lixeira ainda ocupa o número.
         return NumeracaoDocumentos::proximoNumero(
-            Pagamento::where('numero_recibo', 'like', "REC-{$ano}-%"),
+            Pagamento::withTrashed()->where('numero_recibo', 'like', "REC-{$ano}-%"),
             'numero_recibo',
             "REC-{$ano}-%04d",
         );

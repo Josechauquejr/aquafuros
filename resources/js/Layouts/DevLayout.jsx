@@ -78,10 +78,7 @@ export default function DevLayout({ header, children }) {
 
     return (
         <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
-            <motion.nav
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            <nav
                 className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/90 backdrop-blur"
             >
                 <div className="flex h-16 items-center justify-between px-4 sm:px-6">
@@ -159,7 +156,7 @@ export default function DevLayout({ header, children }) {
                         </div>
                     </div>
                 </div>
-            </motion.nav>
+            </nav>
 
             <div className="flex flex-1">
                 <aside

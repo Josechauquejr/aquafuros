@@ -96,10 +96,7 @@ export default function AdminLayout({ header, children }) {
 
     return (
         <div className="flex min-h-screen flex-col bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
-            <motion.nav
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            <nav
                 className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
             >
                 <div className="flex h-16 items-center justify-between px-4 sm:px-6">
@@ -184,7 +181,7 @@ export default function AdminLayout({ header, children }) {
                         </div>
                     </div>
                 </div>
-            </motion.nav>
+            </nav>
 
             <div className="flex flex-1">
                 <aside

@@ -16,8 +16,6 @@ function isActive(href) {
  * separados visualmente sem duplicar a lógica de renderização.
  */
 export default function SidebarNav({ groups, collapsed = false, onNavigate, pillLayoutId = "sidebar-active-pill" }) {
-    let indiceGlobal = 0;
-
     return (
         <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
             {groups.map((grupo) => (
@@ -31,15 +29,9 @@ export default function SidebarNav({ groups, collapsed = false, onNavigate, pill
                         {grupo.items.map((item) => {
                             const Icon = item.icon;
                             const active = isActive(item.href);
-                            const index = indiceGlobal++;
 
                             return (
-                                <motion.div
-                                    key={item.href}
-                                    initial={{ opacity: 0, x: -8 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ duration: 0.3, delay: index * 0.04, ease: [0.22, 1, 0.36, 1] }}
-                                >
+                                <div key={item.href}>
                                     <Link
                                         href={item.href}
                                         onClick={onNavigate}
@@ -70,7 +62,7 @@ export default function SidebarNav({ groups, collapsed = false, onNavigate, pill
                                         />
                                         {!collapsed && <span className="relative">{item.label}</span>}
                                     </Link>
-                                </motion.div>
+                                </div>
                             );
                         })}
                     </div>

@@ -1,13 +1,15 @@
 import { Head, Link, useForm, usePage } from "@inertiajs/react";
+import { useState } from "react";
 import GuestLayout from "@/Layouts/GuestLayout";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import PrimaryButton from "@/Components/PrimaryButton";
 import TextInput from "@/Components/TextInput";
-import { Lock, LogIn, UserRound } from "lucide-react";
+import { Eye, EyeOff, Lock, LogIn, UserRound } from "lucide-react";
 
 export default function Login() {
     const { flash } = usePage().props;
+    const [mostrarSenha, setMostrarSenha] = useState(false);
     const { data, setData, post, processing, errors, reset } = useForm({
         username: "",
         password: "",
@@ -62,14 +64,26 @@ export default function Login() {
                         />
                         <TextInput
                             id="password"
-                            type="password"
+                            type={mostrarSenha ? "text" : "password"}
                             name="password"
                             value={data.password}
-                            className="block w-full ps-10"
+                            className="block w-full ps-10 pe-10"
                             autoComplete="current-password"
                             required
                             onChange={(event) => setData("password", event.target.value)}
                         />
+                        <button
+                            type="button"
+                            onClick={() => setMostrarSenha((valor) => !valor)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                            aria-label={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                        >
+                            {mostrarSenha ? (
+                                <EyeOff className="h-4 w-4" aria-hidden="true" />
+                            ) : (
+                                <Eye className="h-4 w-4" aria-hidden="true" />
+                            )}
+                        </button>
                     </div>
                     <InputError message={errors.password} className="mt-2" />
                 </div>

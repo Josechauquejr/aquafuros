@@ -1,6 +1,7 @@
-import { Head } from "@inertiajs/react";
+import { Head, usePage } from "@inertiajs/react";
 import { BadgeCheck, Droplets } from "lucide-react";
 import { motion } from "motion/react";
+import StatusBadge from "@/Components/StatusBadge";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 const meses = [
@@ -9,10 +10,10 @@ const meses = [
 ];
 
 const estadoConfig = {
-    paga: { label: "Paga", classes: "border-emerald-600 text-emerald-700 dark:border-emerald-500 dark:text-emerald-400" },
-    pendente: { label: "Pendente", classes: "border-amber-600 text-amber-700 dark:border-amber-500 dark:text-amber-400" },
-    parcial: { label: "Parcialmente paga", classes: "border-cyan-600 text-cyan-700 dark:border-cyan-500 dark:text-cyan-400" },
-    anulada: { label: "Anulada", classes: "border-slate-400 text-slate-500 dark:border-slate-600 dark:text-slate-400" },
+    paga: { label: "Paga", tone: "emerald" },
+    pendente: { label: "Pendente", tone: "amber" },
+    parcial: { label: "Parcialmente paga", tone: "cyan" },
+    anulada: { label: "Anulada", tone: "slate" },
 };
 
 /**
@@ -22,6 +23,7 @@ const estadoConfig = {
  * qualquer id adulterado antes de chegar a este componente.
  */
 export default function Factura({ documento }) {
+    const { empresa } = usePage().props;
     const estado = estadoConfig[documento.estado] ?? estadoConfig.pendente;
     const ehLigacao = documento.tipo === "ligacao";
 
@@ -36,12 +38,23 @@ export default function Factura({ documento }) {
                 className="w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
                 <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-cyan-700 text-white">
-                        <Droplets className="h-5 w-5" aria-hidden="true" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-cyan-700 text-white">
+                        {empresa?.logotipoUrl ? (
+                            <img
+                                src={empresa.logotipoUrl}
+                                alt={empresa.nome}
+                                className="h-full w-full object-contain"
+                            />
+                        ) : (
+                            <Droplets className="h-5 w-5" aria-hidden="true" />
+                        )}
                     </div>
                     <div>
-                        <p className="font-bold text-slate-950 dark:text-white">Aquafuros</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Gestão de Furos de Água</p>
+                        <p className="font-bold text-slate-950 dark:text-white">{empresa?.nome ?? "Aquafuros"}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {[empresa?.nuit && `NUIT: ${empresa.nuit}`, empresa?.localizacao].filter(Boolean).join(" · ") ||
+                                "Gestão de Furos de Água"}
+                        </p>
                     </div>
                 </div>
 
@@ -82,9 +95,7 @@ export default function Factura({ documento }) {
                         <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
                             <dt className="text-slate-500 dark:text-slate-400">Estado</dt>
                             <dd>
-                                <span className={`rounded border px-2.5 py-1 text-xs font-bold ${estado.classes}`}>
-                                    {estado.label}
-                                </span>
+                                <StatusBadge tone={estado.tone}>{estado.label}</StatusBadge>
                             </dd>
                         </div>
                         <div className="flex items-center justify-between pt-1">

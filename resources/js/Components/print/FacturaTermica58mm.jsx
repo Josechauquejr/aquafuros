@@ -1,3 +1,4 @@
+import { usePage } from "@inertiajs/react";
 import { QRCodeSVG } from "qrcode.react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ const Linha = () => <div className="my-1.5 border-t border-dashed border-black" 
  * nunca só por cor (as impressoras térmicas não imprimem a cores).
  */
 export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAnterior, qrUrl }) {
+    const { empresa } = usePage().props;
     const ehLigacao = factura.tipo === "ligacao";
     const leitura = factura.leitura;
     const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
@@ -28,8 +30,9 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
     return (
         <div className="w-full text-[12px] font-semibold leading-tight text-black" style={{ breakInside: "avoid" }}>
             <div className="text-center">
-                <p className="text-sm font-bold">AQUAFUROS</p>
-                <p>Gestão de Furos de Água</p>
+                <p className="text-sm font-bold">{empresa?.nome ?? "AQUAFUROS"}</p>
+                {empresa?.nuit && <p>NUIT: {empresa.nuit}</p>}
+                <p>{empresa?.localizacao || "Gestão de Furos de Água"}</p>
             </div>
             <Linha />
 
@@ -44,6 +47,7 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
             <p>End: {factura.cliente?.endereco || "—"}</p>
             <p>Bairro: {factura.cliente?.bairro || "—"}</p>
             <p>Tarifa: {factura.cliente?.tarifa?.nome ?? "—"}</p>
+            {factura.cliente?.data_adesao && <p>Cliente desde: {formatDate(factura.cliente.data_adesao)}</p>}
             <Linha />
 
             {ehLigacao ? (
@@ -92,6 +96,11 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
             <p className="text-center">
                 Estado: <span className="border border-black px-1 font-bold">{estadoLabels[factura.estado]}</span>
             </p>
+            <Linha />
+
+            <p className="font-bold">Formas de pagamento:</p>
+            <p>E-Mola: 876781920 - José Chauque</p>
+            <p>M-Pesa: 853754024 - José Chaúque</p>
             <Linha />
 
             {qrUrl && (

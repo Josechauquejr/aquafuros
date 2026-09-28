@@ -1,3 +1,4 @@
+import { usePage } from "@inertiajs/react";
 import { QRCodeSVG } from "qrcode.react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ const Linha = () => <div className="my-1.5 border-t border-dashed border-black" 
  * 58mm — preto e branco, o estado da factura é texto + caixa, não cor.
  */
 export default function ReciboTermico58mm({ pagamento, primeiraLeitura, qrUrl }) {
+    const { empresa } = usePage().props;
     const factura = pagamento.factura;
     const leitura = factura?.leitura;
     const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
@@ -34,7 +36,9 @@ export default function ReciboTermico58mm({ pagamento, primeiraLeitura, qrUrl })
     return (
         <div className="w-full text-[12px] font-semibold leading-tight text-black" style={{ breakInside: "avoid" }}>
             <div className="text-center">
-                <p className="text-sm font-bold">AQUAFUROS</p>
+                <p className="text-sm font-bold">{empresa?.nome ?? "AQUAFUROS"}</p>
+                {empresa?.nuit && <p>NUIT: {empresa.nuit}</p>}
+                {empresa?.localizacao && <p>{empresa.localizacao}</p>}
                 <p>Recibo de Pagamento</p>
             </div>
             <Linha />

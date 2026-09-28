@@ -32,49 +32,57 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
             : null;
 
     return (
-        <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm print:border-0 print:shadow-none">
+        <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-base text-slate-900 shadow-sm print:border-0 print:shadow-none">
             <div className="flex items-start justify-between border-b border-slate-300 pb-6">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-md bg-cyan-700 text-white">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-cyan-700 text-white">
                         {empresa?.logotipoUrl ? (
-                            <img src={empresa.logotipoUrl} alt={empresa.nome} className="h-full w-full object-contain" />
+                            <img
+                                src={empresa.logotipoUrl}
+                                alt={empresa.nome}
+                                crossOrigin="anonymous"
+                                className="h-full w-full object-contain"
+                            />
                         ) : (
-                            <Droplets className="h-6 w-6" aria-hidden="true" />
+                            <Droplets className="h-8 w-8" aria-hidden="true" />
                         )}
                     </div>
                     <div>
-                        <p className="text-lg font-bold">{empresa?.nome ?? "Aquafuros"}</p>
-                        {empresa?.nuit && <p className="text-xs text-slate-500">NUIT: {empresa.nuit}</p>}
-                        {empresa?.localizacao && <p className="text-xs text-slate-500">{empresa.localizacao}</p>}
+                        <p className="text-xl font-bold leading-tight">{empresa?.nome ?? "Aquafuros"}</p>
+                        {empresa?.nuit && <p className="text-sm text-slate-500">NUIT: {empresa.nuit}</p>}
+                        {empresa?.localizacao && <p className="text-sm text-slate-500">{empresa.localizacao}</p>}
                     </div>
                 </div>
                 <div className="text-right">
-                    <p className="text-xl font-bold uppercase tracking-wide">Factura</p>
+                    <p className="text-2xl font-bold uppercase tracking-wide">Factura</p>
                     {ehLigacao && (
-                        <p className="text-xs font-semibold uppercase text-amber-700">Taxa de ligação de água</p>
+                        <p className="text-sm font-semibold uppercase text-amber-700">Taxa de ligação de água</p>
                     )}
-                    <p className="text-sm text-slate-600">{factura.numero_factura}</p>
-                    <span className={`mt-2 inline-block rounded border px-3 py-1 text-xs font-bold ${estado.classes}`}>
+                    <p className="text-base text-slate-600">{factura.numero_factura}</p>
+                    <span className={`mt-2 inline-block rounded border px-3 py-1 text-sm font-bold ${estado.classes}`}>
                         {estado.label}
                     </span>
                 </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-6 text-sm">
+            <div className="mt-6 grid grid-cols-2 gap-6 text-base">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cliente</p>
-                    <p className="mt-1 font-semibold">{factura.cliente?.nome ?? "Cliente removido"}</p>
-                    <p className="text-slate-600">Nº {factura.cliente?.numero_cliente}</p>
-                    <p className="text-slate-600">Tel: {factura.cliente?.telefone || "—"}</p>
-                    <p className="text-slate-600">{factura.cliente?.endereco || "—"}</p>
-                    <p className="text-slate-600">{factura.cliente?.bairro || "—"}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dados do cliente</p>
+                    <p className="mt-1 text-lg font-semibold">{factura.cliente?.nome ?? "Cliente removido"}</p>
+                    <p className="text-slate-600">Nº de cliente: {factura.cliente?.numero_cliente}</p>
+                    <p className="text-slate-600">Telefone: {factura.cliente?.telefone || "—"}</p>
+                    <p className="text-slate-600">Endereço: {factura.cliente?.endereco || "—"}</p>
+                    <p className="text-slate-600">Bairro: {factura.cliente?.bairro || "—"}</p>
                     <p className="text-slate-600">Tarifa: {factura.cliente?.tarifa?.nome ?? "—"}</p>
+                    {factura.cliente?.data_adesao && (
+                        <p className="text-slate-600">Cliente desde: {formatDate(factura.cliente.data_adesao)}</p>
+                    )}
                 </div>
                 <div className="text-right">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Período de facturação
                     </p>
-                    <p className="mt-1 font-semibold">{meses[factura.mes - 1]} de {factura.ano}</p>
+                    <p className="mt-1 text-lg font-semibold">{meses[factura.mes - 1]} de {factura.ano}</p>
                     <p className="text-slate-600">Emitida em {formatDateTime(factura.created_at)}</p>
                     <p className="text-slate-600">Gerada por {factura.gerada_por?.name ?? "—"}</p>
                 </div>
@@ -88,7 +96,7 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
             ) : (
                 <div className="mt-8">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Leitura do contador</p>
-                    <table className="mt-2 w-full border-collapse text-sm">
+                    <table className="mt-2 w-full border-collapse text-base">
                         <thead>
                             <tr className="border-b border-slate-300 text-left text-xs uppercase text-slate-500">
                                 <th className="py-2">Leitura anterior</th>
@@ -106,7 +114,7 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                                     )}
                                 </td>
                                 <td className="py-2">{leitura ? Number(leitura.leitura_actual).toFixed(2) : "—"}</td>
-                                <td className="py-2 text-right font-semibold">
+                                <td className="py-2 text-right text-lg font-bold text-cyan-800">
                                     {consumo !== null ? `${consumo.toFixed(2)} m³` : "—"}
                                 </td>
                                 <td className="py-2 text-right text-slate-600">
@@ -126,9 +134,22 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                 </div>
             )}
 
+            <div className="mt-8 grid grid-cols-2 gap-4">
+                <div className="rounded-md border border-cyan-200 bg-cyan-50 p-4 text-center">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-cyan-800">Consumo actual</p>
+                    <p className="mt-1 text-3xl font-bold text-cyan-900">
+                        {consumo !== null ? `${consumo.toFixed(2)} m³` : "—"}
+                    </p>
+                </div>
+                <div className="rounded-md border border-cyan-700 bg-cyan-700 p-4 text-center text-white">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-cyan-100">Total a pagar</p>
+                    <p className="mt-1 text-3xl font-bold">{formatCurrency(factura.total_pagar)}</p>
+                </div>
+            </div>
+
             <div className="mt-8">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Valores</p>
-                <table className="mt-2 w-full border-collapse text-sm">
+                <table className="mt-2 w-full border-collapse text-base">
                     <tbody>
                         <tr className="border-b border-slate-200">
                             <td className="py-2 text-slate-600">Valor do consumo</td>
@@ -143,8 +164,8 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                             <td className="py-2 text-right">{formatCurrency(factura.multa)}</td>
                         </tr>
                         <tr>
-                            <td className="py-3 text-base font-bold">Total a pagar</td>
-                            <td className="py-3 text-right text-base font-bold">
+                            <td className="py-3 text-lg font-bold">Total a pagar</td>
+                            <td className="py-3 text-right text-lg font-bold">
                                 {formatCurrency(factura.total_pagar)}
                             </td>
                         </tr>
@@ -152,12 +173,24 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                 </table>
             </div>
 
+            <div className="mt-8 rounded-md border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Formas de pagamento</p>
+                <div className="mt-2 grid grid-cols-2 gap-4 text-base">
+                    <p className="text-slate-700">
+                        <span className="font-semibold">E-Mola:</span> 876 781 920 — José Chauque
+                    </p>
+                    <p className="text-slate-700">
+                        <span className="font-semibold">M-Pesa:</span> 853 754 024 — José Chaúque
+                    </p>
+                </div>
+            </div>
+
             {factura.pagamentos?.length > 0 && (
                 <div className="mt-8">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Pagamentos recebidos
                     </p>
-                    <table className="mt-2 w-full border-collapse text-sm">
+                    <table className="mt-2 w-full border-collapse text-base">
                         <thead>
                             <tr className="border-b border-slate-300 text-left text-xs uppercase text-slate-500">
                                 <th className="py-2">Recibo</th>
@@ -179,7 +212,7 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
             )}
 
             <div className="mt-10 flex items-center justify-between gap-4 border-t border-slate-300 pt-4">
-                <p className="text-xs text-slate-400">
+                <p className="text-sm text-slate-400">
                     Documento gerado electronicamente pelo sistema Aquafuros — sem necessidade de assinatura.
                     <br />
                     Desenvolvido pela RJM Consultórios e Serviços — José Zeferino Chaúque Júnior

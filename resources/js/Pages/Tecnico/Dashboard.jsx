@@ -2,6 +2,7 @@ import { Head, Link } from "@inertiajs/react";
 import { CheckCircle2, Clock, MapPin, Plus, UserCheck, Waves } from "lucide-react";
 import { motion } from "motion/react";
 import AdminLayout from "@/Layouts/AdminLayout";
+import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
 import { itemVariants, listVariants } from "@/lib/motion";
@@ -50,13 +51,10 @@ export default function Dashboard({ contadores, leiturasPorConfirmar, clientesSe
                             Leituras por confirmar e clientes ainda por visitar este mês.
                         </p>
                     </div>
-                    <Link
-                        href="/leituras"
-                        className="inline-flex h-10 items-center gap-2 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-800"
-                    >
+                    <AnimatedButton as={Link} href="/leituras" variant="primary">
                         <Plus className="h-4 w-4" aria-hidden="true" />
                         Nova leitura
-                    </Link>
+                    </AnimatedButton>
                 </div>
             }
         >

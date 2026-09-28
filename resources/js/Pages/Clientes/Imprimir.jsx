@@ -1,4 +1,4 @@
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, usePage } from "@inertiajs/react";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ const estadoConfig = {
  * referência, não um recibo/factura térmica.
  */
 export default function Imprimir({ cliente, resumo }) {
+    const { empresa } = usePage().props;
     const estado = estadoConfig[cliente.estado];
 
     return (
@@ -41,12 +42,22 @@ export default function Imprimir({ cliente, resumo }) {
             <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm print:border-0 print:shadow-none">
                 <div className="flex items-start justify-between border-b border-slate-300 pb-6">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-md bg-cyan-700 text-white">
-                            <Droplets className="h-6 w-6" aria-hidden="true" />
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-cyan-700 text-white">
+                            {empresa?.logotipoUrl ? (
+                                <img
+                                    src={empresa.logotipoUrl}
+                                    alt={empresa.nome}
+                                    crossOrigin="anonymous"
+                                    className="h-full w-full object-contain"
+                                />
+                            ) : (
+                                <Droplets className="h-6 w-6" aria-hidden="true" />
+                            )}
                         </div>
                         <div>
-                            <p className="text-lg font-bold">Aquafuros</p>
-                            <p className="text-xs text-slate-500">Gestão de Furos de Água</p>
+                            <p className="text-lg font-bold">{empresa?.nome ?? "Aquafuros"}</p>
+                            {empresa?.nuit && <p className="text-xs text-slate-500">NUIT: {empresa.nuit}</p>}
+                            {empresa?.localizacao && <p className="text-xs text-slate-500">{empresa.localizacao}</p>}
                         </div>
                     </div>
                     <div className="text-right">

@@ -1,4 +1,4 @@
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, usePage } from "@inertiajs/react";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useRef } from "react";
@@ -27,96 +27,119 @@ function chunk(array, size) {
 }
 
 // Recibo/factura compacto — três por página A4, para poupar papel.
-function FacturaCompacta({ factura, primeiraLeitura, consumoAnterior, qrUrl }) {
+function FacturaCompacta({ factura, primeiraLeitura, consumoAnterior, facturaAnterior, qrUrl, empresa }) {
     const estado = estadoConfig[factura.estado];
     const leitura = factura.leitura;
     const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
+    const empresaLinha2 =
+        [empresa?.nuit && `NUIT: ${empresa.nuit}`, empresa?.localizacao].filter(Boolean).join(" · ") ||
+        "Gestão de Furos de Água";
 
     return (
         <div className="flex h-[90mm] flex-col justify-between p-4 text-slate-900" style={{ breakInside: "avoid" }}>
-            <div>
-                <div className="flex items-start justify-between border-b border-slate-300 pb-1.5">
+            <div className="space-y-2">
+                <div className="flex items-start justify-between border-b border-slate-300 pb-2">
                     <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded bg-cyan-700 text-white">
-                            <Droplets className="h-4 w-4" aria-hidden="true" />
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded border-2 border-cyan-700 text-cyan-700">
+                            {empresa?.logotipoUrl ? (
+                                <img
+                                    src={empresa.logotipoUrl}
+                                    alt={empresa.nome}
+                                    crossOrigin="anonymous"
+                                    className="h-full w-full object-contain"
+                                />
+                            ) : (
+                                <Droplets className="h-5 w-5" aria-hidden="true" />
+                            )}
                         </div>
-                        <div>
-                            <p className="text-sm font-bold leading-none">Aquafuros</p>
-                            <p className="text-[10px] text-slate-500">Gestão de Furos de Água</p>
+                        <div className="leading-tight">
+                            <p className="text-base font-bold leading-tight">{empresa?.nome ?? "Aquafuros"}</p>
+                            <p className="text-[11px] text-slate-500">{empresaLinha2}</p>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <p className="text-sm font-bold uppercase leading-none">{factura.numero_factura}</p>
-                        <span className={`mt-1 inline-block rounded border px-2 py-0.5 text-[10px] font-bold ${estado.classes}`}>
+                    <div className="text-right leading-tight">
+                        <p className="text-base font-bold uppercase leading-tight">{factura.numero_factura}</p>
+                        <span className={`mt-1 inline-block rounded border px-2 py-0.5 text-[11px] font-bold ${estado.classes}`}>
                             {estado.label}
                         </span>
                     </div>
                 </div>
 
-                <div className="mt-1.5 grid grid-cols-2 gap-2 text-[11px]">
-                    <div>
-                        <p className="font-semibold">{factura.cliente?.nome ?? "Cliente removido"}</p>
+                <div className="grid grid-cols-2 gap-2 text-xs leading-tight">
+                    <div className="space-y-0.5">
+                        <p className="text-sm font-semibold leading-tight">{factura.cliente?.nome ?? "Cliente removido"}</p>
                         <p className="text-slate-500">
-                            {factura.cliente?.numero_cliente} &middot; {factura.cliente?.tarifa?.nome ?? "—"}
+                            Nº {factura.cliente?.numero_cliente} &middot; {factura.cliente?.tarifa?.nome ?? "—"}
                         </p>
                         <p className="text-slate-500">Tel: {factura.cliente?.telefone || "—"}</p>
-                    </div>
-                    <div className="text-right">
-                        <p>{meses[factura.mes - 1]}/{factura.ano}</p>
-                        <p className="text-slate-500">Emitida {formatDate(factura.created_at)}</p>
                         <p className="text-slate-500">
-                            {factura.cliente?.bairro || factura.cliente?.endereco || "—"}
+                            {factura.cliente?.endereco || "—"}
+                            {factura.cliente?.bairro ? ` — ${factura.cliente.bairro}` : ""}
                         </p>
+                    </div>
+                    <div className="space-y-0.5 text-right">
+                        <p className="font-semibold">{meses[factura.mes - 1]}/{factura.ano}</p>
+                        <p className="text-slate-500">Emitida {formatDate(factura.created_at)}</p>
+                        {factura.cliente?.data_adesao && (
+                            <p className="text-slate-500">Cliente desde {formatDate(factura.cliente.data_adesao)}</p>
+                        )}
                     </div>
                 </div>
 
-                <div className="mt-1.5 rounded bg-slate-50 px-3 py-1.5 text-[11px]">
-                    <div className="flex items-center justify-between">
-                        <span>
-                            Leitura: {leitura ? Number(leitura.leitura_anterior).toFixed(1) : "—"} →{" "}
-                            {leitura ? Number(leitura.leitura_actual).toFixed(1) : "—"}
-                            {primeiraLeitura && <span className="text-slate-400"> (inicial)</span>}
-                        </span>
-                        <span className="font-semibold">{consumo !== null ? `${consumo.toFixed(2)} m³` : "—"}</span>
-                    </div>
-                    <div className="mt-0.5 flex items-center justify-between text-slate-500">
-                        <span>Mês anterior</span>
-                        <span>
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded border border-slate-300 px-2 py-1 text-center leading-tight">
+                        <p className="text-[8px] font-semibold uppercase tracking-wide text-slate-500">Consumo anterior</p>
+                        <p className="text-sm font-semibold text-slate-600">
                             {consumoAnterior !== null && consumoAnterior !== undefined
                                 ? `${Number(consumoAnterior).toFixed(2)} m³`
                                 : "—"}
-                        </span>
+                        </p>
+                    </div>
+                    <div className="rounded border-2 border-cyan-700 px-2 py-1 text-center leading-tight">
+                        <p className="text-[8px] font-semibold uppercase tracking-wide text-cyan-800">Consumo actual</p>
+                        <p className="text-xl font-bold text-cyan-900">
+                            {consumo !== null ? `${consumo.toFixed(2)} m³` : "—"}
+                        </p>
                     </div>
                 </div>
 
-                <div className="mt-1.5 space-y-0.5 text-[11px] text-slate-600">
-                    <div className="flex justify-between">
-                        <span>Valor consumo</span>
-                        <span>{formatCurrency(factura.valor_consumo)}</span>
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded border border-slate-300 px-2 py-1 text-center leading-tight">
+                        <p className="text-[8px] font-semibold uppercase tracking-wide text-slate-500">Valor mês anterior</p>
+                        <p className="text-sm font-semibold text-slate-600">
+                            {facturaAnterior ? formatCurrency(facturaAnterior.total_pagar) : "—"}
+                        </p>
                     </div>
-                    <div className="flex justify-between">
-                        <span>Dívida anterior</span>
-                        <span>{formatCurrency(factura.divida_anterior)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Multa</span>
-                        <span>{formatCurrency(factura.multa)}</span>
+                    <div className="rounded border-2 border-slate-900 px-2 py-1 text-center leading-tight">
+                        <p className="text-[8px] font-semibold uppercase tracking-wide text-slate-700">Total a pagar</p>
+                        <p className="text-xl font-bold text-slate-900">{formatCurrency(factura.total_pagar)}</p>
                     </div>
                 </div>
+
+                <p className="flex justify-between text-[10px] leading-tight text-slate-500">
+                    <span>
+                        Leitura {leitura ? Number(leitura.leitura_anterior).toFixed(1) : "—"} →{" "}
+                        {leitura ? Number(leitura.leitura_actual).toFixed(1) : "—"}
+                        {primeiraLeitura ? " (inicial)" : ""}
+                    </span>
+                    <span>
+                        Consumo {formatCurrency(factura.valor_consumo)} · Dívida {formatCurrency(factura.divida_anterior)} · Multa {formatCurrency(factura.multa)}
+                    </span>
+                </p>
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-300 pt-1.5">
-                <span className="text-[10px] text-slate-400">RJM Consultórios e Serviços</span>
-                <div className="flex items-center gap-2">
-                    {qrUrl && <QRCodeSVG value={qrUrl} size={32} level="M" />}
-                    <span className="text-base font-bold">{formatCurrency(factura.total_pagar)}</span>
-                </div>
+            <div className="flex items-center justify-between border-t border-slate-300 pt-2">
+                <span className="text-[10px] font-bold leading-tight text-slate-800">
+                    Pag: E-Mola 876781920 (J. Chauque) · M-Pesa 853754024 (J. Chaúque)
+                </span>
+                {qrUrl && <QRCodeSVG value={qrUrl} size={32} level="M" />}
             </div>
         </div>
     );
 }
 
-export default function ImprimirLote({ facturas, primeirasLeituras, consumosAnteriores, qrUrls = {} }) {
+export default function ImprimirLote({ facturas, primeirasLeituras, consumosAnteriores, facturasAnteriores = {}, qrUrls = {} }) {
+    const { empresa } = usePage().props;
     const [formato, setFormato] = useFormatoImpressao();
     const paginas = chunk(facturas, 3);
     // Um elemento por "página" descarregável — uma factura em 58mm, um grupo
@@ -204,7 +227,9 @@ export default function ImprimirLote({ facturas, primeirasLeituras, consumosAnte
                                         factura={factura}
                                         primeiraLeitura={primeirasLeituras[factura.id]}
                                         consumoAnterior={consumosAnteriores[factura.id]}
+                                        facturaAnterior={facturasAnteriores[factura.id]}
                                         qrUrl={qrUrls[factura.id]}
+                                        empresa={empresa}
                                     />
                                 </div>
                             ))}

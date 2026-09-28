@@ -1,4 +1,4 @@
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, usePage } from "@inertiajs/react";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useRef } from "react";
@@ -34,7 +34,7 @@ function chunk(array, size) {
 }
 
 // Recibo compacto — três por página A4, para poupar papel.
-function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl }) {
+function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl, empresa }) {
     const factura = pagamento.factura;
     const leitura = factura?.leitura;
     const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
@@ -45,12 +45,23 @@ function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl }) {
             <div>
                 <div className="flex items-start justify-between border-b border-slate-300 pb-2">
                     <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded bg-cyan-700 text-white">
-                            <Droplets className="h-4 w-4" aria-hidden="true" />
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border-2 border-cyan-700 text-cyan-700">
+                            {empresa?.logotipoUrl ? (
+                                <img
+                                    src={empresa.logotipoUrl}
+                                    alt={empresa.nome}
+                                    crossOrigin="anonymous"
+                                    className="h-full w-full object-contain"
+                                />
+                            ) : (
+                                <Droplets className="h-4 w-4" aria-hidden="true" />
+                            )}
                         </div>
                         <div>
-                            <p className="text-sm font-bold leading-none">Aquafuros</p>
-                            <p className="text-[10px] text-slate-500">Recibo de Pagamento</p>
+                            <p className="text-sm font-bold leading-none">{empresa?.nome ?? "Aquafuros"}</p>
+                            <p className="text-[10px] text-slate-500">
+                                {empresa?.nuit ? `NUIT: ${empresa.nuit}` : "Recibo de Pagamento"}
+                            </p>
                         </div>
                     </div>
                     <div className="text-right">
@@ -121,6 +132,7 @@ function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl }) {
 }
 
 export default function ImprimirLote({ pagamentos, primeirasLeituras, qrUrls = {} }) {
+    const { empresa } = usePage().props;
     const [formato, setFormato] = useFormatoImpressao();
     const paginas = chunk(pagamentos, 3);
     // Um elemento por "página" descarregável — um recibo em 58mm, um grupo
@@ -207,6 +219,7 @@ export default function ImprimirLote({ pagamentos, primeirasLeituras, qrUrls = {
                                         pagamento={pagamento}
                                         primeiraLeitura={primeirasLeituras[pagamento.id]}
                                         qrUrl={qrUrls[pagamento.id]}
+                                        empresa={empresa}
                                     />
                                 </div>
                             ))}

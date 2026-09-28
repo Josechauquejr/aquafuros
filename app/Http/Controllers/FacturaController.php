@@ -275,6 +275,10 @@ class FacturaController extends Controller
             fn ($factura) => [$factura->id => $this->consumoAnterior($factura->leitura)],
         );
 
+        $facturasAnteriores = $facturas->mapWithKeys(
+            fn ($factura) => [$factura->id => $this->facturaAnterior($factura)],
+        );
+
         $qrUrls = $facturas->mapWithKeys(
             fn ($factura) => [$factura->id => $this->qrUrl($factura)],
         );
@@ -283,6 +287,7 @@ class FacturaController extends Controller
             'facturas' => $facturas,
             'primeirasLeituras' => $primeirasLeituras,
             'consumosAnteriores' => $consumosAnteriores,
+            'facturasAnteriores' => $facturasAnteriores,
             'qrUrls' => $qrUrls,
         ]);
     }

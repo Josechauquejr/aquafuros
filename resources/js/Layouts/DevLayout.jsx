@@ -45,7 +45,7 @@ const navGroups = [
 ];
 
 export default function DevLayout({ header, children }) {
-    const { auth } = usePage().props;
+    const { auth, empresa } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [accountOpen, setAccountOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(() => {
@@ -105,7 +105,7 @@ export default function DevLayout({ header, children }) {
                         <Link href="/dev/painel" className="flex items-center gap-3">
                             <ApplicationLogo className="h-9 w-9 text-sm" />
                             <span className="hidden text-sm font-bold text-white sm:flex sm:items-center sm:gap-1.5">
-                                Aquafuros
+                                {empresa?.nome ?? "Aquafuros"}
                                 <span className="rounded bg-cyan-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-300">
                                     Dev
                                 </span>
@@ -168,7 +168,9 @@ export default function DevLayout({ header, children }) {
                     <SidebarNav groups={navGroups} collapsed={collapsed} pillLayoutId="dev-sidebar-active-pill-desktop" />
                     {!collapsed && (
                         <div className="border-t border-slate-800 p-4">
-                            <p className="text-xs font-medium text-slate-500">Aquafuros &middot; Área do Desenvolvedor</p>
+                            <p className="text-xs font-medium text-slate-500">
+                                {empresa?.nome ?? "Aquafuros"} &middot; Área do Desenvolvedor
+                            </p>
                             <p className="mt-1 text-[11px] leading-snug text-slate-600">
                                 Configuração técnica do sistema — separada das áreas operacionais.
                             </p>

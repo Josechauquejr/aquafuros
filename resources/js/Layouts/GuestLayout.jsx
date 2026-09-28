@@ -1,8 +1,10 @@
-import { Link } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 import ApplicationLogo from "@/Components/ApplicationLogo";
 import ThemeToggle from "@/Components/ThemeToggle";
 
 export default function GuestLayout({ children }) {
+    const { empresa } = usePage().props;
+
     return (
         <div className="flex min-h-screen flex-col items-center bg-slate-50 px-4 pt-6 text-slate-950 dark:bg-slate-950 dark:text-slate-100 sm:justify-center sm:pt-0">
             <div className="absolute right-4 top-4">
@@ -14,7 +16,7 @@ export default function GuestLayout({ children }) {
                     <Link href="/" className="inline-flex flex-col items-center gap-3">
                         <ApplicationLogo className="h-14 w-14" />
                         <span className="text-lg font-bold text-slate-950 dark:text-white">
-                            Aquafuros
+                            {empresa?.nome ?? "Aquafuros"}
                         </span>
                     </Link>
                     <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">

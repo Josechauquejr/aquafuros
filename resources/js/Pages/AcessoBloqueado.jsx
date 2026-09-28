@@ -1,8 +1,10 @@
-import { Head, Link, useForm } from "@inertiajs/react";
-import { ArrowLeft, Clock, Droplets, LogOut, ShieldOff } from "lucide-react";
+import { Head, Link, useForm, usePage } from "@inertiajs/react";
+import { ArrowLeft, Clock, LogOut, ShieldOff } from "lucide-react";
 import { motion } from "motion/react";
+import ApplicationLogo from "@/Components/ApplicationLogo";
 
 export default function AcessoBloqueado({ motivo, janela }) {
+    const { empresa } = usePage().props;
     const logout = useForm({});
 
     const submitLogout = (event) => {
@@ -25,10 +27,8 @@ export default function AcessoBloqueado({ motivo, janela }) {
                 className="w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white text-center shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
                 <div className="flex items-center justify-center gap-3 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-cyan-700 text-white">
-                        <Droplets className="h-5 w-5" aria-hidden="true" />
-                    </div>
-                    <p className="font-bold text-slate-950 dark:text-white">Aquafuros</p>
+                    <ApplicationLogo className="h-10 w-10" />
+                    <p className="font-bold text-slate-950 dark:text-white">{empresa?.nome ?? "Aquafuros"}</p>
                 </div>
 
                 <div className="px-6 py-8">

@@ -62,7 +62,7 @@ function gruposVisiveis(roles) {
 }
 
 export default function AdminLayout({ header, children }) {
-    const { auth } = usePage().props;
+    const { auth, empresa } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [accountOpen, setAccountOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(() => {
@@ -131,7 +131,7 @@ export default function AdminLayout({ header, children }) {
                         <Link href="/dashboard" className="flex items-center gap-3">
                             <ApplicationLogo className="h-9 w-9 text-sm" />
                             <span className="hidden text-sm font-bold text-slate-900 dark:text-white sm:block">
-                                Aquafuros
+                                {empresa?.nome ?? "Aquafuros"}
                             </span>
                         </Link>
                     </div>
@@ -194,7 +194,7 @@ export default function AdminLayout({ header, children }) {
                     {!collapsed && (
                         <div className="border-t border-slate-200 p-4 dark:border-slate-800">
                             <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                                Aquafuros &middot; Gestão de furos de água
+                                {empresa?.nome ?? "Aquafuros"} &middot; Gestão de furos de água
                             </p>
                             <p className="mt-1 text-[11px] leading-snug text-slate-400 dark:text-slate-600">
                                 Desenvolvido pela RJM Consultórios e Serviços

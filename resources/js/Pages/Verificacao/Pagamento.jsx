@@ -1,6 +1,7 @@
-import { Head } from "@inertiajs/react";
-import { BadgeCheck, Droplets } from "lucide-react";
+import { Head, usePage } from "@inertiajs/react";
+import { BadgeCheck } from "lucide-react";
 import { motion } from "motion/react";
+import ApplicationLogo from "@/Components/ApplicationLogo";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 const metodoLabels = {
@@ -17,6 +18,8 @@ const metodoLabels = {
  * `signed` rejeita qualquer id adulterado antes de chegar a este componente.
  */
 export default function Pagamento({ documento }) {
+    const { empresa } = usePage().props;
+
     return (
         <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10 dark:bg-slate-950">
             <Head title={`Verificar recibo ${documento.numero}`} />
@@ -28,12 +31,13 @@ export default function Pagamento({ documento }) {
                 className="w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
                 <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-cyan-700 text-white">
-                        <Droplets className="h-5 w-5" aria-hidden="true" />
-                    </div>
+                    <ApplicationLogo className="h-10 w-10" />
                     <div>
-                        <p className="font-bold text-slate-950 dark:text-white">Aquafuros</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Gestão de Furos de Água</p>
+                        <p className="font-bold text-slate-950 dark:text-white">{empresa?.nome ?? "Aquafuros"}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {[empresa?.nuit && `NUIT: ${empresa.nuit}`, empresa?.localizacao].filter(Boolean).join(" · ") ||
+                                "Gestão de Furos de Água"}
+                        </p>
                     </div>
                 </div>
 

@@ -36,13 +36,13 @@ export default function Welcome() {
                                     href="/login"
                                     className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
                                 >
-                                    Log in
+                                    Entrar
                                 </Link>
                                 <Link
                                     href="/register"
                                     className="rounded-md bg-cyan-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-cyan-800 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
                                 >
-                                    Register
+                                    Registar
                                 </Link>
                             </>
                         )}
@@ -55,11 +55,11 @@ export default function Welcome() {
                                 Aquafuros
                             </p>
                             <h1 className="mt-4 max-w-3xl text-4xl font-bold text-slate-950 dark:text-white sm:text-5xl">
-                                Gestao de agua, clientes e cobrancas num unico sistema.
+                                Gestão de água, clientes e cobranças num único sistema.
                             </h1>
                             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
                                 Controle leituras, facturas, pagamentos, tarifas e utilizadores
-                                com uma area administrativa preparada para a operacao diaria.
+                                com uma área administrativa preparada para a operação diária.
                             </p>
                             <div className="mt-8 flex flex-wrap gap-3">
                                 <Link
@@ -75,9 +75,9 @@ export default function Welcome() {
                         <div className="grid gap-4 sm:grid-cols-2">
                             {[
                                 [Users, "Clientes", "Cadastro e acompanhamento por zona"],
-                                [Gauge, "Leituras", "Ciclos de consumo sempre visiveis"],
-                                [ReceiptText, "Facturacao", "Emissao e controlo de dividas"],
-                                [ShieldCheck, "Permissoes", "Acessos organizados por perfil"],
+                                [Gauge, "Leituras", "Ciclos de consumo sempre visíveis"],
+                                [ReceiptText, "Facturação", "Emissão e controlo de dívidas"],
+                                [ShieldCheck, "Permissões", "Acessos organizados por perfil"],
                             ].map(([Icon, title, text]) => (
                                 <div
                                     key={title}

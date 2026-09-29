@@ -421,7 +421,7 @@ export default function Index({
                                 <TextInput
                                     value={search}
                                     onChange={(event) => setSearch(event.target.value)}
-                                    placeholder="Pesquisar por cliente ou número de factura..."
+                                    placeholder="Cliente ou nº factura"
                                     className="w-full pl-9"
                                 />
                             </div>

@@ -13,12 +13,27 @@ const tones = {
  * Botão de ícone com micro-interacção (usado nas acções das tabelas em
  * toda a app) — hover/tap animados via motion, em vez de um <button> estático.
  */
-export default function IconButton({ as, tone = "default", className = "", children, ...props }) {
+export default function IconButton({
+    as,
+    tone = "default",
+    className = "",
+    children,
+    title,
+    "aria-label": ariaLabel,
+    ...props
+}) {
     const Component = useMemo(() => motion.create(as ?? "button"), [as]);
 
     return (
         <Component
             type={as ? undefined : "button"}
+            title={title}
+            // Um botão só com ícone não diz nada a um leitor de ecrã sem
+            // isto — `title` sozinho não é fiável (nem todos os leitores de
+            // ecrã o anunciam). Cada chamada já passa `title`, por isso
+            // basta reaproveitá-lo aqui em vez de repetir nos ~150 sítios
+            // que usam este componente.
+            aria-label={ariaLabel ?? title}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 500, damping: 35 }}
             className={cn(

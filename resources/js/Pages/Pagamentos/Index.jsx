@@ -235,7 +235,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                                 <TextInput
                                     value={search}
                                     onChange={(event) => setSearch(event.target.value)}
-                                    placeholder="Pesquisar por cliente, recibo ou factura..."
+                                    placeholder="Cliente, recibo ou factura"
                                     className="w-full pl-9"
                                 />
                             </div>

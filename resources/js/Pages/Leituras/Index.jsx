@@ -198,7 +198,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                                 <TextInput
                                     value={search}
                                     onChange={(event) => setSearch(event.target.value)}
-                                    placeholder="Pesquisar por cliente..."
+                                    placeholder="Cliente"
                                     className="w-full pl-9"
                                 />
                             </div>
@@ -287,7 +287,18 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                                                 <span className="text-xs text-slate-500 dark:text-slate-400">
                                                     {leitura.registado_por?.name ?? "—"}
                                                     {leitura.confirmado && leitura.factura && (
-                                                        <> &middot; {leitura.factura.numero_factura}</>
+                                                        <>
+                                                            {" "}
+                                                            &middot;{" "}
+                                                            <Link
+                                                                href={`/facturas/${leitura.factura.id}/imprimir`}
+                                                                target="_blank"
+                                                                className="font-medium text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
+                                                                onClick={(event) => event.stopPropagation()}
+                                                            >
+                                                                {leitura.factura.numero_factura}
+                                                            </Link>
+                                                        </>
                                                     )}
                                                 </span>
                                                 <div className="flex items-center gap-1">
@@ -295,14 +306,14 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                                                         tone="success"
                                                         onClick={() => confirmarLeitura(leitura)}
                                                         disabled={leitura.confirmado}
-                                                        title="Confirmar leitura"
+                                                        title={leitura.confirmado ? "Leitura já confirmada" : "Confirmar leitura"}
                                                     >
                                                         <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                                                     </IconButton>
                                                     <IconButton
                                                         onClick={() => abrirEdicao(leitura)}
                                                         disabled={leitura.confirmado}
-                                                        title={leitura.confirmado ? "Leitura já confirmada" : "Editar leitura"}
+                                                        title={leitura.confirmado ? "Leitura já confirmada — não pode ser editada" : "Editar leitura"}
                                                     >
                                                         <Pencil className="h-4 w-4" aria-hidden="true" />
                                                     </IconButton>
@@ -310,7 +321,13 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                                                         tone="danger"
                                                         onClick={() => setParaEliminar(leitura)}
                                                         disabled={leitura.confirmado || Boolean(leitura.factura)}
-                                                        title="Eliminar leitura"
+                                                        title={
+                                                            leitura.factura
+                                                                ? "Tem factura associada — anule a factura para poder eliminar"
+                                                                : leitura.confirmado
+                                                                  ? "Leitura já confirmada — não pode ser eliminada"
+                                                                  : "Eliminar leitura"
+                                                        }
                                                     >
                                                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                                                     </IconButton>
@@ -372,8 +389,14 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                                                                 {leitura.confirmado ? "Confirmada" : "Pendente"}
                                                             </StatusBadge>
                                                             {leitura.confirmado && leitura.factura && (
-                                                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                                    {leitura.factura.numero_factura}
+                                                                <p className="mt-1 text-xs">
+                                                                    <Link
+                                                                        href={`/facturas/${leitura.factura.id}/imprimir`}
+                                                                        target="_blank"
+                                                                        className="font-medium text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
+                                                                    >
+                                                                        {leitura.factura.numero_factura}
+                                                                    </Link>
                                                                 </p>
                                                             )}
                                                         </td>
@@ -386,14 +409,14 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                                                                     tone="success"
                                                                     onClick={() => confirmarLeitura(leitura)}
                                                                     disabled={leitura.confirmado}
-                                                                    title="Confirmar leitura"
+                                                                    title={leitura.confirmado ? "Leitura já confirmada" : "Confirmar leitura"}
                                                                 >
                                                                     <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                                                                 </IconButton>
                                                                 <IconButton
                                                                     onClick={() => abrirEdicao(leitura)}
                                                                     disabled={leitura.confirmado}
-                                                                    title={leitura.confirmado ? "Leitura já confirmada" : "Editar leitura"}
+                                                                    title={leitura.confirmado ? "Leitura já confirmada — não pode ser editada" : "Editar leitura"}
                                                                 >
                                                                     <Pencil className="h-4 w-4" aria-hidden="true" />
                                                                 </IconButton>
@@ -401,7 +424,13 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                                                                     tone="danger"
                                                                     onClick={() => setParaEliminar(leitura)}
                                                                     disabled={leitura.confirmado || Boolean(leitura.factura)}
-                                                                    title="Eliminar leitura"
+                                                                    title={
+                                                                        leitura.factura
+                                                                            ? "Tem factura associada — anule a factura para poder eliminar"
+                                                                            : leitura.confirmado
+                                                                              ? "Leitura já confirmada — não pode ser eliminada"
+                                                                              : "Eliminar leitura"
+                                                                    }
                                                                 >
                                                                     <Trash2 className="h-4 w-4" aria-hidden="true" />
                                                                 </IconButton>

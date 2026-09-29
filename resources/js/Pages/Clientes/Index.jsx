@@ -269,7 +269,7 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                 <TextInput
                                     value={search}
                                     onChange={(event) => setSearch(event.target.value)}
-                                    placeholder="Pesquisar por nome, número ou bairro..."
+                                    placeholder="Nome, nº ou bairro"
                                     className="w-full pl-9"
                                 />
                             </div>

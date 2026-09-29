@@ -5,6 +5,7 @@ import {
     Banknote,
     BarChart3,
     CheckCircle2,
+    ChevronDown,
     Download,
     FileStack,
     FileText,
@@ -14,10 +15,12 @@ import {
     Plus,
     Printer,
     Search,
+    SlidersHorizontal,
     TrendingDown,
     TrendingUp,
+    X,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import ActionsMenu, { ActionsMenuItem, ActionsMenuSeparator } from "@/Components/ActionsMenu";
@@ -62,6 +65,13 @@ const tipoConfig = {
 
 const periodoOrdinal = (p) => Number(p.ano) * 12 + Number(p.mes);
 
+const ordenarLabels = {
+    cliente_asc: "Cliente (A-Z)",
+    cliente_desc: "Cliente (Z-A)",
+    numero_asc: "Nº factura (crescente)",
+    numero_desc: "Nº factura (decrescente)",
+};
+
 export default function Index({
     facturas,
     leiturasDisponiveis,
@@ -82,6 +92,7 @@ export default function Index({
     const [paraAnular, setParaAnular] = useState(null);
     const [leituraSelecionada, setLeituraSelecionada] = useState(leiturasDisponiveis[0]?.id ?? "");
     const [selecionadas, setSelecionadas] = useState([]);
+    const [filtrosAbertos, setFiltrosAbertos] = useState(false);
     const [showLoteModal, setShowLoteModal] = useState(false);
     const [periodoLote, setPeriodoLote] = useState("");
     const [pdfAlvo, setPdfAlvo] = useState(null);
@@ -162,11 +173,36 @@ export default function Index({
         });
     }, [resumoMensalProp]);
 
+    const filtrosActivos = [
+        filtros.periodo !== "todos",
+        filtros.estado !== "todos",
+        filtros.ordenar !== "recente",
+    ].filter(Boolean).length;
+
+    const pctRecebido = totais.totalFacturado > 0
+        ? Math.min(100, (totais.totalPago / totais.totalFacturado) * 100)
+        : 0;
+    const pctAberto = totais.totalFacturado > 0
+        ? Math.min(100 - pctRecebido, (totais.totalEmAberto / totais.totalFacturado) * 100)
+        : 0;
+
     const metrics = [
-        { label: "Total facturado", value: formatCurrency(totais.totalFacturado), icon: FileText, tone: "cyan" },
+        {
+            label: "Total facturado",
+            value: formatCurrency(totais.totalFacturado),
+            detail: "Desde sempre — todos os períodos",
+            icon: FileText,
+            tone: "cyan",
+        },
         { label: "Recebido (pagas)", value: formatCurrency(totais.totalPago), icon: CheckCircle2, tone: "emerald" },
         { label: "Em aberto", value: formatCurrency(totais.totalEmAberto), icon: Banknote, tone: "amber" },
-        { label: "Facturas pendentes", value: totais.pendentesCount, icon: AlertTriangle, tone: "rose" },
+        {
+            label: "Facturas pendentes",
+            value: totais.pendentesCount,
+            detail: totais.vencidasCount > 0 ? `${totais.vencidasCount} já vencida(s)` : "Nenhuma vencida",
+            icon: AlertTriangle,
+            tone: totais.vencidasCount > 0 ? "rose" : "amber",
+        },
     ];
 
     const abrirNova = () => {
@@ -351,6 +387,21 @@ export default function Index({
                         ))}
                     </section>
 
+                    {totais.totalFacturado > 0 && (
+                        <AnimatedPanel delay={0.14} className="px-5 py-4">
+                            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                                <span>Recebido vs. em aberto (todos os períodos)</span>
+                                <span>
+                                    {formatNumero((totais.totalPago / totais.totalFacturado) * 100, 0)}% recebido
+                                </span>
+                            </div>
+                            <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                                <div className="h-full bg-emerald-500" style={{ width: `${pctRecebido}%` }} />
+                                <div className="h-full bg-amber-400" style={{ width: `${pctAberto}%` }} />
+                            </div>
+                        </AnimatedPanel>
+                    )}
+
                     <AnimatedPanel delay={0.16} className="overflow-hidden">
                         <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
                             <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-950 dark:text-white">
@@ -439,62 +490,122 @@ export default function Index({
                                     className="w-full pl-9"
                                 />
                             </div>
-                            <select
-                                value={filtros.periodo}
-                                onChange={(event) => mudarPeriodo(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            <button
+                                type="button"
+                                onClick={() => setFiltrosAbertos((prev) => !prev)}
+                                className="inline-flex shrink-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                                aria-expanded={filtrosAbertos}
                             >
-                                <option value="todos">Todos os períodos</option>
-                                {periodosDisponiveis.map((periodo) => (
-                                    <option key={`${periodo.mes}/${periodo.ano}`} value={`${periodo.mes}/${periodo.ano}`}>
-                                        {meses[periodo.mes - 1]}/{periodo.ano}
-                                    </option>
-                                ))}
-                            </select>
-                            <select
-                                value={filtros.estado}
-                                onChange={(event) => mudarEstado(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                <option value="todos">Todos os estados</option>
-                                <option value="pendente">Pendente</option>
-                                <option value="parcial">Parcial</option>
-                                <option value="paga">Paga</option>
-                                <option value="anulada">Anulada</option>
-                            </select>
-                            <select
-                                value={filtros.ordenar}
-                                onChange={(event) => mudarOrdenar(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                <option value="recente">Mais recentes</option>
-                                <option value="cliente_asc">Cliente (A-Z)</option>
-                                <option value="cliente_desc">Cliente (Z-A)</option>
-                                <option value="numero_asc">Nº factura (crescente)</option>
-                                <option value="numero_desc">Nº factura (decrescente)</option>
-                            </select>
-                            <AnimatedButton
-                                as={Link}
-                                href={urlImprimirPeriodo()}
-                                target="_blank"
-                                variant="secondary"
-                                title="Imprimir todas as facturas dos filtros actuais"
-                            >
-                                <Printer className="h-4 w-4" aria-hidden="true" />
-                                Imprimir filtradas
-                            </AnimatedButton>
-                            {selecionadas.length > 0 && (
-                                <AnimatedButton
-                                    as={Link}
-                                    href={`/facturas/imprimir-lote?ids=${selecionadas.join(",")}`}
-                                    target="_blank"
-                                    variant="primary"
-                                >
-                                    <Printer className="h-4 w-4" aria-hidden="true" />
-                                    Imprimir seleccionadas ({selecionadas.length})
-                                </AnimatedButton>
-                            )}
+                                <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                                Filtros
+                                {filtrosActivos > 0 && (
+                                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-cyan-700 px-1 text-xs font-semibold text-white">
+                                        {filtrosActivos}
+                                    </span>
+                                )}
+                                <ChevronDown
+                                    className={cn("h-4 w-4 transition-transform", filtrosAbertos && "rotate-180")}
+                                    aria-hidden="true"
+                                />
+                            </button>
                         </div>
+
+                        {!filtrosAbertos && filtrosActivos > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {filtros.periodo !== "todos" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => mudarPeriodo("todos")}
+                                        className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-medium text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300"
+                                    >
+                                        {(() => {
+                                            const [mes, ano] = filtros.periodo.split("/");
+                                            return `${meses[mes - 1]}/${ano}`;
+                                        })()}
+                                        <X className="h-3 w-3" aria-hidden="true" />
+                                    </button>
+                                )}
+                                {filtros.estado !== "todos" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => mudarEstado("todos")}
+                                        className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-medium text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300"
+                                    >
+                                        {estadoFacturaConfig[filtros.estado]?.label ?? filtros.estado}
+                                        <X className="h-3 w-3" aria-hidden="true" />
+                                    </button>
+                                )}
+                                {filtros.ordenar !== "recente" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => mudarOrdenar("recente")}
+                                        className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-medium text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300"
+                                    >
+                                        {ordenarLabels[filtros.ordenar] ?? filtros.ordenar}
+                                        <X className="h-3 w-3" aria-hidden="true" />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        <AnimatePresence initial={false}>
+                            {filtrosAbertos && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="mt-3 flex flex-wrap gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+                                        <select
+                                            value={filtros.periodo}
+                                            onChange={(event) => mudarPeriodo(event.target.value)}
+                                            className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                        >
+                                            <option value="todos">Todos os períodos</option>
+                                            {periodosDisponiveis.map((periodo) => (
+                                                <option key={`${periodo.mes}/${periodo.ano}`} value={`${periodo.mes}/${periodo.ano}`}>
+                                                    {meses[periodo.mes - 1]}/{periodo.ano}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={filtros.estado}
+                                            onChange={(event) => mudarEstado(event.target.value)}
+                                            className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                        >
+                                            <option value="todos">Todos os estados</option>
+                                            <option value="pendente">Pendente</option>
+                                            <option value="parcial">Parcial</option>
+                                            <option value="paga">Paga</option>
+                                            <option value="anulada">Anulada</option>
+                                        </select>
+                                        <select
+                                            value={filtros.ordenar}
+                                            onChange={(event) => mudarOrdenar(event.target.value)}
+                                            className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                        >
+                                            <option value="recente">Mais recentes</option>
+                                            <option value="cliente_asc">Cliente (A-Z)</option>
+                                            <option value="cliente_desc">Cliente (Z-A)</option>
+                                            <option value="numero_asc">Nº factura (crescente)</option>
+                                            <option value="numero_desc">Nº factura (decrescente)</option>
+                                        </select>
+                                        <AnimatedButton
+                                            as={Link}
+                                            href={urlImprimirPeriodo()}
+                                            target="_blank"
+                                            variant="secondary"
+                                            title="Imprimir todas as facturas dos filtros actuais"
+                                        >
+                                            <Printer className="h-4 w-4" aria-hidden="true" />
+                                            Imprimir filtradas
+                                        </AnimatedButton>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </AnimatedPanel>
 
                     {dados.length === 0 ? (
@@ -516,6 +627,7 @@ export default function Index({
                                     const estado = estadoFacturaConfig[factura.estado];
                                     const tipo = tipoConfig[factura.tipo] ?? tipoConfig.consumo;
                                     const temAnterior = Boolean(facturasAnteriores[factura.id]);
+                                    const podeEditar = factura.estado === "pendente";
                                     const consumo = factura.leitura
                                         ? Number(factura.leitura.leitura_actual) - Number(factura.leitura.leitura_anterior)
                                         : null;
@@ -599,9 +711,9 @@ export default function Index({
                                                             )}
                                                             Descarregar PDF
                                                         </ActionsMenuItem>
-                                                        <ActionsMenuItem onClick={() => abrirEdicao(factura)}>
+                                                        <ActionsMenuItem onClick={() => abrirEdicao(factura)} disabled={!podeEditar}>
                                                             <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                            Editar factura
+                                                            {podeEditar ? "Editar factura" : "Só pendentes podem ser editadas"}
                                                         </ActionsMenuItem>
                                                         <ActionsMenuSeparator />
                                                         <ActionsMenuItem
@@ -654,6 +766,7 @@ export default function Index({
                                                 const estado = estadoFacturaConfig[factura.estado];
                                                 const tipo = tipoConfig[factura.tipo] ?? tipoConfig.consumo;
                                                 const temAnterior = Boolean(facturasAnteriores[factura.id]);
+                                                const podeEditar = factura.estado === "pendente";
                                                 const consumo = factura.leitura
                                                     ? Number(factura.leitura.leitura_actual) - Number(factura.leitura.leitura_anterior)
                                                     : null;
@@ -740,9 +853,9 @@ export default function Index({
                                                                         )}
                                                                         Descarregar PDF
                                                                     </ActionsMenuItem>
-                                                                    <ActionsMenuItem onClick={() => abrirEdicao(factura)}>
+                                                                    <ActionsMenuItem onClick={() => abrirEdicao(factura)} disabled={!podeEditar}>
                                                                         <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                                        Editar factura
+                                                                        {podeEditar ? "Editar factura" : "Só pendentes podem ser editadas"}
                                                                     </ActionsMenuItem>
                                                                     <ActionsMenuSeparator />
                                                                     <ActionsMenuItem
@@ -766,6 +879,36 @@ export default function Index({
                             <Pagination paginador={facturas} />
                         </>
                     )}
+
+                    <AnimatePresence>
+                        {selecionadas.length > 0 && (
+                            <motion.div
+                                initial={{ y: 40, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: 40, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="fixed inset-x-4 bottom-4 z-30 mx-auto flex max-w-md items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-lg shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900 sm:inset-x-auto sm:right-8"
+                            >
+                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                    {selecionadas.length} seleccionada(s)
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <SecondaryButton type="button" onClick={() => setSelecionadas([])}>
+                                        Limpar
+                                    </SecondaryButton>
+                                    <AnimatedButton
+                                        as={Link}
+                                        href={`/facturas/imprimir-lote?ids=${selecionadas.join(",")}`}
+                                        target="_blank"
+                                        variant="primary"
+                                    >
+                                        <Printer className="h-4 w-4" aria-hidden="true" />
+                                        Imprimir
+                                    </AnimatedButton>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
 

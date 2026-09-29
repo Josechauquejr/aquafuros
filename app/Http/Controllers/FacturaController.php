@@ -201,6 +201,14 @@ class FacturaController extends Controller
      */
     public function update(Request $request, Factura $factura)
     {
+        // Uma factura só pode ser corrigida enquanto ainda não tem nenhum
+        // pagamento registado — editar dívida/multa/estado de uma factura já
+        // paga ou parcialmente paga desalinharia o que o cliente já recebeu
+        // do que o sistema mostra.
+        if ($factura->estado !== 'pendente') {
+            return back()->with('error', 'Só é possível editar facturas pendentes, sem pagamentos registados.');
+        }
+
         $data = $request->validate([
             'divida_anterior' => 'required|numeric|min:0',
             'multa' => 'required|numeric|min:0',
@@ -396,6 +404,12 @@ class FacturaController extends Controller
             'totalPago' => (float) Factura::where('estado', 'paga')->sum('total_pagar'),
             'totalEmAberto' => (float) Factura::whereIn('estado', ['pendente', 'parcial'])->sum('total_pagar'),
             'pendentesCount' => Factura::where('estado', 'pendente')->count(),
+            // Só as facturas pendentes/parciais já fora do prazo justificam
+            // o alerta vermelho — uma factura pendente dentro do prazo ainda
+            // não é um problema.
+            'vencidasCount' => Factura::whereIn('estado', ['pendente', 'parcial'])
+                ->where('data_vencimento', '<', now())
+                ->count(),
         ];
     }
 

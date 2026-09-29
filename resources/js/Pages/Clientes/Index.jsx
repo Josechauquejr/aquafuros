@@ -24,6 +24,7 @@ import {
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
+import ActionsMenu, { ActionsMenuItem } from "@/Components/ActionsMenu";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
@@ -348,19 +349,18 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                                     className="flex items-center gap-1"
                                                     onClick={(event) => event.stopPropagation()}
                                                 >
-                                                    <IconButton onClick={() => setDetalhe(cliente)} title="Ver histórico">
+                                                    <IconButton onClick={() => setDetalhe(cliente)} title="Ver histórico" className="h-11 w-11">
                                                         <Eye className="h-4 w-4" aria-hidden="true" />
                                                     </IconButton>
-                                                    <IconButton onClick={() => abrirEdicao(cliente)} title="Editar cliente">
+                                                    <IconButton onClick={() => abrirEdicao(cliente)} title="Editar cliente" className="h-11 w-11">
                                                         <Pencil className="h-4 w-4" aria-hidden="true" />
                                                     </IconButton>
-                                                    <IconButton
-                                                        tone="danger"
-                                                        onClick={() => setParaEliminar(cliente)}
-                                                        title="Eliminar cliente"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
+                                                    <ActionsMenu label={`Mais acções sobre ${cliente.nome}`}>
+                                                        <ActionsMenuItem tone="danger" onClick={() => setParaEliminar(cliente)}>
+                                                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                                            Eliminar cliente
+                                                        </ActionsMenuItem>
+                                                    </ActionsMenu>
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -462,22 +462,21 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <div
-                                                                className="flex items-center justify-end gap-1.5"
+                                                                className="flex items-center justify-end gap-1"
                                                                 onClick={(event) => event.stopPropagation()}
                                                             >
-                                                                <IconButton onClick={() => setDetalhe(cliente)} title="Ver histórico">
+                                                                <IconButton onClick={() => setDetalhe(cliente)} title="Ver histórico" className="h-11 w-11">
                                                                     <Eye className="h-4 w-4" aria-hidden="true" />
                                                                 </IconButton>
-                                                                <IconButton onClick={() => abrirEdicao(cliente)} title="Editar cliente">
+                                                                <IconButton onClick={() => abrirEdicao(cliente)} title="Editar cliente" className="h-11 w-11">
                                                                     <Pencil className="h-4 w-4" aria-hidden="true" />
                                                                 </IconButton>
-                                                                <IconButton
-                                                                    tone="danger"
-                                                                    onClick={() => setParaEliminar(cliente)}
-                                                                    title="Eliminar cliente"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
+                                                                <ActionsMenu label={`Mais acções sobre ${cliente.nome}`}>
+                                                                    <ActionsMenuItem tone="danger" onClick={() => setParaEliminar(cliente)}>
+                                                                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                                                        Eliminar cliente
+                                                                    </ActionsMenuItem>
+                                                                </ActionsMenu>
                                                             </div>
                                                         </td>
                                                     </motion.tr>

@@ -7,6 +7,14 @@
         @apply bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100;
     }
 
+    /* Trava o scroll horizontal da página inteira — qualquer tabela ou
+       filtro um pouco largo de mais em mobile já tem o seu próprio
+       overflow-x-auto; sem isto, um único elemento a transbordar arrasta
+       a página toda para o lado. */
+    html, body {
+        overflow-x: hidden;
+    }
+
     body {
         @apply bg-slate-50 text-slate-950 antialiased transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100;
     }

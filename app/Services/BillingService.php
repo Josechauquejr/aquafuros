@@ -43,9 +43,7 @@ class BillingService
 
     private function calcularDividaAnterior(Cliente $cliente): float
     {
-        $divida = $cliente->divida;
-
-        return $divida ? (float) $divida->valor_divida : 0.00;
+        return $cliente->saldoEmAberto();
     }
 
     private function calcularMulta(float $dividaAnterior, Cliente $cliente): float

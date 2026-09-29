@@ -261,6 +261,13 @@ class PagamentoController extends Controller
         ]);
     }
 
+    /**
+     * Actualiza apenas o estado da própria factura consoante o total
+     * recebido contra ela. A dívida do cliente já não é um valor guardado
+     * à parte — Cliente::saldoEmAberto()/dividaEmAtraso() recalculam-na
+     * sempre a partir das facturas pendentes/parciais actuais, por isso não
+     * há aqui nenhum registo para manter sincronizado.
+     */
     private function recalcularFacturaEDivida(Factura $factura): void
     {
         $totalPago = (float) $factura->pagamentos()->sum('valor_pago');
@@ -273,19 +280,8 @@ class PagamentoController extends Controller
 
         $factura->update(['estado' => $novoEstado]);
 
-        $cliente = $factura->cliente;
-        $divida = $cliente?->divida;
-        $tarifa = $cliente?->tarifa;
-
-        if ($divida && $tarifa) {
-            $saldoRestante = max(0, (float) $factura->total_pagar - $totalPago);
-
-            $divida->update([
-                'valor_divida' => $saldoRestante,
-                'meses_atraso' => $saldoRestante > 0 ? max(1, $divida->meses_atraso) : 0,
-                'em_corte' => $saldoRestante >= (float) $tarifa->limiar_corte,
-                'data_ultimo_pagamento' => $totalPago > 0 ? now() : $divida->data_ultimo_pagamento,
-            ]);
+        if ($totalPago > 0 && $factura->cliente?->divida) {
+            $factura->cliente->divida->update(['data_ultimo_pagamento' => now()]);
         }
     }
 

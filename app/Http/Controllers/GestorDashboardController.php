@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
-use App\Models\Divida;
 use App\Models\Factura;
 use App\Models\Leitura;
 use App\Models\Pagamento;
@@ -44,12 +43,8 @@ class GestorDashboardController extends Controller
                 'leiturasPendentes' => Leitura::where('confirmado', false)->count(),
                 'leiturasSemFactura' => Leitura::where('confirmado', true)->whereDoesntHave('factura')->count(),
             ],
-            'dividaTotal' => (float) Divida::sum('valor_divida'),
-            'maioresDevedores' => Divida::where('valor_divida', '>', 0)
-                ->with(['cliente' => fn ($q) => $q->withTrashed()])
-                ->orderByDesc('valor_divida')
-                ->limit(5)
-                ->get(),
+            'dividaTotal' => Cliente::dividaTotalEmAtraso(),
+            'maioresDevedores' => Cliente::maioresDevedores(5),
         ]);
     }
 }

@@ -75,7 +75,6 @@ export default function Dashboard({
         {
             label: "Clientes novos este mês",
             value: clientesNovosMes,
-            detail: `${contadores.clientesActivos} de ${contadores.clientesTotal} activos`,
             icon: UserPlus,
             tone: "cyan",
         },

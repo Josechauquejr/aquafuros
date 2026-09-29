@@ -32,6 +32,7 @@ class Factura extends Model
         'tipo',
         'mes',
         'ano',
+        'data_vencimento',
         'valor_consumo',
         'divida_anterior',
         'multa',
@@ -39,6 +40,25 @@ class Factura extends Model
         'estado',
         'gerada_por',
     ];
+
+    protected $casts = [
+        'data_vencimento' => 'date',
+    ];
+
+    protected $appends = ['esta_vencida'];
+
+    /**
+     * "Vencida" nunca é guardado como estado — é sempre calculado a partir
+     * da data de vencimento, para nunca desincronizar (não depende de uma
+     * tarefa agendada a correr todos os dias). Só pendente/parcial podem
+     * estar vencidas; paga e anulada não têm significado de atraso.
+     */
+    public function getEstaVencidaAttribute(): bool
+    {
+        return in_array($this->estado, ['pendente', 'parcial'], true)
+            && $this->data_vencimento !== null
+            && $this->data_vencimento->isPast();
+    }
 
     // Uma factura pertence a um cliente
     public function cliente()

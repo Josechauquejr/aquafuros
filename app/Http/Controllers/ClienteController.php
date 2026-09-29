@@ -27,7 +27,6 @@ class ClienteController extends Controller
 
         $query = Cliente::with([
             'tarifa',
-            'divida',
             'facturas' => fn ($q) => $q->orderByDesc('ano')->orderByDesc('mes'),
             'pagamentos' => fn ($q) => $q->orderByDesc('created_at'),
         ]);
@@ -44,21 +43,59 @@ class ClienteController extends Controller
             $query->where('estado', $estado);
         }
 
+        $clientes = $query->orderBy('nome')->paginate(15)->withQueryString();
+
+        // Saldo em aberto e dívida vencida a partir das facturas/pagamentos
+        // já carregados acima (sem consultas extra) — nunca um valor
+        // guardado à parte, que só actualizava quando havia um pagamento e
+        // por isso ficava preso em 0,00 para clientes que nunca pagaram
+        // nada mas tinham facturas por liquidar.
+        $clientes->getCollection()->transform(function (Cliente $cliente) {
+            $pagoPorFactura = $cliente->pagamentos->groupBy('factura_id')->map->sum('valor_pago');
+            $emAberto = $cliente->facturas->whereIn('estado', ['pendente', 'parcial']);
+            $saldoDe = fn ($f) => max(0, (float) $f->total_pagar - (float) ($pagoPorFactura[$f->id] ?? 0));
+
+            $cliente->saldo_em_aberto = round($emAberto->sum($saldoDe), 2);
+            $cliente->divida_em_atraso = round(
+                $emAberto->filter(fn ($f) => $f->data_vencimento?->isPast())->sum($saldoDe),
+                2,
+            );
+
+            return $cliente;
+        });
+
         return Inertia::render('Clientes/Index', [
-            'clientes' => $query->orderBy('nome')->paginate(15)->withQueryString(),
+            'clientes' => $clientes,
             'tarifas' => Tarifa::where('is_active', true)->orderBy('nome')->get(['id', 'nome']),
             'taxaLigacao' => Configuracao::valor('taxa_ligacao_nova', 3250.00),
             'totais' => [
                 'total' => Cliente::count(),
                 'activos' => Cliente::where('estado', 'ativo')->count(),
                 'cortados' => Cliente::where('estado', 'cortado')->count(),
-                'dividaAcumulada' => (float) Divida::sum('valor_divida'),
+                'dividaAcumulada' => $this->dividaEmAbertoTotal(),
             ],
             'filtros' => [
                 'search' => $search ?? '',
                 'estado' => $estado ?? 'todos',
             ],
         ]);
+    }
+
+    /**
+     * Soma do saldo em aberto de todos os clientes — a mesma fórmula de
+     * Cliente::saldoEmAberto(), mas numa única consulta agregada em vez de
+     * uma por cliente (usado só para o total do cartão de KPI).
+     */
+    private function dividaEmAbertoTotal(): float
+    {
+        $facturas = Factura::whereIn('estado', ['pendente', 'parcial'])
+            ->withSum('pagamentos', 'valor_pago')
+            ->get(['id', 'total_pagar']);
+
+        return round(
+            $facturas->sum(fn ($f) => max(0, (float) $f->total_pagar - (float) ($f->pagamentos_sum_valor_pago ?? 0))),
+            2,
+        );
     }
 
     /**
@@ -178,7 +215,11 @@ class ClienteController extends Controller
      */
     public function imprimir(Cliente $cliente)
     {
-        $cliente->load(['tarifa', 'divida']);
+        $cliente->load('tarifa');
+        $cliente->saldo_em_aberto = $cliente->saldoEmAberto();
+        $emAtraso = $cliente->dividaEmAtraso();
+        $cliente->divida_em_atraso = $emAtraso['valor'];
+        $cliente->em_corte = $emAtraso['em_corte'];
 
         return Inertia::render('Clientes/Imprimir', [
             'cliente' => $cliente,

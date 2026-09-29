@@ -176,6 +176,9 @@ class FacturaController extends Controller
             'tipo' => 'consumo',
             'mes' => $leitura->mes,
             'ano' => $leitura->ano,
+            // 15 dias corridos após a emissão — o mesmo prazo já documentado
+            // em Tarifas > Regras gerais de cobrança.
+            'data_vencimento' => now()->addDays(15)->toDateString(),
             'valor_consumo' => $calculo['valor_consumo'],
             'divida_anterior' => $calculo['divida_anterior'],
             'multa' => $calculo['multa'],
@@ -209,26 +212,13 @@ class FacturaController extends Controller
      */
     public function destroy(Factura $factura)
     {
-        $eraEmAberto = in_array($factura->estado, ['pendente', 'parcial'], true);
-
+        // Não zera nada manualmente na dívida do cliente: o saldo em aberto
+        // é sempre calculado a partir das facturas pendentes/parciais
+        // actuais (Cliente::saldoEmAberto()), por isso uma factura anulada
+        // deixa automaticamente de contar assim que muda de estado.
         $factura->update(['estado' => 'anulada']);
 
-        // Sem isto, o saldo em aberto desta factura ficava "preso" para
-        // sempre no registo de dívida do cliente, mesmo depois de anulada.
-        if ($eraEmAberto) {
-            $this->zerarDivida($factura);
-        }
-
         return redirect()->route('facturas.index')->with('status', 'Factura anulada com sucesso.');
-    }
-
-    private function zerarDivida(Factura $factura): void
-    {
-        $divida = $factura->cliente?->divida;
-
-        if ($divida) {
-            $divida->update(['valor_divida' => 0, 'meses_atraso' => 0, 'em_corte' => false]);
-        }
     }
 
     /**
@@ -353,11 +343,15 @@ class FacturaController extends Controller
      */
     private function resumoMensal()
     {
-        return Factura::selectRaw(
-            'mes, ano, COUNT(*) as quantidade, SUM(total_pagar) as total,'
-            .' SUM(CASE WHEN estado = \'paga\' THEN total_pagar ELSE 0 END) as recebido,'
-            .' SUM(CASE WHEN estado IN (\'pendente\', \'parcial\') THEN total_pagar ELSE 0 END) as em_aberto',
-        )
+        // Anuladas de fora de todos os totais — o mesmo critério já usado em
+        // totaisGerais(), para que Total = Recebido + Em aberto feche sempre.
+        // O valor anulado só aparece na vista de facturas anuladas.
+        return Factura::where('estado', '!=', 'anulada')
+            ->selectRaw(
+                'mes, ano, COUNT(*) as quantidade, SUM(total_pagar) as total,'
+                .' SUM(CASE WHEN estado = \'paga\' THEN total_pagar ELSE 0 END) as recebido,'
+                .' SUM(CASE WHEN estado IN (\'pendente\', \'parcial\') THEN total_pagar ELSE 0 END) as em_aberto',
+            )
             ->groupBy('mes', 'ano')
             ->orderByDesc('ano')->orderByDesc('mes')
             ->get();

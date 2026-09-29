@@ -128,7 +128,7 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
     };
 
     const dados = useMemo(() => {
-        const comDivida = clientes.data.map((c) => ({ ...c, dividaValor: Number(c.divida?.valor_divida ?? 0) }));
+        const comDivida = clientes.data.map((c) => ({ ...c, dividaValor: Number(c.saldo_em_aberto ?? 0) }));
 
         if (!sort.key) return comDivida;
 
@@ -721,18 +721,23 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                             </div>
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Dívida actual
+                                    Saldo em aberto
                                 </p>
                                 <p
                                     className={cn(
                                         "font-semibold",
-                                        Number(detalhe.divida?.valor_divida ?? 0) > 0
-                                            ? "text-rose-600 dark:text-rose-400"
+                                        Number(detalhe.saldo_em_aberto ?? 0) > 0
+                                            ? "text-amber-600 dark:text-amber-400"
                                             : "text-slate-900 dark:text-white",
                                     )}
                                 >
-                                    {formatCurrency(detalhe.divida?.valor_divida ?? 0)}
+                                    {formatCurrency(detalhe.saldo_em_aberto ?? 0)}
                                 </p>
+                                {Number(detalhe.divida_em_atraso ?? 0) > 0 && (
+                                    <p className="mt-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+                                        {formatCurrency(detalhe.divida_em_atraso)} vencido
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">

@@ -92,18 +92,20 @@ export default function Imprimir({ cliente, resumo }) {
                     <table className="mt-2 w-full border-collapse text-sm">
                         <tbody>
                             <tr className="border-b border-slate-200">
-                                <td className="py-2 text-slate-600">Dívida actual</td>
+                                <td className="py-2 text-slate-600">Saldo em aberto</td>
                                 <td className="py-2 text-right font-semibold">
-                                    {formatCurrency(cliente.divida?.valor_divida ?? 0)}
+                                    {formatCurrency(cliente.saldo_em_aberto ?? 0)}
                                 </td>
                             </tr>
                             <tr className="border-b border-slate-200">
-                                <td className="py-2 text-slate-600">Meses em atraso</td>
-                                <td className="py-2 text-right">{cliente.divida?.meses_atraso ?? 0}</td>
+                                <td className="py-2 text-slate-600">Dívida vencida</td>
+                                <td className="py-2 text-right font-semibold">
+                                    {formatCurrency(cliente.divida_em_atraso ?? 0)}
+                                </td>
                             </tr>
                             <tr>
                                 <td className="py-2 text-slate-600">Em risco de corte</td>
-                                <td className="py-2 text-right">{cliente.divida?.em_corte ? "Sim" : "Não"}</td>
+                                <td className="py-2 text-right">{cliente.em_corte ? "Sim" : "Não"}</td>
                             </tr>
                         </tbody>
                     </table>

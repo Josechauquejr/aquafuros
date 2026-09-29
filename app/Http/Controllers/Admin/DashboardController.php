@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
-use App\Models\Divida;
 use App\Models\Factura;
 use App\Models\Leitura;
 use App\Models\Pagamento;
@@ -153,12 +152,8 @@ class DashboardController extends Controller
             'consumoMensal' => $this->consumoMensal(Carbon::now(), 6),
             'maioresConsumidores' => $this->maioresConsumidores($intervalo['inicio'], $intervalo['fim']),
             'desempenhoFuncionarios' => $this->desempenhoFuncionarios($intervalo['inicio'], $intervalo['fim']),
-            'maioresDevedores' => Divida::where('valor_divida', '>', 0)
-                ->with(['cliente' => fn ($q) => $q->withTrashed()])
-                ->orderByDesc('valor_divida')
-                ->limit(8)
-                ->get(),
-            'dividaTotal' => (float) Divida::sum('valor_divida'),
+            'maioresDevedores' => Cliente::maioresDevedores(8),
+            'dividaTotal' => Cliente::dividaTotalEmAtraso(),
             'filtros' => [
                 'periodo' => $periodo,
                 'data_inicio' => $request->query('data_inicio'),
@@ -282,12 +277,8 @@ class DashboardController extends Controller
             'mesActual' => $this->resumoPeriodo($hoje->month, $hoje->year),
             'evolucaoMensal' => $this->evolucaoMensal($hoje, 6),
             'distribuicaoPorMetodo' => $this->distribuicaoPorMetodo($hoje->month, $hoje->year),
-            'maioresDevedores' => Divida::where('valor_divida', '>', 0)
-                ->with(['cliente' => fn ($q) => $q->withTrashed()])
-                ->orderByDesc('valor_divida')
-                ->limit(5)
-                ->get(),
-            'dividaTotal' => (float) Divida::sum('valor_divida'),
+            'maioresDevedores' => Cliente::maioresDevedores(5),
+            'dividaTotal' => Cliente::dividaTotalEmAtraso(),
             'clientesNovosMes' => Cliente::whereMonth('data_adesao', $hoje->month)
                 ->whereYear('data_adesao', $hoje->year)
                 ->count(),

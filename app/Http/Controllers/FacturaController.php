@@ -29,6 +29,7 @@ class FacturaController extends Controller
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'leitura' => fn ($q) => $q->withTrashed(),
             'geradaPor' => fn ($q) => $q->withTrashed(),
+            'anuladaPor' => fn ($q) => $q->withTrashed(),
             'pagamentos',
         ]);
 
@@ -41,6 +42,12 @@ class FacturaController extends Controller
 
         if ($estado && $estado !== 'todos') {
             $query->where('estado', $estado);
+        } else {
+            // Anuladas ficam escondidas por defeito (e de "Todos os
+            // estados") — só aparecem escolhendo "Anulada" explicitamente
+            // no filtro. Nunca são apagadas, só deixam de poluir a lista
+            // normal.
+            $query->where('estado', '!=', 'anulada');
         }
 
         if ($periodo && $periodo !== 'todos' && str_contains($periodo, '/')) {
@@ -209,14 +216,25 @@ class FacturaController extends Controller
 
     /**
      * Anular uma factura — nunca é apagada, apenas marcada como anulada.
+     * O motivo é obrigatório para ficar sempre registado porquê, por quem
+     * e quando.
      */
-    public function destroy(Factura $factura)
+    public function destroy(Request $request, Factura $factura)
     {
+        $data = $request->validate([
+            'motivo_anulacao' => 'required|string|min:5|max:1000',
+        ]);
+
         // Não zera nada manualmente na dívida do cliente: o saldo em aberto
         // é sempre calculado a partir das facturas pendentes/parciais
         // actuais (Cliente::saldoEmAberto()), por isso uma factura anulada
         // deixa automaticamente de contar assim que muda de estado.
-        $factura->update(['estado' => 'anulada']);
+        $factura->update([
+            'estado' => 'anulada',
+            'motivo_anulacao' => $data['motivo_anulacao'],
+            'anulada_por' => $request->user()->id,
+            'anulada_em' => now(),
+        ]);
 
         // A leitura vai para a lixeira junto com a factura — se ficasse
         // activa, voltaria a aparecer como "confirmada sem factura" e podia

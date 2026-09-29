@@ -9,7 +9,7 @@ const tones = {
     slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
 };
 
-export default function StatusBadge({ tone = "slate", className = "", children }) {
+export default function StatusBadge({ tone = "slate", className = "", children, ...props }) {
     return (
         <span
             className={cn(
@@ -17,6 +17,7 @@ export default function StatusBadge({ tone = "slate", className = "", children }
                 tones[tone] ?? tones.slate,
                 className,
             )}
+            {...props}
         >
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
             {children}

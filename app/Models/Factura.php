@@ -16,7 +16,7 @@ class Factura extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['divida_anterior', 'multa', 'total_pagar', 'estado'])
+            ->logOnly(['divida_anterior', 'multa', 'total_pagar', 'estado', 'motivo_anulacao'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('factura')
@@ -39,10 +39,14 @@ class Factura extends Model
         'total_pagar',
         'estado',
         'gerada_por',
+        'motivo_anulacao',
+        'anulada_por',
+        'anulada_em',
     ];
 
     protected $casts = [
         'data_vencimento' => 'date',
+        'anulada_em' => 'datetime',
     ];
 
     protected $appends = ['esta_vencida'];
@@ -75,6 +79,11 @@ class Factura extends Model
     public function geradaPor()
     {
         return $this->belongsTo(User::class, 'gerada_por');
+    }
+
+    public function anuladaPor()
+    {
+        return $this->belongsTo(User::class, 'anulada_por');
     }
 
     // Uma factura pode ter muitos pagamentos

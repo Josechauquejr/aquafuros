@@ -24,8 +24,10 @@ import ActionsMenu, { ActionsMenuItem, ActionsMenuSeparator } from "@/Components
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
+import DangerButton from "@/Components/DangerButton";
 import { IconLink } from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
+import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import KpiCard from "@/Components/KpiCard";
 import ListaPesquisavel from "@/Components/ListaPesquisavel";
@@ -34,9 +36,10 @@ import Pagination from "@/Components/Pagination";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
+import Textarea from "@/Components/Textarea";
 import TextInput from "@/Components/TextInput";
 import FacturaA4 from "@/Components/print/FacturaA4";
-import { cn, formatCurrency, formatDateTime, formatNumero } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatDateTime, formatNumero } from "@/lib/utils";
 import { baixarElementoComoPdf } from "@/lib/pdf";
 import { itemVariants, listVariants } from "@/lib/motion";
 
@@ -89,6 +92,7 @@ export default function Index({
 
     const form = useForm({ divida_anterior: "", multa: "", estado: "pendente" });
     const loteForm = useForm({ mes: "", ano: "" });
+    const anularForm = useForm({ motivo_anulacao: "" });
 
     const dados = facturas.data;
 
@@ -198,9 +202,19 @@ export default function Index({
         form.put(`/facturas/${editando.id}`, { onSuccess: () => setShowModal(false) });
     };
 
-    const confirmarAnulacao = () => {
+    const abrirAnulacao = (factura) => {
+        anularForm.reset();
+        anularForm.clearErrors();
+        setParaAnular(factura);
+    };
+
+    const confirmarAnulacao = (event) => {
+        event.preventDefault();
         if (!paraAnular) return;
-        router.delete(`/facturas/${paraAnular.id}`, { onFinish: () => setParaAnular(null), preserveScroll: true });
+        anularForm.delete(`/facturas/${paraAnular.id}`, {
+            preserveScroll: true,
+            onSuccess: () => setParaAnular(null),
+        });
     };
 
     const abrirComparacao = (factura) => {
@@ -530,9 +544,20 @@ export default function Index({
                                                     </div>
                                                 </label>
                                                 <div className="flex flex-col items-end gap-1">
-                                                    <StatusBadge tone={estado.tone}>{estado.label}</StatusBadge>
+                                                    <StatusBadge
+                                                        tone={estado.tone}
+                                                        title={factura.estado === "anulada" ? factura.motivo_anulacao : undefined}
+                                                    >
+                                                        {estado.label}
+                                                    </StatusBadge>
                                                     {factura.tipo === "ligacao" && (
                                                         <StatusBadge tone={tipo.tone}>{tipo.label}</StatusBadge>
+                                                    )}
+                                                    {factura.estado === "anulada" && (
+                                                        <p className="max-w-[10rem] text-right text-[11px] text-slate-500 dark:text-slate-400">
+                                                            {factura.anulada_por?.name ?? "—"} &middot;{" "}
+                                                            {formatDate(factura.anulada_em)}
+                                                        </p>
                                                     )}
                                                 </div>
                                             </div>
@@ -581,7 +606,7 @@ export default function Index({
                                                         <ActionsMenuSeparator />
                                                         <ActionsMenuItem
                                                             tone="danger"
-                                                            onClick={() => setParaAnular(factura)}
+                                                            onClick={() => abrirAnulacao(factura)}
                                                             disabled={factura.estado === "anulada"}
                                                         >
                                                             <Ban className="h-4 w-4" aria-hidden="true" />
@@ -673,7 +698,18 @@ export default function Index({
                                                             {formatCurrency(factura.total_pagar)}
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <StatusBadge tone={estado.tone}>{estado.label}</StatusBadge>
+                                                            <StatusBadge
+                                                                tone={estado.tone}
+                                                                title={factura.estado === "anulada" ? factura.motivo_anulacao : undefined}
+                                                            >
+                                                                {estado.label}
+                                                            </StatusBadge>
+                                                            {factura.estado === "anulada" && (
+                                                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                                                    {factura.anulada_por?.name ?? "—"} &middot;{" "}
+                                                                    {formatDate(factura.anulada_em)}
+                                                                </p>
+                                                            )}
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center justify-end gap-1">
@@ -711,7 +747,7 @@ export default function Index({
                                                                     <ActionsMenuSeparator />
                                                                     <ActionsMenuItem
                                                                         tone="danger"
-                                                                        onClick={() => setParaAnular(factura)}
+                                                                        onClick={() => abrirAnulacao(factura)}
                                                                         disabled={factura.estado === "anulada"}
                                                                     >
                                                                         <Ban className="h-4 w-4" aria-hidden="true" />
@@ -909,18 +945,38 @@ export default function Index({
                 </form>
             </Modal>
 
-            <ConfirmDialog
-                show={Boolean(paraAnular)}
-                onClose={() => setParaAnular(null)}
-                onConfirm={confirmarAnulacao}
-                title="Anular factura"
-                confirmLabel="Anular"
-                description={
-                    paraAnular
-                        ? `Tem a certeza que deseja anular a factura ${paraAnular.numero_factura} (${paraAnular.cliente?.nome ?? "cliente removido"})? A factura fica marcada como anulada, não é apagada. A leitura associada também será anulada, para não voltar a ser facturada.`
-                        : ""
-                }
-            />
+            <Modal show={Boolean(paraAnular)} onClose={() => setParaAnular(null)} title="Anular factura" maxWidth="md">
+                {paraAnular && (
+                    <form onSubmit={confirmarAnulacao} className="space-y-4">
+                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                            Anular a factura <strong>{paraAnular.numero_factura}</strong> (
+                            {paraAnular.cliente?.nome ?? "cliente removido"})? Fica marcada como anulada, não é
+                            apagada, e a leitura associada também será anulada para não voltar a ser facturada.
+                        </p>
+                        <div>
+                            <InputLabel htmlFor="motivo_anulacao" value="Motivo da anulação" />
+                            <Textarea
+                                id="motivo_anulacao"
+                                required
+                                rows={3}
+                                value={anularForm.data.motivo_anulacao}
+                                onChange={(event) => anularForm.setData("motivo_anulacao", event.target.value)}
+                                className="mt-1 block w-full"
+                                placeholder="Ex.: factura duplicada, leitura registada por engano..."
+                            />
+                            <InputError message={anularForm.errors.motivo_anulacao} className="mt-1" />
+                        </div>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <SecondaryButton type="button" onClick={() => setParaAnular(null)}>
+                                Cancelar
+                            </SecondaryButton>
+                            <DangerButton type="submit" disabled={anularForm.processing}>
+                                Anular factura
+                            </DangerButton>
+                        </div>
+                    </form>
+                )}
+            </Modal>
 
             <Modal
                 show={Boolean(comparacao)}

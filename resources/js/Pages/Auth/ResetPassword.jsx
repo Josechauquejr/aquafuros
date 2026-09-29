@@ -22,9 +22,9 @@ export default function ResetPassword({ token, email }) {
 
     return (
         <GuestLayout>
-            <Head title="Reset Password" />
+            <Head title="Repor senha" />
 
-            <form onSubmit={submit}>
+            <form onSubmit={submit} className="space-y-4">
                 <div>
                     <InputLabel htmlFor="email" value="Email" />
                     <TextInput
@@ -41,8 +41,8 @@ export default function ResetPassword({ token, email }) {
                     <InputError message={errors.email} className="mt-2" />
                 </div>
 
-                <div className="mt-4">
-                    <InputLabel htmlFor="password" value="Password" />
+                <div>
+                    <InputLabel htmlFor="password" value="Senha" />
                     <TextInput
                         id="password"
                         type="password"
@@ -56,8 +56,8 @@ export default function ResetPassword({ token, email }) {
                     <InputError message={errors.password} className="mt-2" />
                 </div>
 
-                <div className="mt-4">
-                    <InputLabel htmlFor="password_confirmation" value="Confirm Password" />
+                <div>
+                    <InputLabel htmlFor="password_confirmation" value="Confirmar senha" />
                     <TextInput
                         id="password_confirmation"
                         type="password"
@@ -73,8 +73,8 @@ export default function ResetPassword({ token, email }) {
                     <InputError message={errors.password_confirmation} className="mt-2" />
                 </div>
 
-                <div className="mt-4 flex items-center justify-end">
-                    <PrimaryButton disabled={processing}>Reset Password</PrimaryButton>
+                <div className="flex items-center justify-end pt-1">
+                    <PrimaryButton disabled={processing}>Repor senha</PrimaryButton>
                 </div>
             </form>
         </GuestLayout>

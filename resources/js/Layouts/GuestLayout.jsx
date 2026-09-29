@@ -20,7 +20,7 @@ export default function GuestLayout({ children }) {
                         </span>
                     </Link>
                     <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                        Acesso seguro ao painel de gestao.
+                        Acesso seguro ao painel de gestão.
                     </p>
                 </div>
 

@@ -25,7 +25,7 @@ export default function Login() {
 
     return (
         <GuestLayout>
-            <Head title="Log in" />
+            <Head title="Entrar" />
 
             {flash.status && (
                 <div className="mb-4 text-sm font-medium text-green-600 dark:text-green-400">
@@ -35,7 +35,7 @@ export default function Login() {
 
             <form onSubmit={submit} className="space-y-5">
                 <div>
-                    <InputLabel htmlFor="username" value="Username" />
+                    <InputLabel htmlFor="username" value="Nome de utilizador" />
                     <div className="relative mt-1">
                         <UserRound
                             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -56,7 +56,7 @@ export default function Login() {
                 </div>
 
                 <div>
-                    <InputLabel htmlFor="password" value="Password" />
+                    <InputLabel htmlFor="password" value="Senha" />
                     <div className="relative mt-1">
                         <Lock
                             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -99,7 +99,7 @@ export default function Login() {
                             className="rounded border-slate-300 text-cyan-700 shadow-sm focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900"
                         />
                         <span className="ms-2 text-sm text-slate-600 dark:text-slate-300">
-                            Remember me
+                            Lembrar-me
                         </span>
                     </label>
 
@@ -107,7 +107,7 @@ export default function Login() {
                         href="/forgot-password"
                         className="rounded-md text-sm font-medium text-cyan-700 hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:text-cyan-300 dark:hover:text-cyan-200"
                     >
-                        Forgot your password?
+                        Esqueceu a senha?
                     </Link>
                 </div>
 
@@ -117,7 +117,7 @@ export default function Login() {
                         disabled={processing}
                     >
                         <LogIn className="h-4 w-4" aria-hidden="true" />
-                        Log in
+                        Entrar
                     </PrimaryButton>
                 </div>
             </form>

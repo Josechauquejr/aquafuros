@@ -23,11 +23,11 @@ export default function Register() {
 
     return (
         <GuestLayout>
-            <Head title="Register" />
+            <Head title="Registar" />
 
-            <form onSubmit={submit}>
+            <form onSubmit={submit} className="space-y-4">
                 <div>
-                    <InputLabel htmlFor="name" value="Name" />
+                    <InputLabel htmlFor="name" value="Nome" />
                     <TextInput
                         id="name"
                         name="name"
@@ -41,8 +41,8 @@ export default function Register() {
                     <InputError message={errors.name} className="mt-2" />
                 </div>
 
-                <div className="mt-4">
-                    <InputLabel htmlFor="username" value="Username" />
+                <div>
+                    <InputLabel htmlFor="username" value="Nome de utilizador" />
                     <TextInput
                         id="username"
                         name="username"
@@ -55,7 +55,7 @@ export default function Register() {
                     <InputError message={errors.username} className="mt-2" />
                 </div>
 
-                <div className="mt-4">
+                <div>
                     <InputLabel htmlFor="email" value="Email" />
                     <TextInput
                         id="email"
@@ -70,8 +70,8 @@ export default function Register() {
                     <InputError message={errors.email} className="mt-2" />
                 </div>
 
-                <div className="mt-4">
-                    <InputLabel htmlFor="password" value="Password" />
+                <div>
+                    <InputLabel htmlFor="password" value="Senha" />
                     <TextInput
                         id="password"
                         type="password"
@@ -85,8 +85,8 @@ export default function Register() {
                     <InputError message={errors.password} className="mt-2" />
                 </div>
 
-                <div className="mt-4">
-                    <InputLabel htmlFor="password_confirmation" value="Confirm Password" />
+                <div>
+                    <InputLabel htmlFor="password_confirmation" value="Confirmar senha" />
                     <TextInput
                         id="password_confirmation"
                         type="password"
@@ -102,16 +102,16 @@ export default function Register() {
                     <InputError message={errors.password_confirmation} className="mt-2" />
                 </div>
 
-                <div className="mt-4 flex items-center justify-end">
+                <div className="flex items-center justify-end pt-1">
                     <Link
                         href="/login"
-                        className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
+                        className="rounded-md text-sm font-medium text-cyan-700 hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:text-cyan-300 dark:hover:text-cyan-200"
                     >
-                        Already registered?
+                        Já tem conta?
                     </Link>
 
                     <PrimaryButton className="ms-4" disabled={processing}>
-                        Register
+                        Registar
                     </PrimaryButton>
                 </div>
             </form>

@@ -204,7 +204,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                     <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
                     <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
 
-                    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                         {metrics.map((metric, index) => (
                             <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
                         ))}

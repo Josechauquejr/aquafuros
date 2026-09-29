@@ -324,10 +324,16 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                             </div>
 
                                             <div className="mt-3 space-y-1 text-sm">
-                                                <p className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                                                    <Phone className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                                                    {cliente.telefone || "—"}
-                                                </p>
+                                                {cliente.telefone && (
+                                                    <a
+                                                        href={`tel:${cliente.telefone.replace(/\s+/g, "")}`}
+                                                        onClick={(event) => event.stopPropagation()}
+                                                        className="flex items-center gap-1.5 text-slate-700 hover:text-cyan-700 dark:text-slate-300 dark:hover:text-cyan-300"
+                                                    >
+                                                        <Phone className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                                                        {cliente.telefone}
+                                                    </a>
+                                                )}
                                                 <p className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
                                                     <MapPin className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
                                                     {cliente.bairro || "—"} &middot; {cliente.tarifa?.nome ?? "—"}
@@ -405,7 +411,8 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                                         </th>
                                                     );
                                                 })}
-                                                <th className="px-6 py-3">Contacto</th>
+                                                <th className="px-6 py-3">Telefone</th>
+                                                <th className="px-6 py-3">Bairro</th>
                                                 <th className="px-6 py-3">Tarifa</th>
                                                 <th className="px-6 py-3 text-right">Acções</th>
                                             </tr>
@@ -447,15 +454,22 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                                         <td className="px-6 py-4">
                                                             <StatusBadge tone={estado.tone}>{estado.label}</StatusBadge>
                                                         </td>
-                                                        <td className="px-6 py-4">
-                                                            <p className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                                                                <Phone className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                                                                {cliente.telefone || "—"}
-                                                            </p>
-                                                            <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                                                <MapPin className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                                                                {cliente.bairro || "—"}
-                                                            </p>
+                                                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
+                                                            {cliente.telefone ? (
+                                                                <a
+                                                                    href={`tel:${cliente.telefone.replace(/\s+/g, "")}`}
+                                                                    onClick={(event) => event.stopPropagation()}
+                                                                    className="flex items-center gap-1.5 hover:text-cyan-700 dark:hover:text-cyan-300"
+                                                                >
+                                                                    <Phone className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                                                                    {cliente.telefone}
+                                                                </a>
+                                                            ) : (
+                                                                <span className="text-slate-400 dark:text-slate-600">—</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
+                                                            {cliente.bairro || "—"}
                                                         </td>
                                                         <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
                                                             {cliente.tarifa?.nome ?? "—"}
@@ -715,7 +729,17 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                     Contacto
                                 </p>
                                 <p className="font-medium text-slate-900 dark:text-white">
-                                    {detalhe.telefone || "—"} &middot; {detalhe.bairro || "—"}
+                                    {detalhe.telefone ? (
+                                        <a
+                                            href={`tel:${detalhe.telefone.replace(/\s+/g, "")}`}
+                                            className="hover:text-cyan-700 dark:hover:text-cyan-300"
+                                        >
+                                            {detalhe.telefone}
+                                        </a>
+                                    ) : (
+                                        "—"
+                                    )}{" "}
+                                    &middot; {detalhe.bairro || "—"}
                                 </p>
                             </div>
                             <div>

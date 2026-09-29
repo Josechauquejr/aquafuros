@@ -92,7 +92,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
         { label: "Pagamentos registados", value: metricas.totalRegistados, icon: Receipt, tone: "emerald" },
         {
             label: "Método mais usado",
-            value: metricas.metodoMaisUsado ? metodoConfig[metricas.metodoMaisUsado].label : "—",
+            value: metricas.metodoMaisUsado ? metodoConfig[metricas.metodoMaisUsado].label : "Sem dados",
             icon: Smartphone,
             tone: "amber",
         },

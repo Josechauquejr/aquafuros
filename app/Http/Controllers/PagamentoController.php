@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Factura;
+use App\Models\FechoCaixa;
 use App\Models\Pagamento;
 use App\Models\User;
 use App\Support\NumeracaoDocumentos;
@@ -109,6 +110,10 @@ class PagamentoController extends Controller
      */
     public function store(Request $request)
     {
+        if ($this->caixaFechadaHoje($request->user()->id)) {
+            return back()->with('error', 'Já fechou a caixa hoje — não é possível registar mais pagamentos.');
+        }
+
         $data = $request->validate([
             'factura_id' => 'required|exists:facturas,id',
             'valor_pago' => 'required|numeric|min:0.01',
@@ -253,16 +258,67 @@ class PagamentoController extends Controller
         $totalPorMetodo = $pagamentos->groupBy('metodo_pagamento')
             ->map(fn ($grupo) => (float) $grupo->sum('valor_pago'));
 
+        $fecho = FechoCaixa::where('utilizador_id', $utilizador->id)
+            ->where('data', $data_referencia)
+            ->with('fechadoPor')
+            ->first();
+
+        $ultimoFecho = FechoCaixa::where('utilizador_id', $utilizador->id)
+            ->orderByDesc('data')
+            ->first();
+
         return Inertia::render('Pagamentos/FechoCaixa', [
             'pagamentos' => $pagamentos,
             'utilizador' => $utilizador,
             'data' => $data_referencia,
             'totalGeral' => (float) $pagamentos->sum('valor_pago'),
             'totalPorMetodo' => $totalPorMetodo,
+            'fecho' => $fecho,
+            'ultimoFecho' => $ultimoFecho,
+            'podeConfirmar' => $data_referencia === now()->toDateString(),
             'caixas' => $request->user()->hasRole('administrador')
                 ? User::whereHas('roles', fn ($q) => $q->where('name', 'caixa'))->get(['id', 'name'])
                 : [],
         ]);
+    }
+
+    /**
+     * Confirmar o fecho de caixa do dia — depois disto, o próprio
+     * utilizador não pode registar mais pagamentos nesse dia. Só o próprio
+     * dia de hoje pode ser fechado (não faz sentido "fechar" um dia
+     * passado que nunca foi fechado, nem um dia futuro).
+     */
+    public function confirmarFecho(Request $request)
+    {
+        $utilizador = $request->user();
+        $hoje = now()->toDateString();
+
+        if (FechoCaixa::where('utilizador_id', $utilizador->id)->where('data', $hoje)->exists()) {
+            return back()->with('error', 'A caixa de hoje já está fechada.');
+        }
+
+        $pagamentos = Pagamento::where('recebido_por', $utilizador->id)
+            ->whereDate('created_at', $hoje)
+            ->get();
+
+        FechoCaixa::create([
+            'utilizador_id' => $utilizador->id,
+            'data' => $hoje,
+            'total_geral' => (float) $pagamentos->sum('valor_pago'),
+            'total_por_metodo' => $pagamentos->groupBy('metodo_pagamento')
+                ->map(fn ($grupo) => (float) $grupo->sum('valor_pago')),
+            'numero_pagamentos' => $pagamentos->count(),
+            'fechado_por' => $utilizador->id,
+        ]);
+
+        return redirect()->route('pagamentos.fecho-caixa')->with('status', 'Caixa fechada com sucesso.');
+    }
+
+    private function caixaFechadaHoje(int $utilizadorId): bool
+    {
+        return FechoCaixa::where('utilizador_id', $utilizadorId)
+            ->where('data', now()->toDateString())
+            ->exists();
     }
 
     /**

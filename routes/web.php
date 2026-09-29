@@ -92,6 +92,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['role:administrador|gestor|caixa'])->group(function () {
         Route::get('pagamentos/imprimir-lote', [PagamentoController::class, 'imprimirLote'])->name('pagamentos.imprimir-lote');
         Route::get('pagamentos/fecho-caixa', [PagamentoController::class, 'fechoCaixa'])->name('pagamentos.fecho-caixa');
+        Route::post('pagamentos/fecho-caixa/confirmar', [PagamentoController::class, 'confirmarFecho'])->name('pagamentos.fecho-caixa.confirmar');
         Route::resource('pagamentos', PagamentoController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::get('pagamentos/{pagamento}/imprimir', [PagamentoController::class, 'imprimir'])->name('pagamentos.imprimir');
     });

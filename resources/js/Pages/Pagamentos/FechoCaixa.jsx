@@ -1,8 +1,11 @@
 import { Head, Link, router, usePage } from "@inertiajs/react";
-import { ArrowLeft, Droplets, Printer } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Droplets, Lock, Printer } from "lucide-react";
 import { useState } from "react";
 import AnimatedButton from "@/Components/AnimatedButton";
+import ConfirmDialog from "@/Components/ConfirmDialog";
+import InlineNotice from "@/Components/InlineNotice";
 import SecondaryButton from "@/Components/SecondaryButton";
+import StatusBadge from "@/Components/StatusBadge";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 const metodoLabels = {
@@ -12,13 +15,34 @@ const metodoLabels = {
     "e-mola": "e-Mola",
 };
 
-export default function FechoCaixa({ pagamentos, utilizador, data, totalGeral, totalPorMetodo, caixas }) {
-    const { empresa } = usePage().props;
+export default function FechoCaixa({
+    pagamentos,
+    utilizador,
+    data,
+    totalGeral,
+    totalPorMetodo,
+    caixas,
+    fecho,
+    ultimoFecho,
+    podeConfirmar,
+}) {
+    const { empresa, flash } = usePage().props;
     const [dataFiltro, setDataFiltro] = useState(data);
     const [caixaFiltro, setCaixaFiltro] = useState(utilizador.id);
+    const [confirmarAberto, setConfirmarAberto] = useState(false);
+    const [aConfirmar, setAConfirmar] = useState(false);
 
     const aplicarFiltro = () => {
         router.get("/pagamentos/fecho-caixa", { data: dataFiltro, utilizador_id: caixaFiltro });
+    };
+
+    const confirmarFecho = () => {
+        setAConfirmar(true);
+        router.post(
+            "/pagamentos/fecho-caixa/confirmar",
+            {},
+            { onFinish: () => { setAConfirmar(false); setConfirmarAberto(false); } },
+        );
     };
 
     return (
@@ -61,7 +85,18 @@ export default function FechoCaixa({ pagamentos, utilizador, data, totalGeral, t
                         <Printer className="h-4 w-4" aria-hidden="true" />
                         Imprimir
                     </AnimatedButton>
+                    {podeConfirmar && !fecho && (
+                        <AnimatedButton variant="secondary" onClick={() => setConfirmarAberto(true)}>
+                            <Lock className="h-4 w-4" aria-hidden="true" />
+                            Confirmar fecho
+                        </AnimatedButton>
+                    )}
                 </div>
+            </div>
+
+            <div className="mx-auto mb-4 max-w-3xl px-4 print:hidden">
+                <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
+                <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
             </div>
 
             <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm print:border-0 print:shadow-none">
@@ -88,12 +123,34 @@ export default function FechoCaixa({ pagamentos, utilizador, data, totalGeral, t
                     <div className="text-right">
                         <p className="text-xl font-bold uppercase tracking-wide">Fecho de Caixa</p>
                         <p className="text-sm text-slate-600">{formatDate(data)}</p>
+                        <div className="mt-2 print:hidden">
+                            {fecho ? (
+                                <StatusBadge tone="slate">
+                                    Fechada às {formatDateTime(fecho.created_at).split(" às ")[1]}
+                                </StatusBadge>
+                            ) : (
+                                <StatusBadge tone="emerald">Aberta</StatusBadge>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                <div className="mt-6 text-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operador</p>
-                    <p className="mt-1 font-semibold">{utilizador.name}</p>
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operador</p>
+                        <p className="mt-1 font-semibold">{utilizador.name}</p>
+                    </div>
+                    {ultimoFecho && (
+                        <div className="text-right print:hidden">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Último fecho
+                            </p>
+                            <p className="mt-1 flex items-center gap-1.5 font-medium text-slate-600">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                                {formatDate(ultimoFecho.data)} &middot; {formatCurrency(ultimoFecho.total_geral)}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 <div className="mt-8">
@@ -161,6 +218,15 @@ export default function FechoCaixa({ pagamentos, utilizador, data, totalGeral, t
                     Desenvolvido pela RJM Consultórios e Serviços — José Zeferino Chaúque Júnior
                 </div>
             </div>
+
+            <ConfirmDialog
+                show={confirmarAberto}
+                onClose={() => setConfirmarAberto(false)}
+                onConfirm={confirmarFecho}
+                title="Confirmar fecho de caixa"
+                confirmLabel={aConfirmar ? "A fechar..." : "Confirmar fecho"}
+                description={`Fechar a caixa de hoje com ${pagamentos.length} recibo(s) e um total de ${formatCurrency(totalGeral)}? Depois de fechada, não poderá registar mais pagamentos hoje. Esta acção não pode ser desfeita.`}
+            />
         </div>
     );
 }

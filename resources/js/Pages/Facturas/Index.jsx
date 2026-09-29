@@ -441,24 +441,26 @@ export default function Index({
                                 <option value="paga">Paga</option>
                                 <option value="anulada">Anulada</option>
                             </select>
-                            <Link
+                            <AnimatedButton
+                                as={Link}
                                 href={urlImprimirPeriodo()}
                                 target="_blank"
-                                className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                                variant="secondary"
                                 title="Imprimir todas as facturas dos filtros actuais"
                             >
                                 <Printer className="h-4 w-4" aria-hidden="true" />
                                 Imprimir filtradas
-                            </Link>
+                            </AnimatedButton>
                             {selecionadas.length > 0 && (
-                                <Link
+                                <AnimatedButton
+                                    as={Link}
                                     href={`/facturas/imprimir-lote?ids=${selecionadas.join(",")}`}
                                     target="_blank"
-                                    className="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-cyan-800"
+                                    variant="primary"
                                 >
                                     <Printer className="h-4 w-4" aria-hidden="true" />
                                     Imprimir seleccionadas ({selecionadas.length})
-                                </Link>
+                                </AnimatedButton>
                             )}
                         </div>
                     </AnimatedPanel>

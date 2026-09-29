@@ -1,6 +1,7 @@
 import { Head, Link, router } from "@inertiajs/react";
 import { ArrowLeft, Banknote, Printer } from "lucide-react";
 import { useRef } from "react";
+import AnimatedButton from "@/Components/AnimatedButton";
 import BotaoDescarregarPdf from "@/Components/print/BotaoDescarregarPdf";
 import FacturaA4 from "@/Components/print/FacturaA4";
 import FacturaTermica58mm from "@/Components/print/FacturaTermica58mm";
@@ -37,23 +38,19 @@ export default function Imprimir({ factura, primeiraLeitura, consumoAnterior, qr
                         formato={formato}
                     />
                     {aceitaPagamento && (
-                        <button
-                            type="button"
+                        <AnimatedButton
+                            variant="primary"
                             onClick={irParaPagamento}
-                            className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+                            className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:text-white dark:hover:bg-emerald-500"
                         >
                             <Banknote className="h-4 w-4" aria-hidden="true" />
                             Efectuar pagamento
-                        </button>
+                        </AnimatedButton>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-cyan-800"
-                    >
+                    <AnimatedButton variant="primary" onClick={() => window.print()}>
                         <Printer className="h-4 w-4" aria-hidden="true" />
                         Imprimir
-                    </button>
+                    </AnimatedButton>
                 </div>
             </div>
 

@@ -1,6 +1,7 @@
 import { Head, Link, useForm, usePage } from "@inertiajs/react";
 import { ArrowLeft, Clock, LogOut, ShieldOff } from "lucide-react";
 import { motion } from "motion/react";
+import AnimatedButton from "@/Components/AnimatedButton";
 import ApplicationLogo from "@/Components/ApplicationLogo";
 
 export default function AcessoBloqueado({ motivo, janela }) {
@@ -78,22 +79,16 @@ export default function AcessoBloqueado({ motivo, janela }) {
 
                     <div className="mt-6 flex items-center justify-center gap-3">
                         {ehPermissao && (
-                            <Link
-                                href="/dashboard"
-                                className="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-800 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
-                            >
+                            <AnimatedButton as={Link} href="/dashboard" variant="primary">
                                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                                 Voltar à minha página
-                            </Link>
+                            </AnimatedButton>
                         )}
                         <form onSubmit={submitLogout}>
-                            <button
-                                type="submit"
-                                className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                            >
+                            <AnimatedButton type="submit" variant="secondary">
                                 <LogOut className="h-4 w-4" aria-hidden="true" />
                                 Terminar sessão
-                            </button>
+                            </AnimatedButton>
                         </form>
                     </div>
                 </div>

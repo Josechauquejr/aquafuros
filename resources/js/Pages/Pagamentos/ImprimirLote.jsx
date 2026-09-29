@@ -2,6 +2,7 @@ import { Head, Link, usePage } from "@inertiajs/react";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useRef } from "react";
+import AnimatedButton from "@/Components/AnimatedButton";
 import BotaoDescarregarPdfLote from "@/Components/print/BotaoDescarregarPdfLote";
 import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/FormatoImpressaoToggle";
 import ReciboTermico58mm from "@/Components/print/ReciboTermico58mm";
@@ -167,14 +168,10 @@ export default function ImprimirLote({ pagamentos, primeirasLeituras, qrUrls = {
                         nomeFicheiro={`recibos-lote-${Date.now()}.pdf`}
                         formato={formato}
                     />
-                    <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-cyan-800"
-                    >
+                    <AnimatedButton variant="primary" onClick={() => window.print()}>
                         <Printer className="h-4 w-4" aria-hidden="true" />
                         Imprimir tudo
-                    </button>
+                    </AnimatedButton>
                 </div>
             </div>
 

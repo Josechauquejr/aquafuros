@@ -1,6 +1,8 @@
 import { Head, Link, router, usePage } from "@inertiajs/react";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
 import { useState } from "react";
+import AnimatedButton from "@/Components/AnimatedButton";
+import SecondaryButton from "@/Components/SecondaryButton";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 const metodoLabels = {
@@ -52,21 +54,13 @@ export default function FechoCaixa({ pagamentos, utilizador, data, totalGeral, t
                             ))}
                         </select>
                     )}
-                    <button
-                        type="button"
-                        onClick={aplicarFiltro}
-                        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-                    >
+                    <SecondaryButton type="button" onClick={aplicarFiltro}>
                         Ver
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-cyan-800"
-                    >
+                    </SecondaryButton>
+                    <AnimatedButton variant="primary" onClick={() => window.print()}>
                         <Printer className="h-4 w-4" aria-hidden="true" />
                         Imprimir
-                    </button>
+                    </AnimatedButton>
                 </div>
             </div>
 

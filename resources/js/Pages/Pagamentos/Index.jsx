@@ -242,14 +242,15 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                                 <option value="e-mola">e-Mola</option>
                             </select>
                             {selecionados.length > 0 && (
-                                <Link
+                                <AnimatedButton
+                                    as={Link}
                                     href={`/pagamentos/imprimir-lote?ids=${selecionados.join(",")}`}
                                     target="_blank"
-                                    className="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-cyan-800"
+                                    variant="primary"
                                 >
                                     <Printer className="h-4 w-4" aria-hidden="true" />
                                     Imprimir seleccionados ({selecionados.length})
-                                </Link>
+                                </AnimatedButton>
                             )}
                         </div>
                     </AnimatedPanel>

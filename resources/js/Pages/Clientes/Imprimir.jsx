@@ -1,5 +1,6 @@
 import { Head, Link, usePage } from "@inertiajs/react";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
+import AnimatedButton from "@/Components/AnimatedButton";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 const estadoConfig = {
@@ -29,14 +30,10 @@ export default function Imprimir({ cliente, resumo }) {
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                     Voltar
                 </Link>
-                <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-cyan-800"
-                >
+                <AnimatedButton variant="primary" onClick={() => window.print()}>
                     <Printer className="h-4 w-4" aria-hidden="true" />
                     Imprimir
-                </button>
+                </AnimatedButton>
             </div>
 
             <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm print:border-0 print:shadow-none">

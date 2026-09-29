@@ -1,5 +1,6 @@
 import { Download, Loader2 } from "lucide-react";
 import { useState } from "react";
+import AnimatedButton from "@/Components/AnimatedButton";
 import { baixarElementosComoPdf } from "@/lib/pdf";
 
 /**
@@ -24,18 +25,13 @@ export default function BotaoDescarregarPdfLote({ elementosRef, nomeFicheiro, fo
     };
 
     return (
-        <button
-            type="button"
-            onClick={descarregar}
-            disabled={aGerar}
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
+        <AnimatedButton type="button" variant="secondary" onClick={descarregar} disabled={aGerar}>
             {aGerar ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
                 <Download className="h-4 w-4" aria-hidden="true" />
             )}
             {aGerar ? "A gerar PDF..." : "Descarregar tudo (PDF)"}
-        </button>
+        </AnimatedButton>
     );
 }

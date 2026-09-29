@@ -36,7 +36,7 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
 import FacturaA4 from "@/Components/print/FacturaA4";
-import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
+import { cn, formatCurrency, formatDateTime, formatNumero } from "@/lib/utils";
 import { baixarElementoComoPdf } from "@/lib/pdf";
 import { itemVariants, listVariants } from "@/lib/motion";
 
@@ -353,16 +353,21 @@ export default function Index({
                                 <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
                                     <tr>
                                         <th className="px-6 py-3">Período</th>
-                                        <th className="px-6 py-3 text-right">Nº facturas</th>
-                                        <th className="px-6 py-3 text-right">Total facturado</th>
-                                        <th className="px-6 py-3 text-right">Recebido</th>
-                                        <th className="px-6 py-3 text-right">Em aberto</th>
+                                        <th className="px-6 py-3 text-right">Facturas</th>
+                                        <th className="px-6 py-3 text-right">Total (MZN)</th>
+                                        <th className="px-6 py-3 text-right">Recebido (MZN)</th>
+                                        <th className="px-6 py-3 text-right">Em aberto (MZN)</th>
                                         <th className="px-6 py-3 text-right">Vs. mês anterior</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {resumoMensal.map((grupo) => (
-                                        <tr key={`${grupo.mes}/${grupo.ano}`}>
+                                        <tr
+                                            key={`${grupo.mes}/${grupo.ano}`}
+                                            onClick={() => mudarPeriodo(`${grupo.mes}/${grupo.ano}`)}
+                                            title={`Filtrar a lista por ${meses[grupo.mes - 1]}/${grupo.ano}`}
+                                            className="cursor-pointer transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                                        >
                                             <td className="px-6 py-3 font-semibold text-slate-900 dark:text-white">
                                                 {meses[grupo.mes - 1]}/{grupo.ano}
                                             </td>
@@ -370,13 +375,13 @@ export default function Index({
                                                 {grupo.quantidade}
                                             </td>
                                             <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                                                {formatCurrency(grupo.total)}
+                                                {formatNumero(grupo.total)}
                                             </td>
                                             <td className="px-6 py-3 text-right text-emerald-600 dark:text-emerald-400">
-                                                {formatCurrency(grupo.recebido)}
+                                                {formatNumero(grupo.recebido)}
                                             </td>
                                             <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400">
-                                                {formatCurrency(grupo.em_aberto)}
+                                                {formatNumero(grupo.em_aberto)}
                                             </td>
                                             <td className="px-6 py-3 text-right">
                                                 {grupo.variacao === null ? (

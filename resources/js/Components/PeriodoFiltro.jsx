@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 
 const opcoes = [
     { valor: "hoje", label: "Hoje" },
-    { valor: "semana", label: "Esta semana" },
-    { valor: "mes", label: "Este mês" },
+    { valor: "semana", label: "Semana" },
+    { valor: "mes", label: "Mês" },
     { valor: "todos", label: "Todos" },
 ];
 
@@ -29,7 +29,7 @@ export default function PeriodoFiltro({
 
     return (
         <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-950">
+            <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-md border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-950">
                 {todasOpcoes.map((opcao) => {
                     const Icone = opcao.icone;
                     const activo = periodo === opcao.valor;
@@ -40,7 +40,7 @@ export default function PeriodoFiltro({
                             type="button"
                             onClick={() => onChange(opcao.valor)}
                             className={cn(
-                                "relative rounded px-3 py-1.5 text-xs font-semibold transition",
+                                "relative shrink-0 rounded px-3 py-1.5 text-xs font-semibold transition",
                                 activo
                                     ? "text-white"
                                     : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white",

@@ -61,6 +61,7 @@ export default function Dashboard({
             detail: "aguardam validação do técnico",
             icon: Clock,
             tone: "amber",
+            href: "/leituras?estado=pendente",
         },
         {
             label: "Leituras confirmadas sem factura",
@@ -68,6 +69,7 @@ export default function Dashboard({
             detail: "prontas para facturar",
             icon: FileText,
             tone: "emerald",
+            href: "/facturas",
         },
     ];
 

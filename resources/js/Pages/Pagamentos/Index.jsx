@@ -80,6 +80,11 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
     const mudarIntervalo = (data_inicio, data_fim) => aplicarFiltros({ periodo: "personalizado", data_inicio, data_fim });
     const mudarMetodo = (metodo) => aplicarFiltros({ metodo });
     const mudarOrdenar = (ordenar) => aplicarFiltros({ ordenar });
+    const temFiltrosActivos = Boolean(search) || filtros.metodo !== "todos" || filtros.periodo !== "todos";
+    const limparFiltros = () => {
+        setSearch("");
+        router.get("/pagamentos", { periodo: "todos" }, { preserveScroll: true, replace: true });
+    };
 
     const metrics = [
         { label: "Total recebido", value: formatCurrency(metricas.totalRecebido), icon: Wallet, tone: "cyan" },
@@ -269,9 +274,28 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
 
                     {dados.length === 0 ? (
                         <AnimatedPanel delay={0.28}>
-                            <p className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-                                Nenhum pagamento encontrado para os filtros seleccionados.
-                            </p>
+                            <div className="flex flex-col items-center gap-4 px-6 py-10 text-center">
+                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    {temFiltrosActivos
+                                        ? "Nenhum pagamento encontrado para os filtros seleccionados."
+                                        : "Ainda não há pagamentos registados."}
+                                </p>
+                                <div className="flex flex-wrap justify-center gap-3">
+                                    {temFiltrosActivos && (
+                                        <SecondaryButton type="button" onClick={limparFiltros}>
+                                            Limpar filtros
+                                        </SecondaryButton>
+                                    )}
+                                    <AnimatedButton
+                                        variant="primary"
+                                        onClick={() => abrirNovo()}
+                                        disabled={facturasEmAberto.length === 0}
+                                    >
+                                        <Plus className="h-4 w-4" aria-hidden="true" />
+                                        Registar pagamento
+                                    </AnimatedButton>
+                                </div>
+                            </div>
                         </AnimatedPanel>
                     ) : (
                         <>

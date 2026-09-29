@@ -27,7 +27,7 @@ class FacturaController extends Controller
 
         $query = Factura::with([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
-            'leitura',
+            'leitura' => fn ($q) => $q->withTrashed(),
             'geradaPor',
             'pagamentos',
         ]);
@@ -218,7 +218,16 @@ class FacturaController extends Controller
         // deixa automaticamente de contar assim que muda de estado.
         $factura->update(['estado' => 'anulada']);
 
-        return redirect()->route('facturas.index')->with('status', 'Factura anulada com sucesso.');
+        // A leitura vai para a lixeira junto com a factura — se ficasse
+        // activa, voltaria a aparecer como "confirmada sem factura" e podia
+        // ser facturada uma segunda vez. Ao ficar apenas na lixeira (nunca
+        // apagada de vez), sai de todos os cálculos automaticamente —
+        // Leitura::anterior() e Leitura::ehPrimeira() já ignoram registos na
+        // lixeira, por isso a leitura seguinte deste cliente volta a usar a
+        // última leitura válida como "anterior", não a que foi anulada.
+        $factura->leitura?->delete();
+
+        return redirect()->route('facturas.index')->with('status', 'Factura anulada com sucesso. A leitura associada também foi anulada.');
     }
 
     /**
@@ -230,7 +239,7 @@ class FacturaController extends Controller
     {
         $factura->load([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
-            'leitura',
+            'leitura' => fn ($q) => $q->withTrashed(),
             'geradaPor',
             'pagamentos' => fn ($q) => $q->orderBy('created_at'),
         ]);
@@ -258,7 +267,7 @@ class FacturaController extends Controller
 
         $query = Factura::with([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
-            'leitura',
+            'leitura' => fn ($q) => $q->withTrashed(),
             'geradaPor',
         ]);
 

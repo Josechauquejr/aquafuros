@@ -893,7 +893,7 @@ export default function Index({
                 confirmLabel="Anular"
                 description={
                     paraAnular
-                        ? `Tem a certeza que deseja anular a factura ${paraAnular.numero_factura} (${paraAnular.cliente?.nome ?? "cliente removido"})? A factura fica marcada como anulada, não é apagada.`
+                        ? `Tem a certeza que deseja anular a factura ${paraAnular.numero_factura} (${paraAnular.cliente?.nome ?? "cliente removido"})? A factura fica marcada como anulada, não é apagada. A leitura associada também será anulada, para não voltar a ser facturada.`
                         : ""
                 }
             />

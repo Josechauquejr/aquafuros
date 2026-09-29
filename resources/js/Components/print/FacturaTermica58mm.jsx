@@ -26,6 +26,8 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
     const ehLigacao = factura.tipo === "ligacao";
     const leitura = factura.leitura;
     const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
+    const tarifa = factura.cliente?.tarifa;
+    const ehTarifaMinima = consumo !== null && tarifa && consumo <= Number(tarifa.consumo_minimo_m3);
 
     return (
         <div className="w-full text-[12px] font-semibold leading-tight text-black" style={{ breakInside: "avoid" }}>
@@ -79,6 +81,11 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
                 <span>Valor consumo</span>
                 <span>{formatCurrency(factura.valor_consumo)}</span>
             </div>
+            {ehTarifaMinima && (
+                <p className="text-[9px] font-normal">
+                    Tarifa mínima até {Number(tarifa.consumo_minimo_m3).toFixed(0)} m³
+                </p>
+            )}
             <div className="flex justify-between">
                 <span>Dívida anterior</span>
                 <span>{formatCurrency(factura.divida_anterior)}</span>

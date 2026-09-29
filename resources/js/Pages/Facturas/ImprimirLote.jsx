@@ -32,6 +32,8 @@ function FacturaCompacta({ factura, primeiraLeitura, consumoAnterior, facturaAnt
     const estado = estadoConfig[factura.estado];
     const leitura = factura.leitura;
     const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
+    const tarifa = factura.cliente?.tarifa;
+    const ehTarifaMinima = consumo !== null && tarifa && consumo <= Number(tarifa.consumo_minimo_m3);
     const empresaLinha2 =
         [empresa?.nuit && `NUIT: ${empresa.nuit}`, empresa?.localizacao].filter(Boolean).join(" · ") ||
         "Gestão de Furos de Água";
@@ -100,6 +102,7 @@ function FacturaCompacta({ factura, primeiraLeitura, consumoAnterior, facturaAnt
                         <p className="text-[8px] font-semibold uppercase tracking-wide text-cyan-800">Consumo actual</p>
                         <p className="text-xl font-bold text-cyan-900">
                             {consumo !== null ? `${consumo.toFixed(2)} m³` : "—"}
+                            {ehTarifaMinima && <span className="text-xs font-semibold"> (mín.)</span>}
                         </p>
                     </div>
                 </div>

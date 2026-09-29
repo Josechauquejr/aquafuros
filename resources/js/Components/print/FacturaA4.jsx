@@ -26,6 +26,8 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
     const ehLigacao = factura.tipo === "ligacao";
     const leitura = factura.leitura;
     const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
+    const tarifa = factura.cliente?.tarifa;
+    const ehTarifaMinima = consumo !== null && tarifa && consumo <= Number(tarifa.consumo_minimo_m3);
     const variacao =
         consumo !== null && consumoAnterior !== null && consumoAnterior !== undefined && consumoAnterior > 0
             ? ((consumo - consumoAnterior) / consumoAnterior) * 100
@@ -151,10 +153,18 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Valores</p>
                 <table className="mt-2 w-full border-collapse text-base">
                     <tbody>
-                        <tr className="border-b border-slate-200">
+                        <tr className={ehTarifaMinima ? "" : "border-b border-slate-200"}>
                             <td className="py-2 text-slate-600">Valor do consumo</td>
                             <td className="py-2 text-right">{formatCurrency(factura.valor_consumo)}</td>
                         </tr>
+                        {ehTarifaMinima && (
+                            <tr className="border-b border-slate-200">
+                                <td colSpan={2} className="pb-2 text-xs text-slate-500">
+                                    Tarifa mínima aplicada — consumo até {Number(tarifa.consumo_minimo_m3).toFixed(0)} m³
+                                    cobra sempre {formatCurrency(tarifa.taxa_minima)}.
+                                </td>
+                            </tr>
+                        )}
                         <tr className="border-b border-slate-200">
                             <td className="py-2 text-slate-600">Dívida anterior</td>
                             <td className="py-2 text-right">{formatCurrency(factura.divida_anterior)}</td>

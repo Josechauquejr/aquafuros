@@ -59,7 +59,11 @@ export default function Dashboard({ resumoMes, contadores, dividaTotal, maioresD
         {
             label: "Clientes activos",
             value: contadores.clientesActivos,
-            detail: contadores.clientesCortados > 0 ? `${contadores.clientesCortados} cortado(s)` : undefined,
+            detail: contadores.clientesCortados > 0
+                ? contadores.clientesCortadosSemDivida > 0
+                    ? `${contadores.clientesCortados} cortado(s) — ${contadores.clientesCortadosSemDivida} já sem dívida`
+                    : `${contadores.clientesCortados} cortado(s)`
+                : undefined,
             icon: Users,
             tone: "rose",
         },

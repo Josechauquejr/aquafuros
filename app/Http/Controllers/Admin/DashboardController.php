@@ -271,6 +271,7 @@ class DashboardController extends Controller
                 'clientesActivos' => Cliente::where('estado', 'ativo')->count(),
                 'clientesTotal' => Cliente::count(),
                 'clientesCortados' => Cliente::where('estado', 'cortado')->count(),
+                'clientesCortadosSemDivida' => Cliente::clientesCortadosSemDividaCount(),
                 'leiturasPendentes' => Leitura::where('confirmado', false)->count(),
                 'leiturasSemFactura' => Leitura::whereDoesntHave('factura')->where('confirmado', true)->count(),
             ],

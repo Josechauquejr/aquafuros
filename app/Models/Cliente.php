@@ -162,4 +162,19 @@ class Cliente extends Model
             ];
         })->values();
     }
+
+    /**
+     * Clientes com o estado manual "cortado" (fornecimento fisicamente
+     * interrompido) mas cuja dívida em atraso já é zero — sinal de que o
+     * corte pode já não fazer sentido (o cliente pagou, mas ninguém voltou
+     * a mudar o estado). Usado só para alertar no dashboard, nunca altera
+     * o estado automaticamente: reconectar é sempre uma acção manual.
+     */
+    public static function clientesCortadosSemDividaCount(): int
+    {
+        return static::where('estado', 'cortado')
+            ->get()
+            ->filter(fn (self $cliente) => $cliente->dividaEmAtraso()['valor'] <= 0)
+            ->count();
+    }
 }

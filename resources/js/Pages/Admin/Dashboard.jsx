@@ -1,9 +1,11 @@
 import { Head, Link } from "@inertiajs/react";
 import {
     BarChart3,
+    Banknote,
     Clock,
     Download,
     Droplets,
+    FileStack,
     FileText,
     Gauge,
     PieChart,
@@ -51,7 +53,9 @@ export default function Dashboard({
         {
             label: "Dívida total em atraso",
             value: formatCurrency(dividaTotal),
-            detail: `${contadores.clientesCortados} cliente(s) cortado(s)`,
+            detail: contadores.clientesCortadosSemDivida > 0
+                ? `${contadores.clientesCortados} cortado(s) — ${contadores.clientesCortadosSemDivida} já sem dívida`
+                : `${contadores.clientesCortados} cliente(s) cortado(s)`,
             icon: Wallet,
             tone: "rose",
         },
@@ -116,13 +120,13 @@ export default function Dashboard({
                         </h2>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="inline-flex w-fit items-center gap-2 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-800 dark:border-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-200">
-                            <Waves className="h-4 w-4" aria-hidden="true" />
+                        <span className="inline-flex w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-200">
+                            <Waves className="h-3.5 w-3.5" aria-hidden="true" />
                             Sistema operacional
-                        </div>
+                        </span>
                         <Link
                             href="/admin/kpis"
-                            className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                            className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                             title="Ver painel de KPIs dedicado, com filtros de período"
                         >
                             <Gauge className="h-4 w-4" aria-hidden="true" />
@@ -130,7 +134,7 @@ export default function Dashboard({
                         </Link>
                         <a
                             href="/admin/dashboard/exportar"
-                            className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                            className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                             title="Exportar KPIs e estatísticas em CSV"
                         >
                             <Download className="h-4 w-4" aria-hidden="true" />
@@ -144,16 +148,44 @@ export default function Dashboard({
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        {metrics.map((metric, index) => (
-                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
+                    <section className="flex flex-wrap gap-2">
+                        {[
+                            { label: "Emitir factura", href: "/facturas", icon: FileStack },
+                            { label: "Registar leitura", href: "/leituras", icon: Droplets },
+                            { label: "Registar pagamento", href: "/pagamentos", icon: Banknote },
+                            { label: "Novo cliente", href: "/clientes", icon: UserPlus },
+                        ].map((accao) => (
+                            <Link
+                                key={accao.label}
+                                href={accao.href}
+                                className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-cyan-300 hover:text-cyan-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-cyan-700 dark:hover:text-cyan-300"
+                            >
+                                <accao.icon className="h-4 w-4" aria-hidden="true" />
+                                {accao.label}
+                            </Link>
                         ))}
                     </section>
 
-                    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        {secondaryMetrics.map((metric, index) => (
-                            <KpiCard key={metric.label} {...metric} delay={0.24 + index * 0.05} />
-                        ))}
+                    <section>
+                        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Cobrança e pendências
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+                            {metrics.map((metric, index) => (
+                                <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
+                            ))}
+                        </div>
+                    </section>
+
+                    <section>
+                        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Indicadores do mês
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+                            {secondaryMetrics.map((metric, index) => (
+                                <KpiCard key={metric.label} {...metric} delay={0.24 + index * 0.05} />
+                            ))}
+                        </div>
                     </section>
 
                     <section className="grid gap-6 lg:grid-cols-2">

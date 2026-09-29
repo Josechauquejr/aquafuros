@@ -40,6 +40,7 @@ class GestorDashboardController extends Controller
             'contadores' => [
                 'clientesActivos' => Cliente::where('estado', 'ativo')->count(),
                 'clientesCortados' => Cliente::where('estado', 'cortado')->count(),
+                'clientesCortadosSemDivida' => Cliente::clientesCortadosSemDividaCount(),
                 'leiturasPendentes' => Leitura::where('confirmado', false)->count(),
                 'leiturasSemFactura' => Leitura::where('confirmado', true)->whereDoesntHave('factura')->count(),
             ],

@@ -18,9 +18,10 @@ const ALTURA_MAX = 140;
 
 function formatCompacto(valor) {
     const n = Number(valor) || 0;
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return n.toFixed(0);
+    const arredondar = (v) => v.toLocaleString("pt-PT", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+    if (n >= 1_000_000) return `${arredondar(n / 1_000_000)}M`;
+    if (n >= 1_000) return `${arredondar(n / 1_000)}K`;
+    return n.toLocaleString("pt-PT", { maximumFractionDigits: 0 });
 }
 
 export default function EvolucaoMensalChart({ dados }) {
@@ -48,9 +49,14 @@ export default function EvolucaoMensalChart({ dados }) {
                 </p>
             ) : (
                 <div
-                    className="mt-4 flex items-end justify-between gap-2 border-b border-slate-200 pb-2 dark:border-slate-800"
+                    className="relative mt-4 flex items-end justify-between gap-2 border-b border-slate-200 pb-2 dark:border-slate-800"
                     style={{ height: ALTURA_MAX + 8 }}
                 >
+                    <div className="pointer-events-none absolute inset-x-0 top-0 bottom-2 flex flex-col justify-between">
+                        <div className="border-t border-dashed border-slate-100 dark:border-slate-800/60" />
+                        <div className="border-t border-dashed border-slate-100 dark:border-slate-800/60" />
+                        <div className="border-t border-dashed border-slate-100 dark:border-slate-800/60" />
+                    </div>
                     {dados.map((d, index) => {
                         const alturaFacturado = Math.max(2, (d.facturado / maximo) * ALTURA_MAX);
                         const alturaRecebido = Math.max(2, (d.recebido / maximo) * ALTURA_MAX);

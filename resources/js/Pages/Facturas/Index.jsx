@@ -93,6 +93,7 @@ export default function Index({
     const [leituraSelecionada, setLeituraSelecionada] = useState(leiturasDisponiveis[0]?.id ?? "");
     const [selecionadas, setSelecionadas] = useState([]);
     const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+    const [resumoAberto, setResumoAberto] = useState(false);
     const [showLoteModal, setShowLoteModal] = useState(false);
     const [periodoLote, setPeriodoLote] = useState("");
     const [pdfAlvo, setPdfAlvo] = useState(null);
@@ -403,16 +404,39 @@ export default function Index({
                     )}
 
                     <AnimatedPanel delay={0.16} className="overflow-hidden">
-                        <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                            <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-950 dark:text-white">
-                                <BarChart3 className="h-5 w-5 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                Resumo e comparação mensal
-                            </h3>
-                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                Facturação agrupada por mês — evita confundir clientes com facturas em vários
-                                períodos.
-                            </p>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setResumoAberto((prev) => !prev)}
+                            className="flex w-full items-center justify-between gap-3 border-b border-slate-200 px-6 py-5 text-left transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40"
+                            aria-expanded={resumoAberto}
+                        >
+                            <div>
+                                <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-950 dark:text-white">
+                                    <BarChart3 className="h-5 w-5 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
+                                    Resumo e comparação mensal
+                                </h3>
+                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                    Facturação agrupada por mês — evita confundir clientes com facturas em vários
+                                    períodos.
+                                </p>
+                            </div>
+                            <ChevronDown
+                                className={cn(
+                                    "h-5 w-5 shrink-0 text-slate-400 transition-transform",
+                                    resumoAberto && "rotate-180",
+                                )}
+                                aria-hidden="true"
+                            />
+                        </button>
+                        <AnimatePresence initial={false}>
+                            {resumoAberto && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="overflow-hidden"
+                                >
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[720px] text-left text-sm">
                                 <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
@@ -474,6 +498,9 @@ export default function Index({
                                 </tbody>
                             </table>
                         </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </AnimatedPanel>
 
                     <AnimatedPanel delay={0.2} className="p-4">

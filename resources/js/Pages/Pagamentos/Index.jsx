@@ -79,6 +79,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
     const mudarPeriodo = (periodo) => aplicarFiltros({ periodo, data_inicio: undefined, data_fim: undefined });
     const mudarIntervalo = (data_inicio, data_fim) => aplicarFiltros({ periodo: "personalizado", data_inicio, data_fim });
     const mudarMetodo = (metodo) => aplicarFiltros({ metodo });
+    const mudarOrdenar = (ordenar) => aplicarFiltros({ ordenar });
 
     const metrics = [
         { label: "Total recebido", value: formatCurrency(metricas.totalRecebido), icon: Wallet, tone: "cyan" },
@@ -240,6 +241,17 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                                 <option value="banco">Transferência bancária</option>
                                 <option value="mpesa">M-Pesa</option>
                                 <option value="e-mola">e-Mola</option>
+                            </select>
+                            <select
+                                value={filtros.ordenar}
+                                onChange={(event) => mudarOrdenar(event.target.value)}
+                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            >
+                                <option value="recente">Mais recentes</option>
+                                <option value="cliente_asc">Cliente (A-Z)</option>
+                                <option value="cliente_desc">Cliente (Z-A)</option>
+                                <option value="numero_asc">Nº recibo (crescente)</option>
+                                <option value="numero_desc">Nº recibo (decrescente)</option>
                             </select>
                             {selecionados.length > 0 && (
                                 <AnimatedButton

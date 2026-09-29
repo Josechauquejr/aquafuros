@@ -104,6 +104,7 @@ export default function Index({
 
     const mudarEstado = (estado) => aplicarFiltros({ estado });
     const mudarPeriodo = (periodo) => aplicarFiltros({ periodo });
+    const mudarOrdenar = (ordenar) => aplicarFiltros({ ordenar });
 
     // Chegou aqui a partir de "Deseja emitir a factura agora?" (Leituras) —
     // pré-selecciona a leitura e abre logo o formulário de emissão.
@@ -440,6 +441,17 @@ export default function Index({
                                 <option value="parcial">Parcial</option>
                                 <option value="paga">Paga</option>
                                 <option value="anulada">Anulada</option>
+                            </select>
+                            <select
+                                value={filtros.ordenar}
+                                onChange={(event) => mudarOrdenar(event.target.value)}
+                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            >
+                                <option value="recente">Mais recentes</option>
+                                <option value="cliente_asc">Cliente (A-Z)</option>
+                                <option value="cliente_desc">Cliente (Z-A)</option>
+                                <option value="numero_asc">Nº factura (crescente)</option>
+                                <option value="numero_desc">Nº factura (decrescente)</option>
                             </select>
                             <AnimatedButton
                                 as={Link}

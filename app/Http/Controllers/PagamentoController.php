@@ -26,6 +26,7 @@ class PagamentoController extends Controller
         $dataFim = $request->query('data_fim');
         $search = $request->query('search');
         $metodo = $request->query('metodo');
+        $ordenar = $request->query('ordenar', 'recente');
 
         $intervalo = ResolvedorPeriodo::resolver($periodo, $dataInicio, $dataFim);
 
@@ -56,8 +57,10 @@ class PagamentoController extends Controller
             ->orderByDesc('quantidade')
             ->first();
 
+        $this->ordenarPagamentos($query, $ordenar);
+
         return Inertia::render('Pagamentos/Index', [
-            'pagamentos' => $query->orderByDesc('created_at')->paginate(15)->withQueryString(),
+            'pagamentos' => $query->paginate(15)->withQueryString(),
             'facturasEmAberto' => Factura::whereIn('estado', ['pendente', 'parcial'])
                 ->with(['cliente' => fn ($q) => $q->withTrashed()])
                 ->orderByDesc('ano')->orderByDesc('mes')->get(),
@@ -73,8 +76,27 @@ class PagamentoController extends Controller
                 'data_fim' => $dataFim,
                 'search' => $search ?? '',
                 'metodo' => $metodo ?? 'todos',
+                'ordenar' => $ordenar,
             ],
         ]);
+    }
+
+    /**
+     * Aplicar a ordenação escolhida — por omissão, mais recente primeiro;
+     * ou alfabética (cliente) / numérica (nº de recibo), para organizar os
+     * pagamentos dentro do período seleccionado.
+     */
+    private function ordenarPagamentos($query, string $ordenar): void
+    {
+        match ($ordenar) {
+            'cliente_asc' => $query->join('clientes', 'clientes.id', '=', 'pagamentos.cliente_id')
+                ->select('pagamentos.*')->orderBy('clientes.nome'),
+            'cliente_desc' => $query->join('clientes', 'clientes.id', '=', 'pagamentos.cliente_id')
+                ->select('pagamentos.*')->orderByDesc('clientes.nome'),
+            'numero_asc' => $query->orderBy('numero_recibo'),
+            'numero_desc' => $query->orderByDesc('numero_recibo'),
+            default => $query->orderByDesc('created_at'),
+        };
     }
 
     /**

@@ -23,6 +23,7 @@ class FacturaController extends Controller
         $search = $request->query('search');
         $estado = $request->query('estado');
         $periodo = $request->query('periodo'); // "mes/ano"
+        $ordenar = $request->query('ordenar', 'recente');
 
         $query = Factura::with([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
@@ -47,7 +48,9 @@ class FacturaController extends Controller
             $query->where('mes', (int) $mes)->where('ano', (int) $ano);
         }
 
-        $facturas = $query->orderByDesc('ano')->orderByDesc('mes')->paginate(15)->withQueryString();
+        $this->ordenarFacturas($query, $ordenar);
+
+        $facturas = $query->paginate(15)->withQueryString();
 
         return Inertia::render('Facturas/Index', [
             'facturas' => $facturas,
@@ -75,8 +78,27 @@ class FacturaController extends Controller
                 'search' => $search ?? '',
                 'estado' => $estado ?? 'todos',
                 'periodo' => $periodo ?? 'todos',
+                'ordenar' => $ordenar,
             ],
         ]);
+    }
+
+    /**
+     * Aplicar a ordenação escolhida na lista — por omissão, mais recente
+     * primeiro; ou alfabética (cliente) / numérica (nº de factura), para
+     * organizar as facturas dentro de um mês seleccionado.
+     */
+    private function ordenarFacturas($query, string $ordenar): void
+    {
+        match ($ordenar) {
+            'cliente_asc' => $query->join('clientes', 'clientes.id', '=', 'facturas.cliente_id')
+                ->select('facturas.*')->orderBy('clientes.nome'),
+            'cliente_desc' => $query->join('clientes', 'clientes.id', '=', 'facturas.cliente_id')
+                ->select('facturas.*')->orderByDesc('clientes.nome'),
+            'numero_asc' => $query->orderBy('numero_factura'),
+            'numero_desc' => $query->orderByDesc('numero_factura'),
+            default => $query->orderByDesc('ano')->orderByDesc('mes'),
+        };
     }
 
     /**

@@ -71,6 +71,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
     }, [search]);
 
     const mudarEstadoFiltro = (estado) => aplicarFiltros({ estado });
+    const mudarOrdenar = (ordenar) => aplicarFiltros({ ordenar });
 
     const metrics = [
         { label: "Total de leituras", value: totais.total, icon: Waves, tone: "cyan" },
@@ -200,6 +201,17 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                                 <option value="todos">Todos os estados</option>
                                 <option value="confirmada">Confirmada</option>
                                 <option value="pendente">Pendente</option>
+                            </select>
+                            <select
+                                value={filtros.ordenar}
+                                onChange={(event) => mudarOrdenar(event.target.value)}
+                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            >
+                                <option value="recente">Mais recentes</option>
+                                <option value="cliente_asc">Cliente (A-Z)</option>
+                                <option value="cliente_desc">Cliente (Z-A)</option>
+                                <option value="numero_asc">Leitura (crescente)</option>
+                                <option value="numero_desc">Leitura (decrescente)</option>
                             </select>
                             {totais.pendentes > 0 && (
                                 <AnimatedButton

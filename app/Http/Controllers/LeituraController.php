@@ -17,6 +17,7 @@ class LeituraController extends Controller
     {
         $search = $request->query('search');
         $estado = $request->query('estado');
+        $ordenar = $request->query('ordenar', 'recente');
 
         // withTrashed() no cliente: uma leitura antiga não deve perder o
         // nome do cliente só porque este foi entretanto removido.
@@ -32,8 +33,10 @@ class LeituraController extends Controller
             $query->where('confirmado', false);
         }
 
+        $this->ordenarLeituras($query, $ordenar);
+
         return Inertia::render('Leituras/Index', [
-            'leituras' => $query->orderByDesc('ano')->orderByDesc('mes')->paginate(15)->withQueryString(),
+            'leituras' => $query->paginate(15)->withQueryString(),
             'clientes' => Cliente::where('estado', 'ativo')->orderBy('nome')->get(['id', 'nome']),
             'totais' => [
                 'total' => Leitura::count(),
@@ -44,8 +47,27 @@ class LeituraController extends Controller
             'filtros' => [
                 'search' => $search ?? '',
                 'estado' => $estado ?? 'todos',
+                'ordenar' => $ordenar,
             ],
         ]);
+    }
+
+    /**
+     * Aplicar a ordenação escolhida — por omissão, mais recente primeiro;
+     * ou alfabética (cliente) / numérica (leitura do contador), para
+     * organizar as leituras dentro de um mês.
+     */
+    private function ordenarLeituras($query, string $ordenar): void
+    {
+        match ($ordenar) {
+            'cliente_asc' => $query->join('clientes', 'clientes.id', '=', 'leituras.cliente_id')
+                ->select('leituras.*')->orderBy('clientes.nome'),
+            'cliente_desc' => $query->join('clientes', 'clientes.id', '=', 'leituras.cliente_id')
+                ->select('leituras.*')->orderByDesc('clientes.nome'),
+            'numero_asc' => $query->orderBy('leitura_actual'),
+            'numero_desc' => $query->orderByDesc('leitura_actual'),
+            default => $query->orderByDesc('ano')->orderByDesc('mes'),
+        };
     }
 
     /**

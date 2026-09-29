@@ -5,6 +5,20 @@ export function cn(...inputs) {
     return twMerge(clsx(inputs));
 }
 
+/**
+ * Números decimais (consumo em m³, leituras) com vírgula em vez de ponto —
+ * o padrão pt-MZ usado no resto da app (formatCurrency, datas). Substitui
+ * chamadas directas a Number(...).toFixed(2), que ficam sempre com ponto
+ * independentemente da localidade.
+ */
+export function formatNumero(value, casas = 2) {
+    const numero = Number(value) || 0;
+    return numero.toLocaleString("pt-PT", {
+        minimumFractionDigits: casas,
+        maximumFractionDigits: casas,
+    });
+}
+
 export function formatCurrency(value) {
     const amount = Number(value) || 0;
     return `MZN ${amount.toLocaleString("pt-PT", {

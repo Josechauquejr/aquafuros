@@ -28,7 +28,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
-import { cn } from "@/lib/utils";
+import { cn, formatNumero } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
 const meses = [
@@ -266,11 +266,11 @@ export default function Index({ leituras, clientes, totais, filtros }) {
 
                                             <div className="mt-3 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
                                                 <span>
-                                                    {Number(leitura.leitura_anterior).toFixed(2)} →{" "}
-                                                    {Number(leitura.leitura_actual).toFixed(2)}
+                                                    {formatNumero(leitura.leitura_anterior)} →{" "}
+                                                    {formatNumero(leitura.leitura_actual)}
                                                 </span>
                                                 <span className="font-semibold text-cyan-700 dark:text-cyan-300">
-                                                    {consumo.toFixed(2)} m&sup3;
+                                                    {formatNumero(consumo)} m&sup3;
                                                 </span>
                                             </div>
 
@@ -350,13 +350,13 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                                                             {meses[leitura.mes - 1]}/{leitura.ano}
                                                         </td>
                                                         <td className="px-6 py-4 text-right text-slate-500 dark:text-slate-400">
-                                                            {Number(leitura.leitura_anterior).toFixed(2)}
+                                                            {formatNumero(leitura.leitura_anterior)}
                                                         </td>
                                                         <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                            {Number(leitura.leitura_actual).toFixed(2)}
+                                                            {formatNumero(leitura.leitura_actual)}
                                                         </td>
                                                         <td className="px-6 py-4 text-right font-semibold text-cyan-700 dark:text-cyan-300">
-                                                            {consumo.toFixed(2)} m&sup3;
+                                                            {formatNumero(consumo)} m&sup3;
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <StatusBadge tone={leitura.confirmado ? "emerald" : "amber"}>
@@ -485,7 +485,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                         <InputError message={form.errors.leitura_actual} className="mt-1" />
                         {editando && (
                             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                Leitura anterior: {Number(editando.leitura_anterior).toFixed(2)}
+                                Leitura anterior: {formatNumero(editando.leitura_anterior)}
                             </p>
                         )}
                     </div>

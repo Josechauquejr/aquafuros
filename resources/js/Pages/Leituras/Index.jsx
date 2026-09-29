@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePage } from "@inertiajs/react";
+import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
     CheckCheck,
     CheckCircle2,
@@ -46,7 +46,8 @@ const formVazio = {
 };
 
 export default function Index({ leituras, clientes, totais, filtros }) {
-    const { flash } = usePage().props;
+    const { flash, auth } = usePage().props;
+    const ehAdministrador = auth.roles?.includes("administrador");
     const [search, setSearch] = useState(filtros.search ?? "");
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
@@ -159,10 +160,18 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                             Registo de leituras do contador — base para gerar facturas.
                         </p>
                     </div>
-                    <AnimatedButton variant="primary" onClick={abrirNova} disabled={clientes.length === 0}>
-                        <Plus className="h-4 w-4" aria-hidden="true" />
-                        Nova leitura
-                    </AnimatedButton>
+                    <div className="flex items-center gap-2">
+                        {ehAdministrador && (
+                            <AnimatedButton as={Link} href="/leituras/lixeira" variant="secondary">
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                Lixeira
+                            </AnimatedButton>
+                        )}
+                        <AnimatedButton variant="primary" onClick={abrirNova} disabled={clientes.length === 0}>
+                            <Plus className="h-4 w-4" aria-hidden="true" />
+                            Nova leitura
+                        </AnimatedButton>
+                    </div>
                 </div>
             }
         >

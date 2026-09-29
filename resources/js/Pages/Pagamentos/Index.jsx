@@ -10,6 +10,7 @@ import {
     RotateCcw,
     Search,
     Smartphone,
+    Trash2,
     Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -186,14 +187,16 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                        <Link
-                            href="/pagamentos/fecho-caixa"
-                            target="_blank"
-                            className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                        >
+                        <AnimatedButton as={Link} href="/pagamentos/fecho-caixa" target="_blank" variant="secondary">
                             <Lock className="h-4 w-4" aria-hidden="true" />
                             Fecho de caixa
-                        </Link>
+                        </AnimatedButton>
+                        {ehAdministrador && (
+                            <AnimatedButton as={Link} href="/pagamentos/lixeira" variant="secondary">
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                Lixeira
+                            </AnimatedButton>
+                        )}
                         <AnimatedButton variant="primary" onClick={() => abrirNovo()} disabled={facturasEmAberto.length === 0}>
                             <Plus className="h-4 w-4" aria-hidden="true" />
                             Registar pagamento

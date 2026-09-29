@@ -58,7 +58,7 @@ class PainelController extends Controller
             ->limit($limite)
             ->get()
             ->map(function ($linha) {
-                $user = User::find($linha->user_id);
+                $user = User::withTrashed()->find($linha->user_id);
 
                 return ['utilizador' => $user?->name ?? 'Utilizador removido', 'total' => (int) $linha->total];
             })

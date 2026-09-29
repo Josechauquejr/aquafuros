@@ -41,7 +41,8 @@ export default function Lixeira({ clientes, diasRetencao }) {
                     <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Lixeira</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Clientes eliminados ficam aqui {diasRetencao} dias — podem ser recuperados ou apagados
-                        definitivamente antes disso. Depois desse prazo, são apagados automaticamente.
+                        definitivamente antes disso. Depois desse prazo, são apagados automaticamente, excepto os
+                        que têm facturas ou pagamentos no histórico — esses ficam preservados indefinidamente.
                     </p>
                 </div>
             }
@@ -68,11 +69,15 @@ export default function Lixeira({ clientes, diasRetencao }) {
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <p className="font-semibold text-slate-900 dark:text-white">{cliente.nome}</p>
-                                                    <StatusBadge tone={cliente.dias_restantes <= 5 ? "rose" : "amber"}>
-                                                        {cliente.dias_restantes > 0
-                                                            ? `${cliente.dias_restantes} dia(s) restante(s)`
-                                                            : "elimina no próximo acesso à lixeira"}
-                                                    </StatusBadge>
+                                                    {cliente.preservado ? (
+                                                        <StatusBadge tone="cyan">Preservado — tem histórico</StatusBadge>
+                                                    ) : (
+                                                        <StatusBadge tone={cliente.dias_restantes <= 5 ? "rose" : "amber"}>
+                                                            {cliente.dias_restantes > 0
+                                                                ? `${cliente.dias_restantes} dia(s) restante(s)`
+                                                                : "elimina no próximo acesso à lixeira"}
+                                                        </StatusBadge>
+                                                    )}
                                                 </div>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400">
                                                     {cliente.numero_cliente} &middot; {cliente.bairro || "—"} &middot; {cliente.tarifa ?? "—"}

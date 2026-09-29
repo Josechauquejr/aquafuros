@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePage } from "@inertiajs/react";
+import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import { Check, Copy, KeyRound, Pencil, Plus, Search, Shield, ShieldCheck, Trash2, UserCheck, Users as UsersIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
@@ -152,10 +152,16 @@ export default function Index({ usuarios, papeis, filtros }) {
                             Contas com acesso ao sistema e respectivas funções.
                         </p>
                     </div>
-                    <AnimatedButton variant="primary" onClick={abrirNovo}>
-                        <Plus className="h-4 w-4" aria-hidden="true" />
-                        Novo usuário
-                    </AnimatedButton>
+                    <div className="flex items-center gap-2">
+                        <AnimatedButton as={Link} href="/dev/users/lixeira" variant="secondary">
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            Lixeira
+                        </AnimatedButton>
+                        <AnimatedButton variant="primary" onClick={abrirNovo}>
+                            <Plus className="h-4 w-4" aria-hidden="true" />
+                            Novo usuário
+                        </AnimatedButton>
+                    </div>
                 </div>
             }
         >

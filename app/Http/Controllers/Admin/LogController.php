@@ -57,7 +57,7 @@ class LogController extends Controller
         return Inertia::render('Admin/Logs', [
             'registos' => $query->paginate(20)->withQueryString(),
             'tipos' => self::TIPOS,
-            'utilizadores' => User::orderBy('name')->get(['id', 'name']),
+            'utilizadores' => User::withTrashed()->orderBy('name')->get(['id', 'name']),
             'filtros' => [
                 'tipo' => $tipo ?? 'todos',
                 'evento' => $evento ?? 'todos',

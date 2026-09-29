@@ -30,7 +30,11 @@ class PagamentoController extends Controller
 
         $intervalo = ResolvedorPeriodo::resolver($periodo, $dataInicio, $dataFim);
 
-        $query = Pagamento::with(['cliente' => fn ($q) => $q->withTrashed(), 'factura', 'recebidoPor']);
+        $query = Pagamento::with([
+            'cliente' => fn ($q) => $q->withTrashed(),
+            'factura',
+            'recebidoPor' => fn ($q) => $q->withTrashed(),
+        ]);
 
         if ($periodo !== 'todos') {
             $query->whereBetween('created_at', [$intervalo['inicio'], $intervalo['fim']]);
@@ -180,7 +184,7 @@ class PagamentoController extends Controller
         $pagamento->load([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'factura.leitura',
-            'recebidoPor',
+            'recebidoPor' => fn ($q) => $q->withTrashed(),
         ]);
 
         return Inertia::render('Pagamentos/Imprimir', [
@@ -203,7 +207,7 @@ class PagamentoController extends Controller
             ->with([
                 'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
                 'factura.leitura',
-                'recebidoPor',
+                'recebidoPor' => fn ($q) => $q->withTrashed(),
             ])
             ->orderBy('numero_recibo')
             ->get();
@@ -268,7 +272,11 @@ class PagamentoController extends Controller
      * sempre a partir das facturas pendentes/parciais actuais, por isso não
      * há aqui nenhum registo para manter sincronizado.
      */
-    private function recalcularFacturaEDivida(Factura $factura): void
+    /**
+     * Público porque também é chamado a partir da lixeira (recalcular o
+     * estado da factura depois de recuperar um pagamento estornado).
+     */
+    public function recalcularFacturaEDivida(Factura $factura): void
     {
         $totalPago = (float) $factura->pagamentos()->sum('valor_pago');
 

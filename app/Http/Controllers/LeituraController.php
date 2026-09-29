@@ -21,7 +21,11 @@ class LeituraController extends Controller
 
         // withTrashed() no cliente: uma leitura antiga não deve perder o
         // nome do cliente só porque este foi entretanto removido.
-        $query = Leitura::with(['cliente' => fn ($q) => $q->withTrashed(), 'registadoPor', 'factura']);
+        $query = Leitura::with([
+            'cliente' => fn ($q) => $q->withTrashed(),
+            'registadoPor' => fn ($q) => $q->withTrashed(),
+            'factura',
+        ]);
 
         if ($search) {
             $query->whereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"));

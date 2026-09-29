@@ -41,7 +41,7 @@ class LogController extends Controller
         return Inertia::render('Dev/Logs', [
             'aba' => 'acessos',
             'acessos' => $query->paginate(20)->withQueryString(),
-            'utilizadores' => User::orderBy('name')->get(['id', 'name']),
+            'utilizadores' => User::withTrashed()->orderBy('name')->get(['id', 'name']),
             'filtros' => [
                 'periodo' => $periodo,
                 'data_inicio' => $request->query('data_inicio'),

@@ -28,7 +28,7 @@ class FacturaController extends Controller
         $query = Factura::with([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'leitura' => fn ($q) => $q->withTrashed(),
-            'geradaPor',
+            'geradaPor' => fn ($q) => $q->withTrashed(),
             'pagamentos',
         ]);
 
@@ -240,7 +240,7 @@ class FacturaController extends Controller
         $factura->load([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'leitura' => fn ($q) => $q->withTrashed(),
-            'geradaPor',
+            'geradaPor' => fn ($q) => $q->withTrashed(),
             'pagamentos' => fn ($q) => $q->orderBy('created_at'),
         ]);
 
@@ -268,7 +268,7 @@ class FacturaController extends Controller
         $query = Factura::with([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'leitura' => fn ($q) => $q->withTrashed(),
-            'geradaPor',
+            'geradaPor' => fn ($q) => $q->withTrashed(),
         ]);
 
         if (! empty($data['ids'])) {

@@ -240,7 +240,7 @@ class DashboardController extends Controller
             ->merge($leiturasPorUser->keys())
             ->unique();
 
-        $utilizadores = User::whereIn('id', $userIds)->get(['id', 'name'])->keyBy('id');
+        $utilizadores = User::withTrashed()->whereIn('id', $userIds)->get(['id', 'name'])->keyBy('id');
 
         return $userIds->map(function ($userId) use ($pagamentosPorUser, $facturasPorUser, $leiturasPorUser, $utilizadores) {
             $pagamentos = $pagamentosPorUser->get($userId, collect());

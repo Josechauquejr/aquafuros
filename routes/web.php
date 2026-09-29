@@ -61,11 +61,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('tarifas/taxa-ligacao', [TarifaController::class, 'actualizarTaxaLigacao'])->name('tarifas.taxa-ligacao');
         Route::resource('tarifas', TarifaController::class)->only(['index', 'store', 'update', 'destroy']);
 
-        // Lixeira de clientes eliminados (30 dias para restaurar/apagar
-        // definitivamente) — só o administrador tem acesso.
+        // Lixeiras (30 dias para restaurar/apagar definitivamente) — só o
+        // administrador tem acesso.
         Route::get('clientes/lixeira', [LixeiraController::class, 'index'])->name('clientes.lixeira');
         Route::post('clientes/lixeira/{id}/restaurar', [LixeiraController::class, 'restaurar'])->name('clientes.lixeira.restaurar');
         Route::delete('clientes/lixeira/{id}', [LixeiraController::class, 'destroyDefinitivo'])->name('clientes.lixeira.destruir');
+
+        Route::get('leituras/lixeira', [LixeiraController::class, 'leituras'])->name('leituras.lixeira');
+        Route::post('leituras/lixeira/{id}/restaurar', [LixeiraController::class, 'restaurarLeitura'])->name('leituras.lixeira.restaurar');
+        Route::delete('leituras/lixeira/{id}', [LixeiraController::class, 'destroyLeituraDefinitivo'])->name('leituras.lixeira.destruir');
+
+        Route::get('pagamentos/lixeira', [LixeiraController::class, 'pagamentos'])->name('pagamentos.lixeira');
+        Route::post('pagamentos/lixeira/{id}/restaurar', [LixeiraController::class, 'restaurarPagamento'])->name('pagamentos.lixeira.restaurar');
+        Route::delete('pagamentos/lixeira/{id}', [LixeiraController::class, 'destroyPagamentoDefinitivo'])->name('pagamentos.lixeira.destruir');
     });
 
     // Administrador e Gestor
@@ -129,6 +137,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('actividade', [LogController::class, 'index'])->name('logs.actividade');
         Route::delete('actividade', [LogController::class, 'limpar'])->name('logs.actividade.limpar');
         Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+        // Antes do resource: evita que "lixeira" seja capturado pelo
+        // wildcard {user} de DELETE users/{user}.
+        Route::get('users/lixeira', [UserController::class, 'lixeira'])->name('users.lixeira');
+        Route::post('users/lixeira/{id}/restaurar', [UserController::class, 'restaurar'])->name('users.lixeira.restaurar');
+        Route::delete('users/lixeira/{id}', [UserController::class, 'destroyDefinitivo'])->name('users.lixeira.destruir');
         Route::resource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('tarefas', DevTarefaController::class)->only(['index', 'store', 'update', 'destroy']);
     });

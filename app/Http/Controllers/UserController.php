@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -15,6 +16,8 @@ use Spatie\Permission\Models\Role;
 class UserController extends Controller
 {
     private const PAPEIS = ['administrador', 'gestor', 'caixa', 'tecnico', 'desenvolvedor'];
+
+    private const DIAS_RETENCAO = 30;
 
     /**
      * Listar utilizadores paginados, com pesquisa e filtros de papel/estado
@@ -156,5 +159,63 @@ class UserController extends Controller
         }
 
         return redirect()->route('dev.users.index')->with('status', "Utilizador {$user->name} eliminado com sucesso.");
+    }
+
+    /**
+     * Lixeira de utilizadores — 30 dias para restaurar ou apagar
+     * definitivamente. Sem tarefa agendada configurada, a purga de quem já
+     * passou o prazo corre aqui mesmo, à semelhança das outras lixeiras.
+     */
+    public function lixeira()
+    {
+        $limite = Carbon::now()->subDays(self::DIAS_RETENCAO);
+        User::onlyTrashed()->where('deleted_at', '<=', $limite)->forceDelete();
+
+        $utilizadores = User::onlyTrashed()
+            ->with('roles')
+            ->orderByDesc('deleted_at')
+            ->get()
+            ->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'email' => $user->email,
+                'papel' => $user->roles->first()?->name,
+                'eliminado_em' => $user->deleted_at,
+                'dias_restantes' => $this->diasRestantes($user->deleted_at),
+            ]);
+
+        return Inertia::render('Users/Lixeira', [
+            'utilizadores' => $utilizadores,
+            'diasRetencao' => self::DIAS_RETENCAO,
+        ]);
+    }
+
+    public function restaurar(int $id)
+    {
+        $user = User::onlyTrashed()->findOrFail($id);
+        $user->restore();
+
+        return redirect()->route('dev.users.lixeira')->with('status', "Utilizador {$user->name} recuperado com sucesso.");
+    }
+
+    public function destroyDefinitivo(int $id)
+    {
+        $user = User::onlyTrashed()->findOrFail($id);
+        $nome = $user->name;
+        $user->forceDelete();
+
+        return redirect()->route('dev.users.lixeira')->with('status', "Utilizador {$nome} eliminado definitivamente.");
+    }
+
+    private function diasRestantes(?string $deletedAt): int
+    {
+        if (! $deletedAt) {
+            return 0;
+        }
+
+        $limite = Carbon::parse($deletedAt)->addDays(self::DIAS_RETENCAO);
+
+        return max(0, (int) Carbon::now()->diffInDays($limite, false));
     }
 }

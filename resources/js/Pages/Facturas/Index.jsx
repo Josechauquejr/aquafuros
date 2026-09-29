@@ -20,10 +20,11 @@ import {
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
+import ActionsMenu, { ActionsMenuItem, ActionsMenuSeparator } from "@/Components/ActionsMenu";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
-import IconButton, { IconLink } from "@/Components/IconButton";
+import { IconLink } from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
 import InputLabel from "@/Components/InputLabel";
 import KpiCard from "@/Components/KpiCard";
@@ -541,38 +542,47 @@ export default function Index({
                                                     {formatCurrency(factura.total_pagar)}
                                                 </span>
                                                 <div className="flex items-center gap-1">
-                                                    <IconButton
-                                                        onClick={() => abrirComparacao(factura)}
-                                                        disabled={!temAnterior}
-                                                        title={temAnterior ? "Comparar com o período anterior" : "Sem período anterior"}
+                                                    <IconLink
+                                                        href={`/facturas/${factura.id}/imprimir`}
+                                                        target="_blank"
+                                                        title="Imprimir factura"
+                                                        className="h-11 w-11"
                                                     >
-                                                        <GitCompare className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                    <IconLink href={`/facturas/${factura.id}/imprimir`} target="_blank" title="Imprimir factura">
                                                         <Printer className="h-4 w-4" aria-hidden="true" />
                                                     </IconLink>
-                                                    <IconButton
-                                                        onClick={() => iniciarDescarga(factura)}
-                                                        disabled={aDescarregarId === factura.id}
-                                                        title="Descarregar PDF"
-                                                    >
-                                                        {aDescarregarId === factura.id ? (
-                                                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                                                        ) : (
-                                                            <Download className="h-4 w-4" aria-hidden="true" />
-                                                        )}
-                                                    </IconButton>
-                                                    <IconButton onClick={() => abrirEdicao(factura)} title="Editar factura">
-                                                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                    <IconButton
-                                                        tone="danger"
-                                                        onClick={() => setParaAnular(factura)}
-                                                        disabled={factura.estado === "anulada"}
-                                                        title="Anular factura"
-                                                    >
-                                                        <Ban className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
+                                                    <ActionsMenu label={`Mais acções sobre ${factura.numero_factura}`}>
+                                                        <ActionsMenuItem
+                                                            onClick={() => abrirComparacao(factura)}
+                                                            disabled={!temAnterior}
+                                                        >
+                                                            <GitCompare className="h-4 w-4" aria-hidden="true" />
+                                                            {temAnterior ? "Comparar com período anterior" : "Sem período anterior"}
+                                                        </ActionsMenuItem>
+                                                        <ActionsMenuItem
+                                                            onClick={() => iniciarDescarga(factura)}
+                                                            disabled={aDescarregarId === factura.id}
+                                                        >
+                                                            {aDescarregarId === factura.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                                            ) : (
+                                                                <Download className="h-4 w-4" aria-hidden="true" />
+                                                            )}
+                                                            Descarregar PDF
+                                                        </ActionsMenuItem>
+                                                        <ActionsMenuItem onClick={() => abrirEdicao(factura)}>
+                                                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                                                            Editar factura
+                                                        </ActionsMenuItem>
+                                                        <ActionsMenuSeparator />
+                                                        <ActionsMenuItem
+                                                            tone="danger"
+                                                            onClick={() => setParaAnular(factura)}
+                                                            disabled={factura.estado === "anulada"}
+                                                        >
+                                                            <Ban className="h-4 w-4" aria-hidden="true" />
+                                                            Anular factura
+                                                        </ActionsMenuItem>
+                                                    </ActionsMenu>
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -661,39 +671,48 @@ export default function Index({
                                                             <StatusBadge tone={estado.tone}>{estado.label}</StatusBadge>
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <div className="flex items-center justify-end gap-1.5">
-                                                                <IconButton
-                                                                    onClick={() => abrirComparacao(factura)}
-                                                                    disabled={!temAnterior}
-                                                                    title={temAnterior ? "Comparar com o período anterior" : "Sem período anterior"}
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <IconLink
+                                                                    href={`/facturas/${factura.id}/imprimir`}
+                                                                    target="_blank"
+                                                                    title="Imprimir factura"
+                                                                    className="h-11 w-11"
                                                                 >
-                                                                    <GitCompare className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                                <IconLink href={`/facturas/${factura.id}/imprimir`} target="_blank" title="Imprimir factura">
                                                                     <Printer className="h-4 w-4" aria-hidden="true" />
                                                                 </IconLink>
-                                                                <IconButton
-                                                                    onClick={() => iniciarDescarga(factura)}
-                                                                    disabled={aDescarregarId === factura.id}
-                                                                    title="Descarregar PDF"
-                                                                >
-                                                                    {aDescarregarId === factura.id ? (
-                                                                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                                                                    ) : (
-                                                                        <Download className="h-4 w-4" aria-hidden="true" />
-                                                                    )}
-                                                                </IconButton>
-                                                                <IconButton onClick={() => abrirEdicao(factura)} title="Editar factura">
-                                                                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                                <IconButton
-                                                                    tone="danger"
-                                                                    onClick={() => setParaAnular(factura)}
-                                                                    disabled={factura.estado === "anulada"}
-                                                                    title="Anular factura"
-                                                                >
-                                                                    <Ban className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
+                                                                <ActionsMenu label={`Mais acções sobre ${factura.numero_factura}`}>
+                                                                    <ActionsMenuItem
+                                                                        onClick={() => abrirComparacao(factura)}
+                                                                        disabled={!temAnterior}
+                                                                    >
+                                                                        <GitCompare className="h-4 w-4" aria-hidden="true" />
+                                                                        {temAnterior ? "Comparar com período anterior" : "Sem período anterior"}
+                                                                    </ActionsMenuItem>
+                                                                    <ActionsMenuItem
+                                                                        onClick={() => iniciarDescarga(factura)}
+                                                                        disabled={aDescarregarId === factura.id}
+                                                                    >
+                                                                        {aDescarregarId === factura.id ? (
+                                                                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                                                        ) : (
+                                                                            <Download className="h-4 w-4" aria-hidden="true" />
+                                                                        )}
+                                                                        Descarregar PDF
+                                                                    </ActionsMenuItem>
+                                                                    <ActionsMenuItem onClick={() => abrirEdicao(factura)}>
+                                                                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                                                                        Editar factura
+                                                                    </ActionsMenuItem>
+                                                                    <ActionsMenuSeparator />
+                                                                    <ActionsMenuItem
+                                                                        tone="danger"
+                                                                        onClick={() => setParaAnular(factura)}
+                                                                        disabled={factura.estado === "anulada"}
+                                                                    >
+                                                                        <Ban className="h-4 w-4" aria-hidden="true" />
+                                                                        Anular factura
+                                                                    </ActionsMenuItem>
+                                                                </ActionsMenu>
                                                             </div>
                                                         </td>
                                                     </motion.tr>

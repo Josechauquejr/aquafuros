@@ -47,6 +47,10 @@ class FacturaController extends Controller
         ], 'factura', 'desc');
 
         $facturas = $query->paginate(15)->withQueryString();
+        $facturas->getCollection()->each(function (Factura $factura) {
+            $factura->total_pago = $factura->totalPago();
+            $factura->em_falta = $factura->emFalta();
+        });
 
         return Inertia::render('Facturas/Index', [
             'facturas' => $facturas,
@@ -69,7 +73,34 @@ class FacturaController extends Controller
             'resumoMensal' => $this->resumoMensal(),
             'totais' => $this->totaisGerais(),
             'filtros' => [...$filtros, 'sort' => $sort, 'dir' => $dir],
+            ...$this->facturaAlvo($request),
         ]);
+    }
+
+    /**
+     * Ligação directa a partir de outra página (ex.: ficha do cliente):
+     * ?editar=ID ou ?anular=ID abre logo o formulário dessa factura, mesmo
+     * que ela não esteja na página actual da lista.
+     *
+     * @return array{facturaAlvo: ?Factura, accaoAlvo: ?string}
+     */
+    private function facturaAlvo(Request $request): array
+    {
+        $accao = $request->filled('editar') ? 'editar' : ($request->filled('anular') ? 'anular' : null);
+
+        if ($accao === null) {
+            return ['facturaAlvo' => null, 'accaoAlvo' => null];
+        }
+
+        $factura = Factura::with(['cliente' => fn ($q) => $q->withTrashed(), 'leitura' => fn ($q) => $q->withTrashed(), 'pagamentos'])
+            ->find((int) $request->query($accao));
+
+        if ($factura) {
+            $factura->total_pago = $factura->totalPago();
+            $factura->em_falta = $factura->emFalta();
+        }
+
+        return ['facturaAlvo' => $factura, 'accaoAlvo' => $factura ? $accao : null];
     }
 
     /**

@@ -87,6 +87,9 @@ class ClienteController extends Controller
             $emAberto = $cliente->facturas->whereIn('estado', ['pendente', 'parcial']);
             $saldoDe = fn ($f) => max(0, (float) $f->total_pagar - (float) ($pagoPorFactura[$f->id] ?? 0));
 
+            // Em falta por factura (o histórico mostra o remanescente, não o total).
+            $cliente->facturas->each(fn ($f) => $f->em_falta = in_array($f->estado, ['pendente', 'parcial'], true) ? round($saldoDe($f), 2) : 0);
+
             $cliente->saldo_em_aberto = round($emAberto->sum($saldoDe), 2);
             $cliente->divida_em_atraso = round(
                 $emAberto->filter(fn ($f) => $f->data_vencimento?->isPast())->sum($saldoDe),

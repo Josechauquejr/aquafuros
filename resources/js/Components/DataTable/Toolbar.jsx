@@ -28,12 +28,16 @@ function rotuloPeriodo(filtros) {
 function PainelPeriodo({ filtros, navegar, fechar }) {
     const [inicio, setInicio] = useState(filtros.data_inicio ?? "");
     const [fim, setFim] = useState(filtros.data_fim ?? "");
+    // Escolher "Personalizado" só mostra os campos; o pedido ao servidor
+    // vai com "Aplicar" (senão a página recarregava e fechava o painel).
+    const [personalizado, setPersonalizado] = useState(filtros.periodo === "personalizado");
 
     const escolher = (valor) => {
         if (valor === "personalizado") {
-            navegar({ periodo: valor, data_inicio: inicio || null, data_fim: fim || null });
+            setPersonalizado(true);
             return;
         }
+        setPersonalizado(false);
         navegar({ periodo: valor, data_inicio: null, data_fim: null });
         fechar();
     };
@@ -47,7 +51,7 @@ function PainelPeriodo({ filtros, navegar, fechar }) {
                     onClick={() => escolher(opcao.valor)}
                     className={cn(
                         "flex w-full items-center rounded-md px-3 py-2.5 text-left text-sm transition",
-                        filtros.periodo === opcao.valor
+                        (personalizado ? opcao.valor === "personalizado" : filtros.periodo === opcao.valor)
                             ? "bg-cyan-50 font-semibold text-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200"
                             : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
                     )}
@@ -56,7 +60,7 @@ function PainelPeriodo({ filtros, navegar, fechar }) {
                 </button>
             ))}
 
-            {filtros.periodo === "personalizado" && (
+            {personalizado && (
                 <div className="space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800">
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">
                         De

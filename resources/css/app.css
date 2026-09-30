@@ -88,3 +88,20 @@
         --sidebar-border: 217 33% 17%;
     }
 }
+
+/* Formulários dentro de modais: campos mais altos e texto maior. */
+@layer components {
+    .form-grande label {
+        @apply text-sm font-semibold;
+    }
+
+    .form-grande input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    .form-grande select,
+    .form-grande textarea {
+        @apply min-h-[2.75rem] px-3.5 text-base sm:text-[0.95rem];
+    }
+
+    .form-grande form {
+        @apply space-y-5;
+    }
+}

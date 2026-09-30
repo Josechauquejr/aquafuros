@@ -3,12 +3,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 
+// Um degrau acima do tailwind habitual: os formulários eram pequenos.
 const widths = {
-    sm: "max-w-sm",
-    md: "max-w-md",
-    lg: "max-w-lg",
-    xl: "max-w-xl",
-    "2xl": "max-w-2xl",
+    sm: "max-w-md",
+    md: "max-w-lg",
+    lg: "max-w-2xl",
+    xl: "max-w-3xl",
+    "2xl": "max-w-4xl",
 };
 
 export default function Modal({ show, onClose, title, maxWidth = "md", children }) {
@@ -59,7 +60,7 @@ export default function Modal({ show, onClose, title, maxWidth = "md", children 
                                 <X className="h-4 w-4" aria-hidden="true" />
                             </button>
                         </div>
-                        <div className="max-h-[75vh] overflow-y-auto px-5 py-5">{children}</div>
+                        <div className="form-grande max-h-[80vh] overflow-y-auto px-5 py-6 sm:px-8">{children}</div>
                     </motion.div>
                 </div>
             )}

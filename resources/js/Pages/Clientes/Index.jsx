@@ -22,6 +22,7 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import DataTable from "@/Components/DataTable/DataTable";
+import { Campo, Campos, Destaque, Destaques, MaisDetalhes, SeccaoDetalhe } from "@/Components/DataTable/Detalhe";
 import { IconLink } from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
@@ -92,205 +93,204 @@ function Divida({ cliente }) {
     );
 }
 
-// Cartão expandido: todos os dados do cliente, com o histórico.
+const botaoPagar =
+    "inline-flex h-10 items-center justify-center rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white transition hover:bg-cyan-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400";
+const ligacao =
+    "text-sm font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300";
+
+// Uma factura por pagar na ficha do cliente: o que falta, e o que se pode
+// fazer com ela — Pagar em destaque, o resto como ligações de texto.
+function FacturaPorPagar({ factura }) {
+    const parcial = factura.estado === "parcial";
+
+    return (
+        <li className="rounded-xl border border-border p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="font-semibold text-foreground">{factura.numero_factura}</p>
+                    <p className="text-sm text-muted-foreground">
+                        {meses[factura.mes - 1]}/{factura.ano}
+                        {factura.data_vencimento && <> · vence {formatDate(factura.data_vencimento)}</>}
+                    </p>
+                    {factura.esta_vencida && (
+                        <StatusBadge tone="rose" className="mt-1.5">
+                            Vencida
+                        </StatusBadge>
+                    )}
+                </div>
+                <div className="text-right">
+                    <p className="text-xl font-bold text-foreground">{formatMoney(factura.em_falta)}</p>
+                    <p className="text-sm text-muted-foreground">
+                        {parcial ? `em falta de ${formatMoney(factura.total_pagar)}` : "em falta"}
+                    </p>
+                </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+                <Link href={`/pagamentos?factura_id=${factura.id}`} className={botaoPagar}>
+                    Pagar
+                </Link>
+                <a href={`/facturas/${factura.id}/imprimir`} target="_blank" rel="noopener noreferrer" className={ligacao}>
+                    Ver factura
+                </a>
+                {factura.estado === "pendente" && (
+                    <Link href={`/facturas?editar=${factura.id}`} className={ligacao}>
+                        Editar
+                    </Link>
+                )}
+                <Link
+                    href={`/facturas?anular=${factura.id}`}
+                    className="text-sm font-semibold text-rose-600 underline-offset-2 hover:underline dark:text-rose-400"
+                >
+                    Anular
+                </Link>
+            </div>
+        </li>
+    );
+}
+
+// Cartão expandido do cliente: a dívida, contacto e as facturas por pagar
+// (com as suas acções); o histórico completo fica em "Mais detalhes".
 const detalheCliente = {
     titulo: (cliente) => cliente.nome,
     descricao: (cliente) => cliente.numero_cliente,
-    conteudo: (cliente) => (
-        <div className="space-y-6">
-            <div className="flex justify-end">
-                <IconLink
-                    href={`/clientes/${cliente.id}/imprimir`}
-                    target="_blank"
-                    title="Imprimir dados do cliente"
-                >
-                    <Printer className="h-4 w-4" aria-hidden="true" />
-                </IconLink>
-            </div>
-            <div className="grid gap-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950 sm:grid-cols-2">
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Número
-                    </p>
-                    <p className="font-medium text-slate-900 dark:text-white">
-                        {cliente.numero_cliente}
-                    </p>
-                </div>
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Estado
-                    </p>
-                    <StatusBadge tone={estadoConfig[cliente.estado].tone}>
-                        {estadoConfig[cliente.estado].label}
-                    </StatusBadge>
-                </div>
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Tarifa
-                    </p>
-                    <p className="font-medium text-slate-900 dark:text-white">
-                        {cliente.tarifa?.nome ?? "—"}
-                    </p>
-                </div>
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Contacto
-                    </p>
-                    <p className="font-medium text-slate-900 dark:text-white">
+    conteudo: (cliente) => {
+        const facturas = cliente.facturas ?? [];
+        const porPagar = facturas.filter((f) => ["pendente", "parcial"].includes(f.estado));
+        const divida = Number(cliente.saldo_em_aberto ?? 0);
+        const vencido = Number(cliente.divida_em_atraso ?? 0);
+
+        return (
+            <>
+                <Destaques>
+                    <Destaque
+                        rotulo="Dívida em aberto"
+                        tom={divida > 0 ? "perigo" : "neutro"}
+                        sub={vencido > 0 ? `${formatMoney(vencido)} já vencido` : undefined}
+                    >
+                        {formatMoney(divida)}
+                    </Destaque>
+                    <Destaque rotulo="Estado">
+                        <StatusBadge tone={estadoConfig[cliente.estado].tone}>{estadoConfig[cliente.estado].label}</StatusBadge>
+                    </Destaque>
+                </Destaques>
+
+                <Campos className="mt-5">
+                    <Campo rotulo="Telefone">
                         {cliente.telefone ? (
-                            <a
-                                href={`tel:${phoneDigits(cliente.telefone)}`}
-                                className="hover:text-cyan-700 dark:hover:text-cyan-300"
-                            >
+                            <a href={`tel:${phoneDigits(cliente.telefone)}`} className="hover:text-primary">
                                 {formatPhone(cliente.telefone)}
                             </a>
-                        ) : (
-                            "—"
-                        )}{" "}
-                        &middot; {cliente.bairro || "—"}
-                    </p>
-                </div>
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Saldo em aberto
-                    </p>
-                    <p
-                        className={cn(
-                            "font-semibold",
-                            Number(cliente.saldo_em_aberto ?? 0) > 0
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-slate-900 dark:text-white",
-                        )}
-                    >
-                        {formatMoney(cliente.saldo_em_aberto ?? 0)}
-                    </p>
-                    {Number(cliente.divida_em_atraso ?? 0) > 0 && (
-                        <p className="mt-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                            {formatMoney(cliente.divida_em_atraso)} vencido
-                        </p>
+                        ) : null}
+                    </Campo>
+                    <Campo rotulo="Bairro">{cliente.bairro}</Campo>
+                    <Campo rotulo="Tarifa">{cliente.tarifa?.nome}</Campo>
+                    <Campo rotulo="Endereço">{cliente.endereco}</Campo>
+                </Campos>
+
+                <SeccaoDetalhe titulo={porPagar.length > 0 ? `Facturas por pagar (${porPagar.length})` : "Facturas por pagar"} icone={FileText}>
+                    {porPagar.length === 0 ? (
+                        <p className="text-muted-foreground">Este cliente não tem facturas por pagar.</p>
+                    ) : (
+                        <ul className="space-y-3">
+                            {porPagar.map((factura) => (
+                                <FacturaPorPagar key={factura.id} factura={factura} />
+                            ))}
+                        </ul>
                     )}
-                </div>
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Cliente registado em
-                    </p>
-                    <p className="font-medium text-slate-900 dark:text-white">
-                        {cliente.created_at
-                            ? formatDateTime(cliente.created_at)
-                            : formatDate(cliente.data_adesao)}
-                    </p>
-                </div>
-            </div>
-    
-            <div>
-                <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
-                    <FileText className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                    Histórico de facturas
-                </h4>
-                <div className="mt-2 overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
-                    <table className="w-full min-w-[560px] text-left text-sm">
-                        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950/60 dark:text-slate-400">
-                            <tr>
-                                <th className="px-4 py-2">Factura</th>
-                                <th className="px-4 py-2">Período</th>
-                                <th className="px-4 py-2 text-right">Total</th>
-                                <th className="px-4 py-2">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {cliente.facturas.map((f) => (
-                                <tr key={f.id}>
-                                    <td className="px-4 py-2 font-medium">
-                                        <a
-                                            href={`/facturas/${f.id}/imprimir`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-cyan-700 hover:underline dark:text-cyan-300"
-                                        >
-                                            {f.numero_factura}
-                                        </a>
-                                    </td>
-                                    <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
-                                        {meses[f.mes - 1]}/{f.ano}
-                                    </td>
-                                    <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
-                                        {formatMoney(f.total_pagar)}
-                                    </td>
-                                    <td className="px-4 py-2">
-                                        <StatusBadge tone={estadoFacturaConfig[f.estado].tone}>
-                                            {estadoFacturaConfig[f.estado].label}
-                                        </StatusBadge>
-                                    </td>
-                                </tr>
-                            ))}
-                            {cliente.facturas.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={4}
-                                        className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
-                                    >
-                                        Sem facturas registadas para este cliente.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-    
-            <div>
-                <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
-                    <Receipt className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                    Histórico de pagamentos
-                </h4>
-                <div className="mt-2 overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
-                    <table className="w-full min-w-[560px] text-left text-sm">
-                        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950/60 dark:text-slate-400">
-                            <tr>
-                                <th className="px-4 py-2">Recibo</th>
-                                <th className="px-4 py-2">Registado em</th>
-                                <th className="px-4 py-2 text-right">Valor</th>
-                                <th className="px-4 py-2">Método</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {cliente.pagamentos.map((p) => (
-                                <tr key={p.id}>
-                                    <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">
-                                        {p.numero_recibo}
-                                    </td>
-                                    <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
-                                        {formatDateTime(p.created_at)}
-                                    </td>
-                                    <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
-                                        {formatMoney(p.valor_pago)}
-                                    </td>
-                                    <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
-                                        {metodoLabels[p.metodo_pagamento] ?? p.metodo_pagamento}
-                                    </td>
-                                </tr>
-                            ))}
-                            {cliente.pagamentos.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={4}
-                                        className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
-                                    >
-                                        Sem pagamentos registados para este cliente.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-    
-            <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
-                <Banknote className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                Histórico carregado directamente da base de dados.
-            </div>
-        </div>
-    ),
+                </SeccaoDetalhe>
+
+                <MaisDetalhes titulo="Histórico e mais dados">
+                    <Campos>
+                        <Campo rotulo="Leitura inicial do contador">
+                            {cliente.leitura_inicial !== null && cliente.leitura_inicial !== undefined ? formatNumero(cliente.leitura_inicial) : null}
+                        </Campo>
+                        <Campo rotulo="Cliente desde">
+                            {cliente.created_at ? formatDateTime(cliente.created_at) : formatDate(cliente.data_adesao)}
+                        </Campo>
+                    </Campos>
+
+                    <SeccaoDetalhe titulo="Todas as facturas" icone={FileText}>
+                        <div className="overflow-x-auto rounded-lg border border-border">
+                            <table className="w-full min-w-[480px] text-left text-sm">
+                                <thead className="bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    <tr>
+                                        <th className="px-3 py-2">Factura</th>
+                                        <th className="px-3 py-2">Período</th>
+                                        <th className="px-3 py-2 text-right">Total</th>
+                                        <th className="px-3 py-2">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {facturas.map((f) => (
+                                        <tr key={f.id}>
+                                            <td className="px-3 py-2 font-medium">
+                                                <a
+                                                    href={`/facturas/${f.id}/imprimir`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="whitespace-nowrap text-primary hover:underline"
+                                                >
+                                                    {f.numero_factura}
+                                                </a>
+                                            </td>
+                                            <td className="px-3 py-2 text-muted-foreground">
+                                                {meses[f.mes - 1]}/{f.ano}
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-medium">{formatMoney(f.total_pagar)}</td>
+                                            <td className="px-3 py-2">
+                                                <StatusBadge tone={estadoFacturaConfig[f.estado].tone}>{estadoFacturaConfig[f.estado].label}</StatusBadge>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {facturas.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-3 py-5 text-center text-muted-foreground">
+                                                Sem facturas registadas.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </SeccaoDetalhe>
+
+                    <SeccaoDetalhe titulo="Pagamentos" icone={Receipt}>
+                        <div className="overflow-x-auto rounded-lg border border-border">
+                            <table className="w-full min-w-[480px] text-left text-sm">
+                                <thead className="bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    <tr>
+                                        <th className="px-3 py-2">Recibo</th>
+                                        <th className="px-3 py-2">Data</th>
+                                        <th className="px-3 py-2 text-right">Valor</th>
+                                        <th className="px-3 py-2">Método</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {(cliente.pagamentos ?? []).map((pagamento) => (
+                                        <tr key={pagamento.id}>
+                                            <td className="px-3 py-2 font-medium">{pagamento.numero_recibo}</td>
+                                            <td className="px-3 py-2 text-muted-foreground">{formatDateTime(pagamento.created_at)}</td>
+                                            <td className="px-3 py-2 text-right font-medium">{formatMoney(pagamento.valor_pago)}</td>
+                                            <td className="px-3 py-2 text-muted-foreground">
+                                                {metodoLabels[pagamento.metodo_pagamento] ?? pagamento.metodo_pagamento}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(cliente.pagamentos ?? []).length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-3 py-5 text-center text-muted-foreground">
+                                                Sem pagamentos registados.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </SeccaoDetalhe>
+                </MaisDetalhes>
+            </>
+        );
+    },
 };
 
 const colunas = [
@@ -449,7 +449,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, totais
     };
 
     const accoesCliente = (cliente) => ({
-        principal: { icone: Eye, rotulo: `Ver dados de ${cliente.nome}`, expandir: true },
+        principal: { icone: Eye, rotulo: `Ver dados de ${cliente.nome}`, curto: "Ver dados", expandir: true },
         menu: [
             { icone: Pencil, rotulo: "Editar", onClick: () => abrirEdicao(cliente) },
             {

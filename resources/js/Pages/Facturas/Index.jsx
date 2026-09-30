@@ -27,7 +27,7 @@ import AnimatedPanel from "@/Components/AnimatedPanel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import DangerButton from "@/Components/DangerButton";
 import DataTable from "@/Components/DataTable/DataTable";
-import { Campo, Campos, SeccaoDetalhe } from "@/Components/DataTable/Detalhe";
+import { Campo, Campos, Destaque, Destaques, Explicacao, MaisDetalhes, SeccaoDetalhe } from "@/Components/DataTable/Detalhe";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
@@ -87,16 +87,56 @@ function FacturaLink({ factura }) {
     );
 }
 
+// Nas facturas parciais mostra o que ainda falta pagar (não o total).
+function EmFalta({ factura }) {
+    if (factura.estado !== "parcial" && !(factura.estado === "pendente" && Number(factura.total_pago) > 0)) return null;
+
+    return (
+        <span className="block text-xs font-medium text-cyan-700 dark:text-cyan-300">
+            Em falta {formatMoney(factura.em_falta)}
+        </span>
+    );
+}
+
+// O que cada estado quer dizer, em linguagem simples.
+function explicarEstado(factura) {
+    const vencimento = formatDate(factura.data_vencimento);
+    const falta = formatMoney(factura.em_falta ?? factura.total_pagar);
+
+    switch (factura.estado) {
+        case "paga":
+            return { tom: "sucesso", titulo: "Paga", texto: "Foi totalmente paga. Não há mais nada a cobrar." };
+        case "anulada":
+            return {
+                tom: "neutro",
+                titulo: "Anulada",
+                texto: `Foi cancelada por ${factura.anulada_por?.name ?? "—"} em ${formatDate(factura.anulada_em)}${factura.motivo_anulacao ? `. Motivo: ${factura.motivo_anulacao}` : ""}. Já não conta como dívida e não pode receber pagamentos.`,
+            };
+        case "parcial":
+            return factura.esta_vencida
+                ? { tom: "perigo", titulo: "Parcial e vencida", texto: `Já foi paga em parte, mas o prazo terminou em ${vencimento} e ainda faltam ${falta}. Pode continuar a ser paga aos poucos até ficar totalmente paga.` }
+                : { tom: "info", titulo: "Parcialmente paga", texto: `Já recebeu ${formatMoney(factura.total_pago)}; faltam ${falta}. Pode ser paga em várias vezes, até ${vencimento} ou depois, até ficar totalmente paga.` };
+        default:
+            return factura.esta_vencida
+                ? { tom: "perigo", titulo: "Vencida", texto: `O prazo de pagamento terminou em ${vencimento} e ainda não foi paga (faltam ${falta}). Continua em aberto e conta como dívida do cliente.` }
+                : { tom: "aviso", titulo: "Por pagar", texto: `Ainda não recebeu nenhum pagamento. Pode ser paga até ${vencimento} (faltam ${falta}).` };
+    }
+}
+
 function EstadoFactura({ factura }) {
     const estado = estadoFacturaConfig[factura.estado];
 
     return (
         <>
             <div className="flex flex-wrap items-center gap-1.5">
-                <StatusBadge tone={estado.tone} title={factura.estado === "anulada" ? factura.motivo_anulacao : undefined}>
+                <StatusBadge tone={estado.tone} title={explicarEstado(factura).texto}>
                     {estado.label}
                 </StatusBadge>
-                {estaVencida(factura) && <StatusBadge tone="rose">Vencida</StatusBadge>}
+                {estaVencida(factura) && (
+                    <StatusBadge tone="rose" title="O prazo de pagamento já terminou e a factura continua por pagar.">
+                        Vencida
+                    </StatusBadge>
+                )}
             </div>
             {factura.estado === "anulada" && (
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -140,7 +180,10 @@ const colunas = [
         ordenavel: true,
         direita: true,
         render: (factura) => (
-            <span className="font-semibold text-slate-900 dark:text-white">{formatMoney(factura.total_pagar)}</span>
+            <>
+                <span className="font-semibold text-slate-900 dark:text-white">{formatMoney(factura.total_pagar)}</span>
+                <EmFalta factura={factura} />
+            </>
         ),
     },
     { chave: "estado", titulo: "Estado", ordenavel: true, render: (factura) => <EstadoFactura factura={factura} /> },
@@ -160,58 +203,58 @@ const cartaoFactura = (factura) => (
                 {meses[factura.mes - 1]}/{factura.ano}
             </p>
         </div>
-        <p className="font-semibold text-slate-900 dark:text-white">{formatMoney(factura.total_pagar)}</p>
+        <p className="font-semibold text-slate-900 dark:text-white">
+            {formatMoney(factura.total_pagar)}
+            <EmFalta factura={factura} />
+        </p>
         <EstadoFactura factura={factura} />
     </div>
 );
 
-// Cartão expandido: todos os dados da factura.
+// Cartão expandido: o essencial da factura, o que o estado significa e,
+// em "Mais detalhes", a composição do valor e quem emitiu.
 const detalheFactura = {
     titulo: (factura) => factura.numero_factura,
     descricao: (factura) => factura.cliente?.nome ?? "Cliente removido",
     conteudo: (factura) => {
         const consumo = consumoDe(factura);
+        const explicacao = explicarEstado(factura);
+        const emAberto = ["pendente", "parcial"].includes(factura.estado);
 
         return (
             <>
-                <Campos>
+                <Destaques>
+                    <Destaque rotulo="Total a pagar">{formatMoney(factura.total_pagar)}</Destaque>
+                    {emAberto ? (
+                        <Destaque rotulo="Em falta" tom={factura.esta_vencida ? "perigo" : "primario"}>
+                            {formatMoney(factura.em_falta)}
+                        </Destaque>
+                    ) : (
+                        <Destaque rotulo="Estado">
+                            <EstadoFactura factura={factura} />
+                        </Destaque>
+                    )}
+                </Destaques>
+
+                <Explicacao tom={explicacao.tom} titulo={explicacao.titulo} className="mt-4">
+                    {explicacao.texto}
+                </Explicacao>
+
+                <Campos className="mt-5">
                     <Campo rotulo="Período">
                         {meses[factura.mes - 1]}/{factura.ano}
                     </Campo>
-                    <Campo rotulo="Estado">
-                        <EstadoFactura factura={factura} />
-                    </Campo>
-                    <Campo rotulo="Tipo">{tipoConfig[factura.tipo]?.label ?? tipoConfig.consumo.label}</Campo>
-                    <Campo rotulo="Consumo">{consumo !== null ? formatVolume(consumo) : null}</Campo>
-                    <Campo rotulo="Valor do consumo">{formatMoney(factura.valor_consumo)}</Campo>
-                    <Campo rotulo="Dívida anterior">{formatMoney(factura.divida_anterior)}</Campo>
-                    <Campo rotulo="Multa">{formatMoney(factura.multa)}</Campo>
-                    <Campo rotulo="Total a pagar">
-                        <span className="text-base font-semibold">{formatMoney(factura.total_pagar)}</span>
-                    </Campo>
-                    <Campo rotulo="Emitida em">{formatDateTime(factura.created_at)}</Campo>
                     <Campo rotulo="Vencimento">{formatDate(factura.data_vencimento)}</Campo>
-                    <Campo rotulo="Emitida por">{factura.gerada_por?.name}</Campo>
-                    {factura.estado === "anulada" && (
-                        <>
-                            <Campo rotulo="Anulada por">
-                                {factura.anulada_por?.name ?? "—"} &middot; {formatDate(factura.anulada_em)}
-                            </Campo>
-                            <Campo rotulo="Motivo da anulação" largo>
-                                {factura.motivo_anulacao}
-                            </Campo>
-                        </>
-                    )}
                 </Campos>
 
-                <SeccaoDetalhe titulo="Pagamentos desta factura" icone={Banknote}>
-                    {factura.pagamentos?.length > 0 ? (
-                        <ul className="divide-y divide-border rounded-md border border-border">
+                {factura.pagamentos?.length > 0 && (
+                    <SeccaoDetalhe titulo="Pagamentos recebidos" icone={Banknote}>
+                        <ul className="divide-y divide-border rounded-xl border border-border">
                             {factura.pagamentos.map((pagamento) => (
-                                <li key={pagamento.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                <li key={pagamento.id} className="flex items-center justify-between gap-3 px-4 py-3">
                                     <span>
                                         <span className="font-medium text-foreground">{pagamento.numero_recibo}</span>
-                                        <span className="block text-xs text-muted-foreground">
+                                        <span className="block text-sm text-muted-foreground">
                                             {formatDateTime(pagamento.created_at)}
                                         </span>
                                     </span>
@@ -219,10 +262,20 @@ const detalheFactura = {
                                 </li>
                             ))}
                         </ul>
-                    ) : (
-                        <p className="text-muted-foreground">Ainda sem pagamentos registados.</p>
-                    )}
-                </SeccaoDetalhe>
+                    </SeccaoDetalhe>
+                )}
+
+                <MaisDetalhes>
+                    <Campos>
+                        <Campo rotulo="Tipo">{tipoConfig[factura.tipo]?.label ?? tipoConfig.consumo.label}</Campo>
+                        <Campo rotulo="Consumo">{consumo !== null ? formatVolume(consumo) : null}</Campo>
+                        <Campo rotulo="Valor do consumo">{formatMoney(factura.valor_consumo)}</Campo>
+                        <Campo rotulo="Dívida anterior">{formatMoney(factura.divida_anterior)}</Campo>
+                        <Campo rotulo="Multa">{formatMoney(factura.multa)}</Campo>
+                        <Campo rotulo="Emitida em">{formatDateTime(factura.created_at)}</Campo>
+                        <Campo rotulo="Emitida por">{factura.gerada_por?.name}</Campo>
+                    </Campos>
+                </MaisDetalhes>
             </>
         );
     },
@@ -238,6 +291,8 @@ export default function Index({
     resumoMensal: resumoMensalProp,
     totais,
     filtros,
+    facturaAlvo = null,
+    accaoAlvo = null,
 }) {
     const { flash, auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador") ?? false;
@@ -291,6 +346,18 @@ export default function Index({
     // Clicar numa linha do resumo mensal: lista só as facturas desse mês.
     const filtrarPorMes = (mes, ano) =>
         router.get("/facturas", { mes_ano: `${mes}/${ano}` }, { preserveScroll: true, replace: true });
+
+    // Chegou da ficha do cliente (?editar=ID / ?anular=ID): abre logo esse formulário.
+    useEffect(() => {
+        if (!facturaAlvo || !accaoAlvo) return;
+
+        if (accaoAlvo === "editar" && facturaAlvo.estado === "pendente") abrirEdicao(facturaAlvo);
+        if (accaoAlvo === "anular" && facturaAlvo.estado !== "anulada") abrirAnulacao(facturaAlvo);
+
+        // Limpa o pedido do URL para um refresh não reabrir o formulário.
+        window.history.replaceState(null, "", window.location.pathname);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Chegou aqui a partir de "Deseja emitir a factura agora?" (Leituras) —
     // pré-selecciona a leitura e abre logo o formulário de emissão.
@@ -489,9 +556,9 @@ export default function Index({
 
         return {
             principal: emAberto
-                ? { icone: CreditCard, rotulo: `Receber pagamento da factura ${numero}`, href: `/pagamentos?factura_id=${factura.id}` }
+                ? { icone: CreditCard, curto: "Receber", destaque: true, rotulo: `Receber pagamento da factura ${numero}`, href: `/pagamentos?factura_id=${factura.id}` }
                 : factura.estado === "paga"
-                  ? { ...imprimir, rotulo: `Imprimir factura ${numero}` }
+                  ? { ...imprimir, curto: "Imprimir", rotulo: `Imprimir factura ${numero}` }
                   : undefined,
             menu: [
                 { icone: Eye, rotulo: "Ver detalhe", expandir: true },
@@ -557,16 +624,18 @@ export default function Index({
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                        <AnimatedButton
-                            as="a"
-                            href={urlImprimirFiltradas()}
-                            target="_blank"
-                            variant="secondary"
-                            title="Imprimir todas as facturas dos filtros actuais"
-                        >
-                            <Printer className="h-4 w-4" aria-hidden="true" />
-                            Imprimir filtradas
-                        </AnimatedButton>
+                        {filtros.estado !== "todos" && (
+                            <AnimatedButton
+                                as="a"
+                                href={urlImprimirFiltradas()}
+                                target="_blank"
+                                variant="secondary"
+                                title="Imprimir todas as facturas dos filtros actuais"
+                            >
+                                <Printer className="h-4 w-4" aria-hidden="true" />
+                                Imprimir filtradas
+                            </AnimatedButton>
+                        )}
                         <AnimatedButton
                             variant="secondary"
                             onClick={abrirLote}

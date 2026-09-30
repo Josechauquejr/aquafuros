@@ -18,7 +18,7 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import DataTable from "@/Components/DataTable/DataTable";
-import { Campo, Campos } from "@/Components/DataTable/Detalhe";
+import { Campo, Campos, Destaque, Destaques, MaisDetalhes } from "@/Components/DataTable/Detalhe";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
@@ -42,6 +42,9 @@ const metodoConfig = {
     mpesa: { label: "M-Pesa", icon: Smartphone, tone: "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300" },
     "e-mola": { label: "e-Mola", icon: Smartphone, tone: "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300" },
 };
+
+// O que falta pagar de uma factura (as parciais podem ser pagas várias vezes).
+const emFaltaDe = (factura) => Number(factura.em_falta ?? factura.total_pagar);
 
 const formVazio = { factura_id: "", valor_pago: "", metodo_pagamento: "dinheiro", referencia_pagamento: "" };
 
@@ -132,21 +135,31 @@ const cartaoPagamento = (pagamento) => (
     </div>
 );
 
-// Cartão expandido: todos os dados do pagamento.
+// Cartão expandido: o essencial do pagamento; o resto em "Mais detalhes".
 const detalhePagamento = {
     titulo: (pagamento) => pagamento.numero_recibo,
     descricao: (pagamento) => pagamento.cliente?.nome ?? "Cliente removido",
     conteudo: (pagamento) => (
-        <Campos>
-            <Campo rotulo="Valor pago">{formatMoney(pagamento.valor_pago)}</Campo>
-            <Campo rotulo="Método">
-                <MetodoBadge metodo={pagamento.metodo_pagamento} />
-            </Campo>
-            <Campo rotulo="Factura">{pagamento.factura && <FacturaLink factura={pagamento.factura} />}</Campo>
-            <Campo rotulo="Referência">{pagamento.referencia_pagamento}</Campo>
-            <Campo rotulo="Data e hora">{formatDateTime(pagamento.created_at)}</Campo>
-            <Campo rotulo="Recebido por">{pagamento.recebido_por?.name}</Campo>
-        </Campos>
+        <>
+            <Destaques>
+                <Destaque rotulo="Valor pago" tom="sucesso">
+                    {formatMoney(pagamento.valor_pago)}
+                </Destaque>
+                <Destaque rotulo="Método">
+                    <MetodoBadge metodo={pagamento.metodo_pagamento} />
+                </Destaque>
+            </Destaques>
+            <Campos className="mt-5">
+                <Campo rotulo="Factura">{pagamento.factura && <FacturaLink factura={pagamento.factura} />}</Campo>
+                <Campo rotulo="Data e hora">{formatDateTime(pagamento.created_at)}</Campo>
+            </Campos>
+            <MaisDetalhes>
+                <Campos>
+                    <Campo rotulo="Referência">{pagamento.referencia_pagamento}</Campo>
+                    <Campo rotulo="Recebido por">{pagamento.recebido_por?.name}</Campo>
+                </Campos>
+            </MaisDetalhes>
+        </>
     ),
 };
 
@@ -154,6 +167,8 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
     const { auth, flash } = usePage().props;
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
+    // Chegou com uma factura escolhida (link "Receber"): mostra só essa, não a lista toda.
+    const [facturaFixada, setFacturaFixada] = useState(false);
     const [paraEstornar, setParaEstornar] = useState(null);
 
     const form = useForm(formVazio);
@@ -173,13 +188,14 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
 
     const abrirNovo = (facturaIdPreseleccionada) => {
         setEditando(null);
+        setFacturaFixada(Boolean(facturaIdPreseleccionada));
         const preseleccionada = facturaIdPreseleccionada
             ? facturasEmAberto.find((f) => String(f.id) === String(facturaIdPreseleccionada))
             : facturasEmAberto[0];
         form.reset();
         form.setData({
             factura_id: preseleccionada?.id ?? "",
-            valor_pago: preseleccionada?.total_pagar ?? "",
+            valor_pago: preseleccionada ? emFaltaDe(preseleccionada) : "",
             metodo_pagamento: "dinheiro",
             referencia_pagamento: "",
         });
@@ -210,8 +226,10 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
 
     const selecionarFactura = (id) => {
         const factura = facturasEmAberto.find((f) => String(f.id) === String(id));
-        form.setData((data) => ({ ...data, factura_id: id, valor_pago: factura?.total_pagar ?? data.valor_pago }));
+        form.setData((data) => ({ ...data, factura_id: id, valor_pago: factura ? emFaltaDe(factura) : data.valor_pago }));
     };
+
+    const facturaSeleccionada = facturasEmAberto.find((f) => String(f.id) === String(form.data.factura_id));
 
     const submit = (event) => {
         event.preventDefault();
@@ -231,7 +249,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
     const accoesPagamento = (pagamento) => ({
         principal: {
             icone: Printer,
-            rotulo: "Imprimir recibo",
+            curto: "Imprimir", rotulo: "Imprimir recibo",
             href: `/pagamentos/${pagamento.id}/imprimir`,
             target: "_blank",
         },
@@ -348,6 +366,37 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                             <div>
                                 <InputLabel htmlFor="busca_factura" value="Factura em aberto" />
                                 {facturasEmAberto.length > 0 ? (
+                                    facturaFixada && facturaSeleccionada ? (
+                                        <div className="mt-1 rounded-lg border border-cyan-200 bg-cyan-50 p-4 dark:border-cyan-900 dark:bg-cyan-950/30">
+                                            <p className="text-lg font-semibold text-slate-950 dark:text-white">
+                                                {facturaSeleccionada.cliente?.nome ?? "Cliente removido"}
+                                            </p>
+                                            <p className="text-sm text-slate-600 dark:text-slate-300">
+                                                Factura {facturaSeleccionada.numero_factura} · {meses[facturaSeleccionada.mes - 1]}/{facturaSeleccionada.ano}
+                                            </p>
+                                            <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+                                                <div>
+                                                    <dt className="text-slate-500 dark:text-slate-400">Total</dt>
+                                                    <dd className="font-semibold text-slate-900 dark:text-white">{formatMoney(facturaSeleccionada.total_pagar)}</dd>
+                                                </div>
+                                                <div>
+                                                    <dt className="text-slate-500 dark:text-slate-400">Já pago</dt>
+                                                    <dd className="font-semibold text-slate-900 dark:text-white">{formatMoney(facturaSeleccionada.total_pago ?? 0)}</dd>
+                                                </div>
+                                                <div>
+                                                    <dt className="text-slate-500 dark:text-slate-400">Em falta</dt>
+                                                    <dd className="font-bold text-cyan-800 dark:text-cyan-300">{formatMoney(emFaltaDe(facturaSeleccionada))}</dd>
+                                                </div>
+                                            </dl>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFacturaFixada(false)}
+                                                className="mt-3 text-sm font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
+                                            >
+                                                Escolher outra factura
+                                            </button>
+                                        </div>
+                                    ) : (
                                     <div className="mt-1">
                                         <ListaPesquisavel
                                             itens={facturasEmAberto}
@@ -370,7 +419,10 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                                                     </div>
                                                     <div className="flex shrink-0 flex-col items-end gap-1">
                                                         <span className="font-semibold text-slate-900 dark:text-white">
-                                                            {formatMoney(factura.total_pagar)}
+                                                            {formatMoney(emFaltaDe(factura))}
+                                                        </span>
+                                                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                                            {factura.estado === "parcial" ? "em falta" : "a pagar"}
                                                         </span>
                                                         <StatusBadge tone={factura.estado === "parcial" ? "cyan" : "amber"}>
                                                             {factura.estado === "parcial" ? "Parcial" : "Pendente"}
@@ -380,6 +432,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                                             )}
                                         />
                                     </div>
+                                    )
                                 ) : (
                                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                                         Não há facturas pendentes ou parciais para registar pagamento.
@@ -393,13 +446,20 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                                 <TextInput
                                     id="valor_pago"
                                     type="number"
-                                    min="0"
+                                    min="0.01"
+                                    max={facturaSeleccionada ? emFaltaDe(facturaSeleccionada) : undefined}
                                     step="0.01"
                                     required
                                     value={form.data.valor_pago}
                                     onChange={(event) => form.setData("valor_pago", event.target.value)}
                                     className="mt-1 block w-full"
                                 />
+                                {facturaSeleccionada && (
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        Em falta: {formatMoney(emFaltaDe(facturaSeleccionada))}. Pode pagar só uma parte — o resto fica em
+                                        aberto para um próximo pagamento.
+                                    </p>
+                                )}
                                 <InputError message={form.errors.valor_pago} className="mt-1" />
                             </div>
                         </>

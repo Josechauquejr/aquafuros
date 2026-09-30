@@ -131,7 +131,7 @@ export function ExpandableCard({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="min-h-0 flex-1 overflow-y-auto p-5 text-sm sm:p-6"
+                    className="min-h-0 flex-1 overflow-y-auto p-5 text-base sm:p-6"
                   >
                     {children}
                   </motion.div>

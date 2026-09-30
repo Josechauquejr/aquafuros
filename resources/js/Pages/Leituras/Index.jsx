@@ -15,7 +15,7 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import DataTable from "@/Components/DataTable/DataTable";
-import { Campo, Campos } from "@/Components/DataTable/Detalhe";
+import { Campo, Campos, Destaque, Destaques, MaisDetalhes } from "@/Components/DataTable/Detalhe";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
@@ -146,24 +146,33 @@ const cartaoLeitura = (leitura) => (
     </div>
 );
 
-// Cartão expandido: todos os dados da leitura.
+// Cartão expandido: o essencial da leitura; o resto em "Mais detalhes".
 const detalheLeitura = {
     titulo: (leitura) => leitura.cliente?.nome ?? "Cliente removido",
     descricao: (leitura) => `Leitura de ${meses[leitura.mes - 1]}/${leitura.ano}`,
     conteudo: (leitura) => (
-        <Campos>
-            <Campo rotulo="Leitura anterior">{formatNumero(leitura.leitura_anterior)}</Campo>
-            <Campo rotulo="Leitura actual">{formatNumero(leitura.leitura_actual)}</Campo>
-            <Campo rotulo="Consumo">
-                <span className="text-primary">{formatVolume(consumoDe(leitura))}</span>
-            </Campo>
-            <Campo rotulo="Estado">
-                <EstadoLeitura leitura={leitura} />
-            </Campo>
-            <Campo rotulo="Factura">{leitura.factura && <FacturaLink factura={leitura.factura} />}</Campo>
-            <Campo rotulo="Registada em">{formatDateTime(leitura.created_at)}</Campo>
-            <Campo rotulo="Registada por">{leitura.registado_por?.name}</Campo>
-        </Campos>
+        <>
+            <Destaques>
+                <Destaque rotulo="Consumo" tom="primario">
+                    {formatVolume(consumoDe(leitura))}
+                </Destaque>
+                <Destaque rotulo="Estado">
+                    <EstadoLeitura leitura={leitura} />
+                </Destaque>
+            </Destaques>
+            <Campos className="mt-5">
+                <Campo rotulo="Contador">
+                    {formatNumero(leitura.leitura_anterior)} → {formatNumero(leitura.leitura_actual)}
+                </Campo>
+                <Campo rotulo="Factura">{leitura.factura && <FacturaLink factura={leitura.factura} />}</Campo>
+            </Campos>
+            <MaisDetalhes>
+                <Campos>
+                    <Campo rotulo="Registada em">{formatDateTime(leitura.created_at)}</Campo>
+                    <Campo rotulo="Registada por">{leitura.registado_por?.name}</Campo>
+                </Campos>
+            </MaisDetalhes>
+        </>
     ),
 };
 
@@ -312,7 +321,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
         return {
             principal: leitura.confirmado
                 ? undefined
-                : { icone: CheckCircle2, rotulo: `Confirmar leitura de ${nome}`, tone: "success", onClick: () => confirmarLeitura(leitura) },
+                : { icone: CheckCircle2, rotulo: `Confirmar leitura de ${nome}`, curto: "Confirmar", destaque: true, onClick: () => confirmarLeitura(leitura) },
             menu: [
                 { icone: Eye, rotulo: "Ver detalhe", expandir: true },
                 {

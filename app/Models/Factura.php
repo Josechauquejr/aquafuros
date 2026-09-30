@@ -64,6 +64,30 @@ class Factura extends Model
             && $this->data_vencimento->isPast();
     }
 
+    /** Soma dos pagamentos já registados (usa a relação se estiver carregada). */
+    public function totalPago(): float
+    {
+        $soma = $this->relationLoaded('pagamentos')
+            ? $this->pagamentos->sum('valor_pago')
+            : $this->pagamentos()->sum('valor_pago');
+
+        return round((float) $soma, 2);
+    }
+
+    /**
+     * Valor que ainda falta pagar. Uma factura parcial pode ser paga várias
+     * vezes, por isso o que conta é o remanescente, não o total. Paga e
+     * anulada não têm nada em falta.
+     */
+    public function emFalta(): float
+    {
+        if (! in_array($this->estado, ['pendente', 'parcial'], true)) {
+            return 0.0;
+        }
+
+        return max(0.0, round((float) $this->total_pagar - $this->totalPago(), 2));
+    }
+
     // Uma factura pertence a um cliente
     public function cliente()
     {

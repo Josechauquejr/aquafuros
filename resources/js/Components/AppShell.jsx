@@ -193,7 +193,7 @@ export default function AppShell({ groups, casa, chaveRecolhido, header, childre
 
                 <div className="flex-1">
                     <motion.div
-                        key={url}
+                        key={url.split("?")[0]}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}

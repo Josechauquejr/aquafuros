@@ -71,7 +71,13 @@ class PagamentoController extends Controller
             'pagamentos' => $query->paginate(15)->withQueryString(),
             'facturasEmAberto' => Factura::whereIn('estado', ['pendente', 'parcial'])
                 ->with(['cliente' => fn ($q) => $q->withTrashed()])
-                ->orderByDesc('ano')->orderByDesc('mes')->get(),
+                ->withSum('pagamentos', 'valor_pago')
+                ->orderByDesc('ano')->orderByDesc('mes')->get()
+                ->each(function (Factura $factura) {
+                    // O que falta pagar (uma factura parcial pode receber vários pagamentos).
+                    $factura->total_pago = round((float) ($factura->pagamentos_sum_valor_pago ?? 0), 2);
+                    $factura->em_falta = max(0, round((float) $factura->total_pagar - $factura->total_pago, 2));
+                }),
             'metricas' => [
                 'totalRecebido' => $totalRecebido,
                 'totalRegistados' => $totalRegistados,
@@ -109,6 +115,15 @@ class PagamentoController extends Controller
 
         if (! in_array($factura->estado, ['pendente', 'parcial'], true)) {
             return back()->with('error', 'Esta factura já não aceita pagamentos.');
+        }
+
+        // Não aceita mais do que o que falta pagar (a factura pode ser paga
+        // aos poucos, mas nunca acima do total).
+        $emFalta = $factura->emFalta();
+        if ((float) $data['valor_pago'] > $emFalta + 0.005) {
+            return back()->withErrors([
+                'valor_pago' => 'O valor excede o que falta pagar desta factura (MZN '.number_format($emFalta, 2, ',', ' ').').',
+            ])->withInput();
         }
 
         $pagamento = Pagamento::create([

@@ -143,18 +143,10 @@ export default function Kpis({
                             formatarEixo={formatarCompacto}
                         />
 
-                        <AnimatedPanel delay={0.3}>
-                            <div className="p-6">
-                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                                    <PieChart className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                    Pagamentos por método
-                                </h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">No período seleccionado</p>
-                                <div className="mt-5">
-                                    <DistribuicaoMetodoChart dados={distribuicaoPorMetodo} variant="donut" />
-                                </div>
-                            </div>
-                        </AnimatedPanel>
+                        <DistribuicaoMetodoChart
+                            dados={distribuicaoPorMetodo}
+                            descricao="Valor recebido no período seleccionado, por método"
+                        />
                     </section>
 
                     <GraficoSerie
@@ -289,6 +281,7 @@ export default function Kpis({
                     </AnimatedPanel>
 
                     <DevedoresChart
+                        largo
                         devedores={maioresDevedores}
                         delay={0.48}
                         descricao={`Dívida total acumulada: ${formatCurrency(dividaTotal)}`}

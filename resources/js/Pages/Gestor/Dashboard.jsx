@@ -134,6 +134,7 @@ export default function Dashboard({ mesReferencia, resumoMes, contadores, divida
 
                     <section className="space-y-6">
                         <DevedoresChart
+                            largo
                             devedores={maioresDevedores}
                             delay={0.3}
                             descricao={`Dívida total acumulada: ${formatCurrency(dividaTotal)}`}

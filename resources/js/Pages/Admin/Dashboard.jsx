@@ -9,7 +9,6 @@ import {
     FileStack,
     FileText,
     Gauge,
-    PieChart,
     Receipt,
     TrendingUp,
     UserPlus,
@@ -17,7 +16,6 @@ import {
     Waves,
 } from "lucide-react";
 import AdminLayout from "@/Layouts/AdminLayout";
-import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
 import SeletorMes from "@/Components/SeletorMes";
 import DevedoresChart from "@/Components/charts/DevedoresChart";
@@ -218,39 +216,28 @@ export default function Dashboard({
                         </div>
                     </section>
 
+                    <GraficoSerie
+                        titulo="Evolução mensal"
+                        descricao={`Facturado vs. recebido, até ${nomeMes}`}
+                        icone={BarChart3}
+                        dados={evolucaoMensal}
+                        series={[
+                            { chave: "facturado", label: "Facturado", cor: "#2a78d6" },
+                            { chave: "recebido", label: "Recebido", cor: "#1baf7a" },
+                        ]}
+                        tipo="bar"
+                        filtros={FILTROS_MESES}
+                        formatar={formatMoney}
+                        formatarEixo={formatarCompacto}
+                    />
+
                     <section className="grid gap-6 lg:grid-cols-2">
-                        <GraficoSerie
-                            titulo="Evolução mensal"
-                            descricao={`Facturado vs. recebido, até ${nomeMes}`}
-                            icone={BarChart3}
-                            dados={evolucaoMensal}
-                            series={[
-                                { chave: "facturado", label: "Facturado", cor: "#2a78d6" },
-                                { chave: "recebido", label: "Recebido", cor: "#1baf7a" },
-                            ]}
-                            tipo="bar"
-                            filtros={FILTROS_MESES}
-                            formatar={formatMoney}
-                            formatarEixo={formatarCompacto}
+                        <DistribuicaoMetodoChart
+                            dados={distribuicaoPorMetodo}
+                            descricao={`Valor recebido em ${nomeMes} de ${mesActual.ano}, por método`}
                         />
-
-                        <AnimatedPanel delay={0.52}>
-                            <div className="p-6">
-                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                                    <PieChart className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                    Métodos de pagamento mais usados
-                                </h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    {nomeMes} de {mesActual.ano}
-                                </p>
-                                <div className="mt-5">
-                                    <DistribuicaoMetodoChart dados={distribuicaoPorMetodo} variant="donut" />
-                                </div>
-                            </div>
-                        </AnimatedPanel>
+                        <DevedoresChart devedores={maioresDevedores} />
                     </section>
-
-                    <DevedoresChart devedores={maioresDevedores} />
                 </div>
             </div>
         </AdminLayout>

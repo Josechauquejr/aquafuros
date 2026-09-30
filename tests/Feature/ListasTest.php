@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Cliente;
 use App\Models\Factura;
+use App\Models\Leitura;
 use App\Models\Pagamento;
 use App\Models\Tarifa;
 use App\Models\User;
@@ -109,5 +110,66 @@ class ListasTest extends TestCase
         $this->actingAs($this->admin)
             ->get('/pagamentos?search=Rui')
             ->assertInertia(fn (Assert $page) => $page->has('pagamentos.data', 1)->where('pagamentos.data.0.numero_recibo', 'REC-2'));
+    }
+
+    private function leitura(Cliente $cliente, int $mes, float $anterior, float $actual, bool $confirmado = false): Leitura
+    {
+        return Leitura::create([
+            'cliente_id' => $cliente->id,
+            'mes' => $mes,
+            'ano' => 2026,
+            'leitura_anterior' => $anterior,
+            'leitura_actual' => $actual,
+            'confirmado' => $confirmado,
+            'registado_por' => $this->admin->id,
+        ]);
+    }
+
+    public function test_leituras_ordena_por_consumo_e_estado(): void
+    {
+        $ana = $this->cliente('Ana');
+        $pendente = $this->leitura($ana, 7, 0, 10);
+        $confirmada = $this->leitura($ana, 8, 10, 15, true);
+        $facturada = $this->leitura($ana, 9, 15, 45, true);
+        Factura::create([
+            'numero_factura' => 'FAT-X', 'cliente_id' => $ana->id, 'leitura_id' => $facturada->id,
+            'mes' => 9, 'ano' => 2026, 'total_pagar' => 10, 'estado' => 'pendente',
+        ]);
+
+        $this->actingAs($this->admin)->get('/leituras?sort=consumo&dir=desc')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('leituras.data.0.id', $facturada->id)
+                ->where('leituras.data.2.id', $confirmada->id));
+
+        $this->actingAs($this->admin)->get('/leituras?sort=estado&dir=asc')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('leituras.data.0.id', $pendente->id)
+                ->where('leituras.data.1.id', $confirmada->id)
+                ->where('leituras.data.2.id', $facturada->id));
+
+        $this->actingAs($this->admin)->get('/leituras?estado=facturada')
+            ->assertInertia(fn (Assert $page) => $page->has('leituras.data', 1)->where('leituras.data.0.id', $facturada->id));
+
+        $this->actingAs($this->admin)->get('/leituras?estado=confirmada')
+            ->assertInertia(fn (Assert $page) => $page->has('leituras.data', 1)->where('leituras.data.0.id', $confirmada->id));
+
+        // Por defeito: período mais recente primeiro.
+        $this->actingAs($this->admin)->get('/leituras')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('leituras.data.0.id', $facturada->id)
+                ->where('filtros.sort', 'periodo')
+                ->where('filtros.dir', 'desc'));
+    }
+
+    public function test_confirmar_leituras_seleccionadas_so_afecta_os_ids_enviados(): void
+    {
+        $ana = $this->cliente('Ana');
+        $a = $this->leitura($ana, 7, 0, 10);
+        $b = $this->leitura($ana, 8, 10, 20);
+
+        $this->actingAs($this->admin)->put('/leituras/confirmar-todas', ['ids' => [$a->id]])->assertRedirect();
+
+        $this->assertTrue((bool) $a->fresh()->confirmado);
+        $this->assertFalse((bool) $b->fresh()->confirmado);
     }
 }

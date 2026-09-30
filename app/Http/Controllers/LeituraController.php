@@ -4,20 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\Leitura;
+use App\Support\ListaQuery;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class LeituraController extends Controller
 {
     /**
-     * Listar leituras paginadas, com pesquisa por cliente e filtro de
-     * estado (confirmada/pendente) aplicados no servidor.
+     * Listar leituras paginadas, com pesquisa por cliente, período, filtro
+     * de estado (pendente/confirmada/facturada) e ordenação por cabeçalho,
+     * tudo aplicado no servidor.
      */
     public function index(Request $request)
     {
         $search = $request->query('search');
         $estado = $request->query('estado');
-        $ordenar = $request->query('ordenar', 'recente');
 
         // withTrashed() no cliente: uma leitura antiga não deve perder o
         // nome do cliente só porque este foi entretanto removido.
@@ -27,17 +28,32 @@ class LeituraController extends Controller
             'factura',
         ]);
 
+        $periodo = ListaQuery::periodo($query, $request, 'leituras.created_at');
+
         if ($search) {
             $query->whereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"));
         }
 
-        if ($estado === 'confirmada') {
-            $query->where('confirmado', true);
-        } elseif ($estado === 'pendente') {
-            $query->where('confirmado', false);
-        }
+        // Pendente → confirmada (sem factura) → facturada: a mesma ordem
+        // lógica usada ao ordenar por estado.
+        match ($estado) {
+            'pendente' => $query->where('confirmado', false),
+            'confirmada' => $query->where('confirmado', true)->whereDoesntHave('factura'),
+            'facturada' => $query->whereHas('factura'),
+            default => null,
+        };
 
-        $this->ordenarLeituras($query, $ordenar);
+        [$sort, $dir] = ListaQuery::ordenar($query, $request, [
+            'periodo' => fn ($q, $d) => $q->orderBy('leituras.ano', $d)->orderBy('leituras.mes', $d)->orderBy('leituras.id', $d),
+            'cliente' => fn ($q, $d) => $q->join('clientes', 'clientes.id', '=', 'leituras.cliente_id')
+                ->select('leituras.*')->orderBy('clientes.nome', $d),
+            'consumo' => fn ($q, $d) => $q->orderByRaw("(leituras.leitura_actual - leituras.leitura_anterior) {$d}"),
+            'estado' => fn ($q, $d) => $q->orderByRaw(
+                'CASE WHEN leituras.confirmado THEN '
+                ."(CASE WHEN EXISTS (SELECT 1 FROM facturas WHERE facturas.leitura_id = leituras.id AND facturas.deleted_at IS NULL) THEN 2 ELSE 1 END)"
+                ." ELSE 0 END {$d}",
+            )->orderByDesc('leituras.ano')->orderByDesc('leituras.mes'),
+        ], 'periodo', 'desc');
 
         return Inertia::render('Leituras/Index', [
             'leituras' => $query->paginate(15)->withQueryString(),
@@ -49,29 +65,13 @@ class LeituraController extends Controller
                 'semFactura' => Leitura::where('confirmado', true)->whereDoesntHave('factura')->count(),
             ],
             'filtros' => [
+                ...$periodo,
                 'search' => $search ?? '',
-                'estado' => $estado ?? 'todos',
-                'ordenar' => $ordenar,
+                'estado' => in_array($estado, ['pendente', 'confirmada', 'facturada'], true) ? $estado : 'todos',
+                'sort' => $sort,
+                'dir' => $dir,
             ],
         ]);
-    }
-
-    /**
-     * Aplicar a ordenação escolhida — por omissão, mais recente primeiro;
-     * ou alfabética (cliente) / numérica (leitura do contador), para
-     * organizar as leituras dentro de um mês.
-     */
-    private function ordenarLeituras($query, string $ordenar): void
-    {
-        match ($ordenar) {
-            'cliente_asc' => $query->join('clientes', 'clientes.id', '=', 'leituras.cliente_id')
-                ->select('leituras.*')->orderBy('clientes.nome'),
-            'cliente_desc' => $query->join('clientes', 'clientes.id', '=', 'leituras.cliente_id')
-                ->select('leituras.*')->orderByDesc('clientes.nome'),
-            'numero_asc' => $query->orderBy('leitura_actual'),
-            'numero_desc' => $query->orderByDesc('leitura_actual'),
-            default => $query->orderByDesc('ano')->orderByDesc('mes'),
-        };
     }
 
     /**
@@ -145,8 +145,14 @@ class LeituraController extends Controller
     public function confirmarTodas(Request $request)
     {
         $search = $request->input('search');
+        $ids = array_filter((array) $request->input('ids', []), 'is_numeric');
 
         $query = Leitura::where('confirmado', false);
+
+        // Selecção explícita (barra de acções em massa) — só essas leituras.
+        if ($ids) {
+            $query->whereIn('id', $ids);
+        }
 
         if ($search) {
             $query->whereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"));

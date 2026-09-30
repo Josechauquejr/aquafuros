@@ -3,33 +3,29 @@ import {
     CheckCheck,
     CheckCircle2,
     Clock,
+    Eye,
     FileText,
     Pencil,
     Plus,
-    Search,
     Trash2,
     Waves,
 } from "lucide-react";
-import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
-import AnimatedPanel from "@/Components/AnimatedPanel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
-import IconButton from "@/Components/IconButton";
+import DataTable from "@/Components/DataTable/DataTable";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import KpiCard from "@/Components/KpiCard";
 import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
-import Pagination from "@/Components/Pagination";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
-import { cn, formatNumero } from "@/lib/utils";
-import { itemVariants, listVariants } from "@/lib/motion";
+import { formatDate, formatDateTime, formatNumero, formatVolume } from "@/lib/utils";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -45,34 +41,132 @@ const formVazio = {
     leitura_actual: "",
 };
 
+// Valores que o servidor assume quando o parâmetro não vem no URL.
+const padroes = { periodo: "todos", estado: "todos", sort: "periodo", dir: "desc" };
+
+const filtrosConfig = [
+    {
+        chave: "estado",
+        rotulo: "Estado",
+        tipo: "select",
+        padrao: "todos",
+        opcoes: [
+            { valor: "todos", rotulo: "Todos" },
+            { valor: "pendente", rotulo: "Pendente" },
+            { valor: "confirmada", rotulo: "Confirmada" },
+            { valor: "facturada", rotulo: "Facturada" },
+        ],
+    },
+];
+
+const consumoDe = (leitura) => Number(leitura.leitura_actual) - Number(leitura.leitura_anterior);
+
+function EstadoLeitura({ leitura }) {
+    if (leitura.factura) return <StatusBadge tone="cyan">Facturada</StatusBadge>;
+    return (
+        <StatusBadge tone={leitura.confirmado ? "emerald" : "amber"}>
+            {leitura.confirmado ? "Confirmada" : "Pendente"}
+        </StatusBadge>
+    );
+}
+
+function FacturaLink({ factura }) {
+    return (
+        <a
+            href={`/facturas/${factura.id}/imprimir`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
+        >
+            {factura.numero_factura}
+        </a>
+    );
+}
+
+const colunas = [
+    {
+        chave: "cliente",
+        titulo: "Cliente",
+        ordenavel: true,
+        render: (leitura) => (
+            <>
+                <p className="font-semibold text-slate-900 dark:text-white">{leitura.cliente?.nome ?? "Cliente removido"}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{formatDate(leitura.created_at)}</p>
+            </>
+        ),
+    },
+    {
+        chave: "periodo",
+        titulo: "Período",
+        ordenavel: true,
+        render: (leitura) => `${meses[leitura.mes - 1]}/${leitura.ano}`,
+    },
+    {
+        chave: "anterior",
+        titulo: "Anterior",
+        direita: true,
+        className: "text-slate-500 dark:text-slate-400",
+        render: (leitura) => formatNumero(leitura.leitura_anterior),
+    },
+    { chave: "actual", titulo: "Actual", direita: true, render: (leitura) => formatNumero(leitura.leitura_actual) },
+    {
+        chave: "consumo",
+        titulo: "Consumo",
+        ordenavel: true,
+        direita: true,
+        render: (leitura) => (
+            <span className="font-semibold text-cyan-700 dark:text-cyan-300">{formatVolume(consumoDe(leitura))}</span>
+        ),
+    },
+    {
+        chave: "estado",
+        titulo: "Estado",
+        ordenavel: true,
+        render: (leitura) => (
+            <>
+                <EstadoLeitura leitura={leitura} />
+                {leitura.factura && (
+                    <p className="mt-1 text-xs">
+                        <FacturaLink factura={leitura.factura} />
+                    </p>
+                )}
+            </>
+        ),
+    },
+];
+
+const cartaoLeitura = (leitura) => (
+    <div className="space-y-2">
+        <div>
+            <p className="font-semibold text-slate-900 dark:text-white">{leitura.cliente?.nome ?? "Cliente removido"}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+                {formatDate(leitura.created_at)} · {meses[leitura.mes - 1]}/{leitura.ano}
+            </p>
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+            {formatNumero(leitura.leitura_anterior)} → {formatNumero(leitura.leitura_actual)}{" "}
+            <span className="font-semibold text-cyan-700 dark:text-cyan-300">{formatVolume(consumoDe(leitura))}</span>
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+            <EstadoLeitura leitura={leitura} />
+            {leitura.factura && <FacturaLink factura={leitura.factura} />}
+        </div>
+    </div>
+);
+
 export default function Index({ leituras, clientes, totais, filtros }) {
     const { flash, auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador");
-    const [search, setSearch] = useState(filtros.search ?? "");
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
     const [paraEliminar, setParaEliminar] = useState(null);
     const [leituraParaFacturar, setLeituraParaFacturar] = useState(null);
     const [confirmarTodasAberto, setConfirmarTodasAberto] = useState(false);
     const [confirmandoTodas, setConfirmandoTodas] = useState(false);
+    const [detalhe, setDetalhe] = useState(null);
+    const [confirmarSeleccao, setConfirmarSeleccao] = useState(null);
 
     const form = useForm(formVazio);
-
-    const dados = leituras.data;
-
-    const aplicarFiltros = (novosFiltros) => {
-        router.get("/leituras", { ...filtros, ...novosFiltros }, { preserveState: true, preserveScroll: true, replace: true });
-    };
-
-    useEffect(() => {
-        if (search === (filtros.search ?? "")) return;
-        const temporizador = setTimeout(() => aplicarFiltros({ search }), 350);
-        return () => clearTimeout(temporizador);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [search]);
-
-    const mudarEstadoFiltro = (estado) => aplicarFiltros({ estado });
-    const mudarOrdenar = (ordenar) => aplicarFiltros({ ordenar });
 
     const metrics = [
         { label: "Total de leituras", value: totais.total, icon: Waves, tone: "cyan" },
@@ -134,7 +228,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
         setConfirmandoTodas(true);
         router.put(
             "/leituras/confirmar-todas",
-            { search: filtros.search },
+            { search: filtros.search || undefined },
             {
                 preserveScroll: true,
                 onFinish: () => {
@@ -143,6 +237,64 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                 },
             },
         );
+    };
+
+    const confirmarSelecionadas = () => {
+        if (!confirmarSeleccao) return;
+        setConfirmandoTodas(true);
+        router.put(
+            "/leituras/confirmar-todas",
+            { ids: confirmarSeleccao.ids },
+            {
+                preserveScroll: true,
+                onSuccess: () => confirmarSeleccao.limpar(),
+                onFinish: () => {
+                    setConfirmandoTodas(false);
+                    setConfirmarSeleccao(null);
+                },
+            },
+        );
+    };
+
+    const accoesLeitura = (leitura) => {
+        const nome = leitura.cliente?.nome ?? "cliente removido";
+
+        return {
+            principal: leitura.confirmado
+                ? undefined
+                : { icone: CheckCircle2, rotulo: `Confirmar leitura de ${nome}`, tone: "success", onClick: () => confirmarLeitura(leitura) },
+            menu: [
+                { icone: Eye, rotulo: "Ver detalhe", onClick: () => setDetalhe(leitura) },
+                {
+                    icone: Pencil,
+                    rotulo: "Editar",
+                    disabled: leitura.confirmado,
+                    motivo: "Leitura já confirmada — não pode ser editada.",
+                    onClick: () => abrirEdicao(leitura),
+                },
+                {
+                    icone: Trash2,
+                    rotulo: "Apagar",
+                    tone: "danger",
+                    separadorAntes: true,
+                    disabled: leitura.confirmado || Boolean(leitura.factura),
+                    motivo: leitura.factura
+                        ? "Tem factura associada — anule a factura para poder apagar."
+                        : "Leitura já confirmada — não pode ser apagada.",
+                    onClick: () => setParaEliminar(leitura),
+                },
+            ],
+        };
+    };
+
+    const selecao = {
+        acoes: [
+            {
+                rotulo: "Confirmar",
+                icone: CheckCheck,
+                onClick: (ids, limpar) => setConfirmarSeleccao({ ids, limpar }),
+            },
+        ],
     };
 
     return (
@@ -160,7 +312,13 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                             Registo de leituras do contador — base para gerar facturas.
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {totais.pendentes > 0 && (
+                            <AnimatedButton variant="secondary" onClick={() => setConfirmarTodasAberto(true)}>
+                                <CheckCheck className="h-4 w-4" aria-hidden="true" />
+                                Confirmar todas
+                            </AnimatedButton>
+                        )}
                         {ehAdministrador && (
                             <AnimatedButton as={Link} href="/leituras/lixeira" variant="secondary">
                                 <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -188,264 +346,25 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                         ))}
                     </section>
 
-                    <AnimatedPanel delay={0.2} className="p-4">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <div className="relative flex-1">
-                                <Search
-                                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                                    aria-hidden="true"
-                                />
-                                <TextInput
-                                    value={search}
-                                    onChange={(event) => setSearch(event.target.value)}
-                                    placeholder="Cliente"
-                                    className="w-full pl-9"
-                                />
-                            </div>
-                            <select
-                                value={filtros.estado}
-                                onChange={(event) => mudarEstadoFiltro(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                <option value="todos">Todos os estados</option>
-                                <option value="confirmada">Confirmada</option>
-                                <option value="pendente">Pendente</option>
-                            </select>
-                            <select
-                                value={filtros.ordenar}
-                                onChange={(event) => mudarOrdenar(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                <option value="recente">Mais recentes</option>
-                                <option value="cliente_asc">Cliente (A-Z)</option>
-                                <option value="cliente_desc">Cliente (Z-A)</option>
-                                <option value="numero_asc">Leitura (crescente)</option>
-                                <option value="numero_desc">Leitura (decrescente)</option>
-                            </select>
-                            {totais.pendentes > 0 && (
-                                <AnimatedButton
-                                    variant="secondary"
-                                    onClick={() => setConfirmarTodasAberto(true)}
-                                    className="whitespace-nowrap"
-                                >
-                                    <CheckCheck className="h-4 w-4" aria-hidden="true" />
-                                    Confirmar todas
-                                </AnimatedButton>
-                            )}
-                        </div>
-                    </AnimatedPanel>
-
-                    {dados.length === 0 ? (
-                        <AnimatedPanel delay={0.28}>
-                            <p className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-                                Nenhuma leitura encontrada para os filtros seleccionados.
-                            </p>
-                        </AnimatedPanel>
-                    ) : (
-                        <>
-                            {/* Cartões — visíveis apenas em telas pequenas (mobile) */}
-                            <motion.div
-                                variants={listVariants}
-                                initial="hidden"
-                                animate="show"
-                                className="space-y-3 sm:hidden"
-                            >
-                                {dados.map((leitura) => {
-                                    const consumo = Number(leitura.leitura_actual) - Number(leitura.leitura_anterior);
-
-                                    return (
-                                        <motion.div
-                                            key={leitura.id}
-                                            variants={itemVariants}
-                                            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                                        >
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div>
-                                                    <p className="font-semibold text-slate-900 dark:text-white">
-                                                        {leitura.cliente?.nome ?? "Cliente removido"}
-                                                    </p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                        {meses[leitura.mes - 1]}/{leitura.ano}
-                                                    </p>
-                                                </div>
-                                                <StatusBadge tone={leitura.confirmado ? "emerald" : "amber"}>
-                                                    {leitura.confirmado ? "Confirmada" : "Pendente"}
-                                                </StatusBadge>
-                                            </div>
-
-                                            <div className="mt-3 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                                                <span>
-                                                    {formatNumero(leitura.leitura_anterior)} →{" "}
-                                                    {formatNumero(leitura.leitura_actual)}
-                                                </span>
-                                                <span className="font-semibold text-cyan-700 dark:text-cyan-300">
-                                                    {formatNumero(consumo)} m&sup3;
-                                                </span>
-                                            </div>
-
-                                            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
-                                                <span className="text-xs text-slate-500 dark:text-slate-400">
-                                                    {leitura.registado_por?.name ?? "—"}
-                                                    {leitura.confirmado && leitura.factura && (
-                                                        <>
-                                                            {" "}
-                                                            &middot;{" "}
-                                                            <Link
-                                                                href={`/facturas/${leitura.factura.id}/imprimir`}
-                                                                target="_blank"
-                                                                className="font-medium text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
-                                                                onClick={(event) => event.stopPropagation()}
-                                                            >
-                                                                {leitura.factura.numero_factura}
-                                                            </Link>
-                                                        </>
-                                                    )}
-                                                </span>
-                                                <div className="flex items-center gap-1">
-                                                    <IconButton
-                                                        tone="success"
-                                                        onClick={() => confirmarLeitura(leitura)}
-                                                        disabled={leitura.confirmado}
-                                                        title={leitura.confirmado ? "Leitura já confirmada" : "Confirmar leitura"}
-                                                    >
-                                                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                    <IconButton
-                                                        onClick={() => abrirEdicao(leitura)}
-                                                        disabled={leitura.confirmado}
-                                                        title={leitura.confirmado ? "Leitura já confirmada — não pode ser editada" : "Editar leitura"}
-                                                    >
-                                                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                    <IconButton
-                                                        tone="danger"
-                                                        onClick={() => setParaEliminar(leitura)}
-                                                        disabled={leitura.confirmado || Boolean(leitura.factura)}
-                                                        title={
-                                                            leitura.factura
-                                                                ? "Tem factura associada — anule a factura para poder eliminar"
-                                                                : leitura.confirmado
-                                                                  ? "Leitura já confirmada — não pode ser eliminada"
-                                                                  : "Eliminar leitura"
-                                                        }
-                                                    >
-                                                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    );
-                                })}
-                            </motion.div>
-
-                            {/* Tabela — visível a partir de sm (tablet/desktop) */}
-                            <AnimatedPanel delay={0.28} className="hidden overflow-hidden sm:block">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[980px] text-left text-sm">
-                                        <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-                                            <tr>
-                                                <th className="px-6 py-3">Cliente</th>
-                                                <th className="px-6 py-3">Período</th>
-                                                <th className="px-6 py-3 text-right">Anterior</th>
-                                                <th className="px-6 py-3 text-right">Actual</th>
-                                                <th className="px-6 py-3 text-right">Consumo</th>
-                                                <th className="px-6 py-3">Estado</th>
-                                                <th className="px-6 py-3">Registada por</th>
-                                                <th className="px-6 py-3 text-right">Acções</th>
-                                            </tr>
-                                        </thead>
-                                        <motion.tbody
-                                            variants={listVariants}
-                                            initial="hidden"
-                                            animate="show"
-                                            className="divide-y divide-slate-100 dark:divide-slate-800"
-                                        >
-                                            {dados.map((leitura) => {
-                                                const consumo = Number(leitura.leitura_actual) - Number(leitura.leitura_anterior);
-
-                                                return (
-                                                    <motion.tr
-                                                        key={leitura.id}
-                                                        variants={itemVariants}
-                                                        className="transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                                                    >
-                                                        <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white">
-                                                            {leitura.cliente?.nome ?? "Cliente removido"}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                                                            {meses[leitura.mes - 1]}/{leitura.ano}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right text-slate-500 dark:text-slate-400">
-                                                            {formatNumero(leitura.leitura_anterior)}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                            {formatNumero(leitura.leitura_actual)}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right font-semibold text-cyan-700 dark:text-cyan-300">
-                                                            {formatNumero(consumo)} m&sup3;
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <StatusBadge tone={leitura.confirmado ? "emerald" : "amber"}>
-                                                                {leitura.confirmado ? "Confirmada" : "Pendente"}
-                                                            </StatusBadge>
-                                                            {leitura.confirmado && leitura.factura && (
-                                                                <p className="mt-1 text-xs">
-                                                                    <Link
-                                                                        href={`/facturas/${leitura.factura.id}/imprimir`}
-                                                                        target="_blank"
-                                                                        className="font-medium text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
-                                                                    >
-                                                                        {leitura.factura.numero_factura}
-                                                                    </Link>
-                                                                </p>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                                                            {leitura.registado_por?.name ?? "—"}
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center justify-end gap-1.5">
-                                                                <IconButton
-                                                                    tone="success"
-                                                                    onClick={() => confirmarLeitura(leitura)}
-                                                                    disabled={leitura.confirmado}
-                                                                    title={leitura.confirmado ? "Leitura já confirmada" : "Confirmar leitura"}
-                                                                >
-                                                                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                                <IconButton
-                                                                    onClick={() => abrirEdicao(leitura)}
-                                                                    disabled={leitura.confirmado}
-                                                                    title={leitura.confirmado ? "Leitura já confirmada — não pode ser editada" : "Editar leitura"}
-                                                                >
-                                                                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                                <IconButton
-                                                                    tone="danger"
-                                                                    onClick={() => setParaEliminar(leitura)}
-                                                                    disabled={leitura.confirmado || Boolean(leitura.factura)}
-                                                                    title={
-                                                                        leitura.factura
-                                                                            ? "Tem factura associada — anule a factura para poder eliminar"
-                                                                            : leitura.confirmado
-                                                                              ? "Leitura já confirmada — não pode ser eliminada"
-                                                                              : "Eliminar leitura"
-                                                                    }
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                            </div>
-                                                        </td>
-                                                    </motion.tr>
-                                                );
-                                            })}
-                                        </motion.tbody>
-                                    </table>
-                                </div>
-                            </AnimatedPanel>
-                            <Pagination paginador={leituras} />
-                        </>
-                    )}
+                    <DataTable
+                        rota="/leituras"
+                        filtros={filtros}
+                        padroes={padroes}
+                        paginador={leituras}
+                        colunas={colunas}
+                        cartao={cartaoLeitura}
+                        placeholder="Pesquisar cliente"
+                        periodo
+                        filtrosConfig={filtrosConfig}
+                        accoes={accoesLeitura}
+                        rotuloAccoes={(leitura) => `Mais acções sobre a leitura de ${leitura.cliente?.nome ?? "cliente removido"}`}
+                        selecao={selecao}
+                        vazio={{
+                            mensagem: "Ainda não há leituras registadas.",
+                            mensagemFiltrada: "Nenhuma leitura encontrada para os filtros seleccionados.",
+                            accao: { rotulo: "Nova leitura", icone: Plus, onClick: abrirNova, disabled: clientes.length === 0 },
+                        }}
+                    />
                 </div>
             </div>
 
@@ -580,11 +499,49 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                 title="Confirmar todas as leituras"
                 confirmLabel={confirmandoTodas ? "A confirmar..." : "Confirmar todas"}
                 description={
-                    search
-                        ? `Tem a certeza que deseja confirmar todas as leituras pendentes de clientes que correspondam a "${search}"? Depois de confirmadas, ficam bloqueadas para edição.`
+                    filtros.search
+                        ? `Tem a certeza que deseja confirmar todas as leituras pendentes de clientes que correspondam a "${filtros.search}"? Depois de confirmadas, ficam bloqueadas para edição.`
                         : "Tem a certeza que deseja confirmar todas as leituras pendentes? Depois de confirmadas, ficam bloqueadas para edição."
                 }
             />
+
+            <ConfirmDialog
+                show={Boolean(confirmarSeleccao)}
+                onClose={() => setConfirmarSeleccao(null)}
+                onConfirm={confirmarSelecionadas}
+                title="Confirmar leituras seleccionadas"
+                confirmLabel={confirmandoTodas ? "A confirmar..." : "Confirmar"}
+                description={`Confirmar ${confirmarSeleccao?.ids.length ?? 0} leitura(s) pendente(s)? Depois de confirmadas, ficam bloqueadas para edição. As que já estiverem confirmadas são ignoradas.`}
+            />
+
+            <Modal show={Boolean(detalhe)} onClose={() => setDetalhe(null)} title="Detalhe da leitura" maxWidth="md">
+                {detalhe && (
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                        <dt className="text-slate-500 dark:text-slate-400">Cliente</dt>
+                        <dd className="font-medium text-slate-900 dark:text-white">{detalhe.cliente?.nome ?? "Cliente removido"}</dd>
+                        <dt className="text-slate-500 dark:text-slate-400">Período</dt>
+                        <dd className="text-slate-900 dark:text-white">{meses[detalhe.mes - 1]}/{detalhe.ano}</dd>
+                        <dt className="text-slate-500 dark:text-slate-400">Registada em</dt>
+                        <dd className="text-slate-900 dark:text-white">{formatDateTime(detalhe.created_at)}</dd>
+                        <dt className="text-slate-500 dark:text-slate-400">Registada por</dt>
+                        <dd className="text-slate-900 dark:text-white">{detalhe.registado_por?.name ?? "—"}</dd>
+                        <dt className="text-slate-500 dark:text-slate-400">Leitura anterior</dt>
+                        <dd className="text-slate-900 dark:text-white">{formatNumero(detalhe.leitura_anterior)}</dd>
+                        <dt className="text-slate-500 dark:text-slate-400">Leitura actual</dt>
+                        <dd className="text-slate-900 dark:text-white">{formatNumero(detalhe.leitura_actual)}</dd>
+                        <dt className="text-slate-500 dark:text-slate-400">Consumo</dt>
+                        <dd className="font-semibold text-cyan-700 dark:text-cyan-300">{formatVolume(consumoDe(detalhe))}</dd>
+                        <dt className="text-slate-500 dark:text-slate-400">Estado</dt>
+                        <dd><EstadoLeitura leitura={detalhe} /></dd>
+                        {detalhe.factura && (
+                            <>
+                                <dt className="text-slate-500 dark:text-slate-400">Factura</dt>
+                                <dd><FacturaLink factura={detalhe.factura} /></dd>
+                            </>
+                        )}
+                    </dl>
+                )}
+            </Modal>
         </AdminLayout>
     );
 }

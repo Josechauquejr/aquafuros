@@ -294,10 +294,12 @@ class ListasTest extends TestCase
     {
         $ana = $this->cliente('Ana');
         $mesPassado = now()->startOfMonth()->subMonth();
-        Factura::create([
+        $passada = Factura::create([
             'numero_factura' => 'F-P', 'cliente_id' => $ana->id, 'mes' => $mesPassado->month, 'ano' => $mesPassado->year,
             'total_pagar' => 500, 'estado' => 'pendente',
         ]);
+        // facturado = emitido nesse mês
+        $passada->forceFill(['created_at' => $mesPassado->copy()->addDays(3)])->saveQuietly();
 
         $this->actingAs($this->admin)->get('/admin/dashboard?mes='.$mesPassado->format('Y-m'))
             ->assertInertia(fn (Assert $page) => $page
@@ -336,5 +338,51 @@ class ListasTest extends TestCase
                 ->where('facturasVencidas.valor', 300)
                 ->missing('ticketMedioPagamento')
                 ->missing('tempoMedioPagamentoDias'));
+    }
+
+    public function test_facturado_e_recebido_batem_certo_no_painel_nas_facturas_e_nos_pagamentos(): void
+    {
+        $ana = $this->cliente('Ana');
+        $f1 = $this->factura($ana, 'F-A', 'pendente', total: 1000);
+        $f2 = $this->factura($ana, 'F-B', 'pendente', total: 500);
+        $this->factura($ana, 'F-X', 'anulada', total: 9999); // nunca conta
+
+        // 400 parcial na F-A e F-B paga por inteiro
+        foreach ([[$f1, 400, 'R-1'], [$f2, 500, 'R-2']] as [$f, $valor, $recibo]) {
+            $this->actingAs($this->admin)->post('/pagamentos', [
+                'factura_id' => $f->id, 'valor_pago' => $valor, 'metodo_pagamento' => 'dinheiro',
+            ])->assertSessionHasNoErrors();
+        }
+
+        $painel = $this->actingAs($this->admin)->get('/admin/dashboard')->viewData('page')['props']['mesActual'];
+        $facturas = $this->actingAs($this->admin)->get('/facturas')->viewData('page')['props']['totais'];
+        $pagamentos = $this->actingAs($this->admin)->get('/pagamentos')->viewData('page')['props']['metricas'];
+
+        $this->assertEquals(1500, $painel['totalFacturado']);
+        $this->assertEquals(900, $painel['totalRecebido']);
+
+        // Facturas: facturado, recebido (incl. parciais) e o que FALTA pagar
+        $this->assertEquals($painel['totalFacturado'], $facturas['totalFacturado']);
+        $this->assertEquals($painel['totalRecebido'], $facturas['totalPago']);
+        $this->assertEquals(600, $facturas['totalEmAberto']);
+        $this->assertEquals($facturas['totalFacturado'], $facturas['totalPago'] + $facturas['totalEmAberto']);
+
+        // Pagamentos: o mesmo dinheiro recebido no mês
+        $this->assertEquals($painel['totalRecebido'], $pagamentos['totalRecebido']);
+
+        // O resumo mensal das Facturas também
+        $this->actingAs($this->admin)->get('/facturas')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('resumoMensal.0.total', 1500)
+                ->where('resumoMensal.0.recebido', 900)
+                ->where('resumoMensal.0.em_aberto', 600));
+
+        // E o painel do gestor usa a mesma definição
+        $gestor = User::factory()->create();
+        $gestor->assignRole('gestor');
+        $this->actingAs($gestor)->get('/gestor/dashboard')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('resumoMes.totalFacturado', 1500)
+                ->where('resumoMes.totalRecebido', 900));
     }
 }

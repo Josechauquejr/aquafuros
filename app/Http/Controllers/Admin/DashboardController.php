@@ -10,6 +10,7 @@ use App\Models\Pagamento;
 use App\Models\User;
 use App\Support\MesReferencia;
 use App\Support\ResolvedorPeriodo;
+use App\Support\ResumoMensal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -299,19 +300,7 @@ class DashboardController extends Controller
 
     private function resumoPeriodo(int $mes, int $ano): array
     {
-        $facturas = Factura::where('mes', $mes)->where('ano', $ano)->where('estado', '!=', 'anulada')->get();
-        $totalFacturado = (float) $facturas->sum('total_pagar');
-        $totalRecebido = (float) Pagamento::whereIn('factura_id', $facturas->pluck('id'))->sum('valor_pago');
-
-        return [
-            'mes' => $mes,
-            'ano' => $ano,
-            'totalFacturado' => $totalFacturado,
-            'totalRecebido' => $totalRecebido,
-            'taxaCobranca' => $totalFacturado > 0 ? round(($totalRecebido / $totalFacturado) * 100, 1) : null,
-            'numeroFacturas' => $facturas->count(),
-            'numeroPagamentos' => Pagamento::whereMonth('created_at', $mes)->whereYear('created_at', $ano)->count(),
-        ];
+        return ResumoMensal::calcular($mes, $ano);
     }
 
     private function evolucaoMensal(Carbon $referencia, int $meses): array

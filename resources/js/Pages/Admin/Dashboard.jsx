@@ -40,6 +40,10 @@ export default function Dashboard({
     facturasVencidas,
 }) {
     const nomeMes = meses[mesActual.mes - 1];
+    // Os cartões abrem a página com o MESMO intervalo, onde o total tem de bater certo.
+    const ultimoDia = new Date(mesActual.ano, mesActual.mes, 0).getDate();
+    const mm = String(mesActual.mes).padStart(2, "0");
+    const intervalo = `periodo=personalizado&data_inicio=${mesActual.ano}-${mm}-01&data_fim=${mesActual.ano}-${mm}-${ultimoDia}`;
     const ultimos = evolucaoMensal.slice(-6);
     const totalLeituras = contadores.leiturasConfirmadas + contadores.leiturasPendentes;
 
@@ -49,9 +53,10 @@ export default function Dashboard({
         {
             label: `Facturado — ${nomeMes}`,
             value: formatMoney(mesActual.totalFacturado),
-            detail: `${mesActual.numeroFacturas} factura(s) emitida(s)`,
+            detail: `${mesActual.numeroFacturas} factura(s) emitida(s) no mês`,
             icon: FileText,
             tone: "cyan",
+            href: `/facturas?${intervalo}`,
             grafico: {
                 tipo: "spark",
                 serie: ultimos.map((d) => d.facturado),
@@ -62,9 +67,10 @@ export default function Dashboard({
         {
             label: `Recebido — ${nomeMes}`,
             value: formatMoney(mesActual.totalRecebido),
-            detail: `${mesActual.numeroPagamentos} pagamento(s) registado(s)`,
+            detail: `${mesActual.numeroPagamentos} pagamento(s) recebido(s) no mês`,
             icon: Banknote,
             tone: "emerald",
+            href: `/pagamentos?${intervalo}`,
             grafico: {
                 tipo: "spark",
                 serie: ultimos.map((d) => d.recebido),
@@ -75,7 +81,7 @@ export default function Dashboard({
         {
             label: "Taxa de cobrança",
             value: mesActual.taxaCobranca === null ? "—" : `${mesActual.taxaCobranca}%`,
-            detail: `${formatMoney(mesActual.totalRecebido)} de ${formatMoney(mesActual.totalFacturado)}`,
+            detail: "recebido no mês ÷ facturado no mês",
             icon: TrendingUp,
             tone: "amber",
             grafico: { tipo: "radial", valor: mesActual.taxaCobranca ?? 0 },

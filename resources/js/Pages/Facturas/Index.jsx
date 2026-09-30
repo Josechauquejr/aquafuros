@@ -436,6 +436,9 @@ export default function Index({
         });
     }, [resumoMensalProp]);
 
+    const filtrosActivos =
+        Boolean(filtros.search) || filtros.estado !== "todos" || filtros.periodo !== "todos" || Boolean(filtros.mes_ano);
+
     const pctRecebido = totais.totalFacturado > 0
         ? Math.min(100, (totais.totalPago / totais.totalFacturado) * 100)
         : 0;
@@ -447,12 +450,12 @@ export default function Index({
         {
             label: "Total facturado",
             value: formatMoney(totais.totalFacturado),
-            detail: "Desde sempre — todos os períodos",
+            detail: filtrosActivos ? "Só o que está na lista (filtros activos)" : "Todas as facturas",
             icon: FileText,
             tone: "cyan",
         },
-        { label: "Recebido (pagas)", value: formatMoney(totais.totalPago), icon: CheckCircle2, tone: "emerald" },
-        { label: "Em aberto", value: formatMoney(totais.totalEmAberto), icon: Banknote, tone: "amber" },
+        { label: "Recebido", value: formatMoney(totais.totalPago), detail: "já pago, incluindo pagamentos parciais", icon: CheckCircle2, tone: "emerald" },
+        { label: "Em aberto", value: formatMoney(totais.totalEmAberto), detail: "o que ainda falta pagar", icon: Banknote, tone: "amber" },
         {
             label: "Facturas pendentes",
             value: totais.pendentesCount,

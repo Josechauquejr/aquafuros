@@ -7,6 +7,7 @@ use App\Models\Factura;
 use App\Models\Leitura;
 use App\Models\Pagamento;
 use App\Support\MesReferencia;
+use App\Support\ResumoMensal;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -22,23 +23,11 @@ class GestorDashboardController extends Controller
     {
         $hoje = MesReferencia::resolver($request);
 
-        $facturas = Factura::where('mes', $hoje->month)
-            ->where('ano', $hoje->year)
-            ->where('estado', '!=', 'anulada')
-            ->get();
-        $totalFacturado = (float) $facturas->sum('total_pagar');
-        $totalRecebido = (float) Pagamento::whereIn('factura_id', $facturas->pluck('id'))->sum('valor_pago');
+        $resumo = ResumoMensal::calcular($hoje->month, $hoje->year);
 
         return Inertia::render('Gestor/Dashboard', [
             'mesReferencia' => MesReferencia::paraSeletor($hoje),
-            'resumoMes' => [
-                'mes' => $hoje->month,
-                'ano' => $hoje->year,
-                'totalFacturado' => $totalFacturado,
-                'totalRecebido' => $totalRecebido,
-                'taxaCobranca' => $totalFacturado > 0 ? round(($totalRecebido / $totalFacturado) * 100, 1) : null,
-                'numeroFacturas' => $facturas->count(),
-            ],
+            'resumoMes' => $resumo,
             'contadores' => [
                 'clientesActivos' => Cliente::where('estado', 'ativo')->count(),
                 'clientesCortados' => Cliente::where('estado', 'cortado')->count(),

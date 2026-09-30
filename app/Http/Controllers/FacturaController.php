@@ -11,6 +11,7 @@ use App\Support\BuscaDifusa;
 use App\Support\ListaQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
@@ -71,7 +72,7 @@ class FacturaController extends Controller
                 ->with(['cliente' => fn ($q) => $q->withTrashed()])
                 ->orderByDesc('ano')->orderByDesc('mes')->get(),
             'resumoMensal' => $this->resumoMensal(),
-            'totais' => $this->totaisGerais(),
+            'totais' => $this->totais($request),
             'filtros' => [...$filtros, 'sort' => $sort, 'dir' => $dir],
             ...$this->facturaAlvo($request),
         ]);
@@ -145,8 +146,10 @@ class FacturaController extends Controller
             $query->where('facturas.estado', '!=', 'anulada');
         }
 
-        if (is_string($mesAno) && preg_match('#^(\d{1,2})/(\d{4})$#', $mesAno, $m)) {
-            $query->where('facturas.mes', (int) $m[1])->where('facturas.ano', (int) $m[2]);
+        if (is_string($mesAno) && preg_match('#^(\d{1,2})/(\d{4})$#', $mesAno, $m) && checkdate((int) $m[1], 1, (int) $m[2])) {
+            // mês de emissão — o mesmo critério do resumo mensal e dos painéis
+            $inicioMes = Carbon::create((int) $m[2], (int) $m[1], 1)->startOfMonth();
+            $query->whereBetween('facturas.created_at', [$inicioMes, $inicioMes->copy()->endOfMonth()]);
         } else {
             $mesAno = null;
         }
@@ -422,38 +425,58 @@ class FacturaController extends Controller
      */
     private function resumoMensal()
     {
-        // Anuladas de fora de todos os totais — o mesmo critério já usado em
-        // totaisGerais(), para que Total = Recebido + Em aberto feche sempre.
-        // O valor anulado só aparece na vista de facturas anuladas.
+        // Por MÊS DE EMISSÃO (como o "Facturado no mês" dos painéis e o
+        // filtro de período da lista). Recebido = pagamentos dessas facturas;
+        // Em aberto = o que ainda falta pagar. Anuladas de fora de tudo.
         return Factura::where('estado', '!=', 'anulada')
-            ->selectRaw(
-                'mes, ano, COUNT(*) as quantidade, SUM(total_pagar) as total,'
-                .' SUM(CASE WHEN estado = \'paga\' THEN total_pagar ELSE 0 END) as recebido,'
-                .' SUM(CASE WHEN estado IN (\'pendente\', \'parcial\') THEN total_pagar ELSE 0 END) as em_aberto',
-            )
-            ->groupBy('mes', 'ano')
-            ->orderByDesc('ano')->orderByDesc('mes')
-            ->get();
+            ->withSum('pagamentos', 'valor_pago')
+            ->get(['id', 'total_pagar', 'estado', 'created_at'])
+            ->groupBy(fn ($f) => $f->created_at->format('Y-m'))
+            ->map(function ($grupo, $chave) {
+                [$ano, $mes] = array_map('intval', explode('-', $chave));
+                $pago = fn ($f) => (float) ($f->pagamentos_sum_valor_pago ?? 0);
+
+                return [
+                    'mes' => $mes,
+                    'ano' => $ano,
+                    'quantidade' => $grupo->count(),
+                    'total' => round((float) $grupo->sum('total_pagar'), 2),
+                    'recebido' => round((float) $grupo->sum($pago), 2),
+                    'em_aberto' => round((float) $grupo->whereIn('estado', ['pendente', 'parcial'])
+                        ->sum(fn ($f) => max(0, (float) $f->total_pagar - $pago($f))), 2),
+                ];
+            })
+            ->sortByDesc(fn ($linha) => $linha['ano'] * 12 + $linha['mes'])
+            ->values();
     }
 
     /**
-     * Totais gerais (não filtrados) para os cartões de métricas no topo da
-     * lista de facturas.
+     * Totais dos cartões do topo — sobre as facturas que os filtros da lista
+     * mostram (sem filtros, todas). Mesma lógica das outras páginas:
+     * Recebido = dinheiro já recebido dessas facturas (soma dos pagamentos,
+     * incluindo pagamentos parciais) e Em aberto = o que ainda FALTA pagar
+     * (não o total das facturas por pagar). Anuladas nunca contam.
      */
-    private function totaisGerais(): array
+    private function totais(Request $request): array
     {
+        $query = Factura::query();
+        $this->aplicarFiltros($query, $request);
+
+        $facturas = $query->where('facturas.estado', '!=', 'anulada')
+            ->withSum('pagamentos', 'valor_pago')
+            ->get(['facturas.id', 'facturas.total_pagar', 'facturas.estado', 'facturas.data_vencimento']);
+
+        $emAberto = $facturas->whereIn('estado', ['pendente', 'parcial']);
+        $faltaDe = fn ($f) => max(0, (float) $f->total_pagar - (float) ($f->pagamentos_sum_valor_pago ?? 0));
+
         return [
-            // Anuladas não contam nas estatísticas de valores.
-            'totalFacturado' => (float) Factura::where('estado', '!=', 'anulada')->sum('total_pagar'),
-            'totalPago' => (float) Factura::where('estado', 'paga')->sum('total_pagar'),
-            'totalEmAberto' => (float) Factura::whereIn('estado', ['pendente', 'parcial'])->sum('total_pagar'),
-            'pendentesCount' => Factura::where('estado', 'pendente')->count(),
-            // Só as facturas pendentes/parciais já fora do prazo justificam
-            // o alerta vermelho — uma factura pendente dentro do prazo ainda
-            // não é um problema.
-            'vencidasCount' => Factura::whereIn('estado', ['pendente', 'parcial'])
-                ->where('data_vencimento', '<', now())
-                ->count(),
+            'totalFacturado' => round((float) $facturas->sum('total_pagar'), 2),
+            'totalPago' => round((float) $facturas->sum(fn ($f) => (float) ($f->pagamentos_sum_valor_pago ?? 0)), 2),
+            'totalEmAberto' => round((float) $emAberto->sum($faltaDe), 2),
+            'pendentesCount' => $facturas->where('estado', 'pendente')->count(),
+            // Só as facturas por pagar já fora do prazo justificam o alerta
+            // vermelho — uma factura dentro do prazo ainda não é um problema.
+            'vencidasCount' => $emAberto->filter(fn ($f) => $f->data_vencimento?->isPast())->count(),
         ];
     }
 

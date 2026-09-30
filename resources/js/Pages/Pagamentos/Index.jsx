@@ -8,32 +8,26 @@ import {
     Printer,
     Receipt,
     RotateCcw,
-    Search,
     Smartphone,
     Trash2,
     Wallet,
 } from "lucide-react";
-import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
-import AnimatedPanel from "@/Components/AnimatedPanel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
-import IconButton, { IconLink } from "@/Components/IconButton";
+import DataTable from "@/Components/DataTable/DataTable";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import KpiCard from "@/Components/KpiCard";
 import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
-import Pagination from "@/Components/Pagination";
-import PeriodoFiltro from "@/Components/PeriodoFiltro";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
-import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
-import { itemVariants, listVariants } from "@/lib/motion";
+import { cn, formatDateTime, formatMoney } from "@/lib/utils";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -49,46 +43,109 @@ const metodoConfig = {
 
 const formVazio = { factura_id: "", valor_pago: "", metodo_pagamento: "dinheiro", referencia_pagamento: "" };
 
+// Valores que o servidor assume quando o parâmetro não vem no URL.
+const padroes = { periodo: "mes", metodo: "todos", sort: "recibo", dir: "desc" };
+
+const filtrosConfig = [
+    {
+        chave: "metodo",
+        rotulo: "Método",
+        tipo: "select",
+        padrao: "todos",
+        opcoes: [
+            { valor: "todos", rotulo: "Todos" },
+            ...Object.entries(metodoConfig).map(([valor, { label }]) => ({ valor, rotulo: label })),
+        ],
+    },
+];
+
+function MetodoBadge({ metodo: chave }) {
+    const metodo = metodoConfig[chave];
+    const MetodoIcon = metodo.icon;
+
+    return (
+        <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", metodo.tone)}>
+            <MetodoIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            {metodo.label}
+        </span>
+    );
+}
+
+function FacturaLink({ factura }) {
+    return (
+        <a
+            href={`/facturas/${factura.id}/imprimir`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-cyan-700 hover:underline dark:text-cyan-300"
+        >
+            {factura.numero_factura}
+        </a>
+    );
+}
+
+const colunas = [
+    {
+        chave: "recibo",
+        titulo: "Recibo / Data",
+        ordenavel: true,
+        render: (pagamento) => (
+            <>
+                <p className="font-semibold text-slate-900 dark:text-white">{pagamento.numero_recibo}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(pagamento.created_at)}</p>
+            </>
+        ),
+    },
+    {
+        chave: "cliente",
+        titulo: "Cliente",
+        ordenavel: true,
+        render: (pagamento) => pagamento.cliente?.nome ?? "Cliente removido",
+    },
+    { chave: "factura", titulo: "Factura", render: (pagamento) => <FacturaLink factura={pagamento.factura} /> },
+    {
+        chave: "valor",
+        titulo: "Valor",
+        ordenavel: true,
+        direita: true,
+        render: (pagamento) => (
+            <span className="font-semibold text-slate-900 dark:text-white">{formatMoney(pagamento.valor_pago)}</span>
+        ),
+    },
+    { chave: "metodo", titulo: "Método", render: (pagamento) => <MetodoBadge metodo={pagamento.metodo_pagamento} /> },
+    { chave: "recebido_por", titulo: "Recebido por", render: (pagamento) => pagamento.recebido_por?.name ?? "—" },
+];
+
+const cartaoPagamento = (pagamento) => (
+    <div className="space-y-2">
+        <div>
+            <p className="font-semibold text-slate-900 dark:text-white">{pagamento.numero_recibo}</p>
+            <p className="truncate text-sm text-slate-600 dark:text-slate-300">
+                {pagamento.cliente?.nome ?? "Cliente removido"}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(pagamento.created_at)}</p>
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+            Factura <FacturaLink factura={pagamento.factura} />
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-slate-900 dark:text-white">{formatMoney(pagamento.valor_pago)}</span>
+            <MetodoBadge metodo={pagamento.metodo_pagamento} />
+        </div>
+    </div>
+);
+
 export default function Index({ pagamentos, facturasEmAberto, metricas, filtros }) {
     const { auth, flash } = usePage().props;
-    const [search, setSearch] = useState(filtros.search ?? "");
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
     const [paraEstornar, setParaEstornar] = useState(null);
-    const [selecionados, setSelecionados] = useState([]);
 
     const form = useForm(formVazio);
     const ehAdministrador = auth.roles?.includes("administrador") ?? false;
 
-    const dados = pagamentos.data;
-
-    const aplicarFiltros = (novosFiltros) => {
-        router.get(
-            "/pagamentos",
-            { ...filtros, ...novosFiltros },
-            { preserveState: true, preserveScroll: true, replace: true },
-        );
-    };
-
-    useEffect(() => {
-        if (search === (filtros.search ?? "")) return;
-        const temporizador = setTimeout(() => aplicarFiltros({ search }), 350);
-        return () => clearTimeout(temporizador);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [search]);
-
-    const mudarPeriodo = (periodo) => aplicarFiltros({ periodo, data_inicio: undefined, data_fim: undefined });
-    const mudarIntervalo = (data_inicio, data_fim) => aplicarFiltros({ periodo: "personalizado", data_inicio, data_fim });
-    const mudarMetodo = (metodo) => aplicarFiltros({ metodo });
-    const mudarOrdenar = (ordenar) => aplicarFiltros({ ordenar });
-    const temFiltrosActivos = Boolean(search) || filtros.metodo !== "todos" || filtros.periodo !== "todos";
-    const limparFiltros = () => {
-        setSearch("");
-        router.get("/pagamentos", { periodo: "todos" }, { preserveScroll: true, replace: true });
-    };
-
     const metrics = [
-        { label: "Total recebido", value: formatCurrency(metricas.totalRecebido), icon: Wallet, tone: "cyan" },
+        { label: "Total recebido", value: formatMoney(metricas.totalRecebido), icon: Wallet, tone: "cyan" },
         { label: "Pagamentos registados", value: metricas.totalRegistados, icon: Receipt, tone: "emerald" },
         {
             label: "Método mais usado",
@@ -96,7 +153,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
             icon: Smartphone,
             tone: "amber",
         },
-        { label: "Valor médio por recibo", value: formatCurrency(metricas.valorMedio), icon: Banknote, tone: "rose" },
+        { label: "Valor médio por recibo", value: formatMoney(metricas.valorMedio), icon: Banknote, tone: "rose" },
     ];
 
     const abrirNovo = (facturaIdPreseleccionada) => {
@@ -156,19 +213,36 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
         router.delete(`/pagamentos/${paraEstornar.id}`, { onFinish: () => setParaEstornar(null), preserveScroll: true });
     };
 
-    const toggleSelecao = (id) => {
-        setSelecionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-    };
+    const accoesPagamento = (pagamento) => ({
+        principal: {
+            icone: Printer,
+            rotulo: "Imprimir recibo",
+            href: `/pagamentos/${pagamento.id}/imprimir`,
+            target: "_blank",
+        },
+        menu: [
+            { icone: Pencil, rotulo: "Editar", onClick: () => abrirEdicao(pagamento) },
+            {
+                icone: RotateCcw,
+                rotulo: "Estornar",
+                tone: "danger",
+                separadorAntes: true,
+                disabled: !ehAdministrador,
+                motivo: "Apenas administradores podem estornar pagamentos.",
+                onClick: () => setParaEstornar(pagamento),
+            },
+        ],
+    });
 
-    const todosVisiveisSeleccionados =
-        dados.length > 0 && dados.every((p) => selecionados.includes(p.id));
-
-    const toggleSelecaoTodos = () => {
-        if (todosVisiveisSeleccionados) {
-            setSelecionados((prev) => prev.filter((id) => !dados.some((p) => p.id === id)));
-        } else {
-            setSelecionados((prev) => [...new Set([...prev, ...dados.map((p) => p.id)])]);
-        }
+    const selecao = {
+        acoes: [
+            {
+                rotulo: "Imprimir",
+                icone: Printer,
+                href: (ids) => `/pagamentos/imprimir-lote?ids=${ids.join(",")}`,
+                target: "_blank",
+            },
+        ],
     };
 
     return (
@@ -218,274 +292,30 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                         ))}
                     </section>
 
-                    <AnimatedPanel delay={0.2} className="space-y-3 p-4">
-                        <PeriodoFiltro
-                            periodo={filtros.periodo}
-                            onChange={mudarPeriodo}
-                            dataInicio={filtros.data_inicio}
-                            dataFim={filtros.data_fim}
-                            onChangeIntervalo={mudarIntervalo}
-                        />
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <div className="relative flex-1">
-                                <Search
-                                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                                    aria-hidden="true"
-                                />
-                                <TextInput
-                                    value={search}
-                                    onChange={(event) => setSearch(event.target.value)}
-                                    placeholder="Cliente, recibo ou factura"
-                                    className="w-full pl-9"
-                                />
-                            </div>
-                            <select
-                                value={filtros.metodo}
-                                onChange={(event) => mudarMetodo(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                <option value="todos">Todos os métodos</option>
-                                <option value="dinheiro">Dinheiro</option>
-                                <option value="banco">Transferência bancária</option>
-                                <option value="mpesa">M-Pesa</option>
-                                <option value="e-mola">e-Mola</option>
-                            </select>
-                            <select
-                                value={filtros.ordenar}
-                                onChange={(event) => mudarOrdenar(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                <option value="recente">Mais recentes</option>
-                                <option value="cliente_asc">Cliente (A-Z)</option>
-                                <option value="cliente_desc">Cliente (Z-A)</option>
-                                <option value="numero_asc">Nº recibo (crescente)</option>
-                                <option value="numero_desc">Nº recibo (decrescente)</option>
-                            </select>
-                            {selecionados.length > 0 && (
-                                <AnimatedButton
-                                    as={Link}
-                                    href={`/pagamentos/imprimir-lote?ids=${selecionados.join(",")}`}
-                                    target="_blank"
-                                    variant="primary"
-                                >
-                                    <Printer className="h-4 w-4" aria-hidden="true" />
-                                    Imprimir seleccionados ({selecionados.length})
-                                </AnimatedButton>
-                            )}
-                        </div>
-                    </AnimatedPanel>
-
-                    {dados.length === 0 ? (
-                        <AnimatedPanel delay={0.28}>
-                            <div className="flex flex-col items-center gap-4 px-6 py-10 text-center">
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    {temFiltrosActivos
-                                        ? "Nenhum pagamento encontrado para os filtros seleccionados."
-                                        : "Ainda não há pagamentos registados."}
-                                </p>
-                                <div className="flex flex-wrap justify-center gap-3">
-                                    {temFiltrosActivos && (
-                                        <SecondaryButton type="button" onClick={limparFiltros}>
-                                            Limpar filtros
-                                        </SecondaryButton>
-                                    )}
-                                    <AnimatedButton
-                                        variant="primary"
-                                        onClick={() => abrirNovo()}
-                                        disabled={facturasEmAberto.length === 0}
-                                    >
-                                        <Plus className="h-4 w-4" aria-hidden="true" />
-                                        Registar pagamento
-                                    </AnimatedButton>
-                                </div>
-                            </div>
-                        </AnimatedPanel>
-                    ) : (
-                        <>
-                            {/* Cartões — visíveis apenas em telas pequenas (mobile) */}
-                            <motion.div
-                                variants={listVariants}
-                                initial="hidden"
-                                animate="show"
-                                className="space-y-3 sm:hidden"
-                            >
-                                {dados.map((pagamento) => {
-                                    const metodo = metodoConfig[pagamento.metodo_pagamento];
-                                    const MetodoIcon = metodo.icon;
-
-                                    return (
-                                        <motion.div
-                                            key={pagamento.id}
-                                            variants={itemVariants}
-                                            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                                        >
-                                            <div className="flex items-start justify-between gap-2">
-                                                <label className="flex items-start gap-2">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selecionados.includes(pagamento.id)}
-                                                        onChange={() => toggleSelecao(pagamento.id)}
-                                                        className="mt-1 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900"
-                                                    />
-                                                    <div>
-                                                        <p className="font-semibold text-slate-900 dark:text-white">
-                                                            {pagamento.numero_recibo}
-                                                        </p>
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                            {pagamento.cliente?.nome ?? "Cliente removido"}
-                                                        </p>
-                                                    </div>
-                                                </label>
-                                                <span
-                                                    className={cn(
-                                                        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
-                                                        metodo.tone,
-                                                    )}
-                                                >
-                                                    <MetodoIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                                                    {metodo.label}
-                                                </span>
-                                            </div>
-
-                                            <div className="mt-3 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                                                <span>{pagamento.factura.numero_factura}</span>
-                                                <span>{formatDateTime(pagamento.created_at)}</span>
-                                            </div>
-
-                                            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
-                                                <span className="font-semibold text-slate-900 dark:text-white">
-                                                    {formatCurrency(pagamento.valor_pago)}
-                                                </span>
-                                                <div className="flex items-center gap-1">
-                                                    <IconButton onClick={() => abrirEdicao(pagamento)} title="Editar método / referência">
-                                                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                    <IconLink href={`/pagamentos/${pagamento.id}/imprimir`} target="_blank" title="Imprimir recibo">
-                                                        <Printer className="h-4 w-4" aria-hidden="true" />
-                                                    </IconLink>
-                                                    <IconButton
-                                                        tone="danger"
-                                                        onClick={() => setParaEstornar(pagamento)}
-                                                        disabled={!ehAdministrador}
-                                                        title={ehAdministrador ? "Estornar pagamento" : "Apenas administradores podem estornar"}
-                                                    >
-                                                        <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    );
-                                })}
-                            </motion.div>
-
-                            {/* Tabela — visível a partir de sm (tablet/desktop) */}
-                            <AnimatedPanel delay={0.28} className="hidden overflow-hidden sm:block">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[940px] text-left text-sm">
-                                        <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-                                            <tr>
-                                                <th className="w-10 px-6 py-3">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={todosVisiveisSeleccionados}
-                                                        onChange={toggleSelecaoTodos}
-                                                        className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900"
-                                                        aria-label="Seleccionar todos os pagamentos visíveis"
-                                                    />
-                                                </th>
-                                                <th className="px-6 py-3">Recibo</th>
-                                                <th className="px-6 py-3">Cliente</th>
-                                                <th className="px-6 py-3">Factura</th>
-                                                <th className="px-6 py-3 text-right">Valor</th>
-                                                <th className="px-6 py-3">Método</th>
-                                                <th className="px-6 py-3">Recebido por</th>
-                                                <th className="px-6 py-3 text-right">Acções</th>
-                                            </tr>
-                                        </thead>
-                                        <motion.tbody
-                                            variants={listVariants}
-                                            initial="hidden"
-                                            animate="show"
-                                            className="divide-y divide-slate-100 dark:divide-slate-800"
-                                        >
-                                            {dados.map((pagamento) => {
-                                                const metodo = metodoConfig[pagamento.metodo_pagamento];
-                                                const MetodoIcon = metodo.icon;
-
-                                                return (
-                                                    <motion.tr
-                                                        key={pagamento.id}
-                                                        variants={itemVariants}
-                                                        className="transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                                                    >
-                                                        <td className="px-6 py-4">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selecionados.includes(pagamento.id)}
-                                                                onChange={() => toggleSelecao(pagamento.id)}
-                                                                className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900"
-                                                                aria-label={`Seleccionar recibo ${pagamento.numero_recibo}`}
-                                                            />
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <p className="font-semibold text-slate-900 dark:text-white">
-                                                                {pagamento.numero_recibo}
-                                                            </p>
-                                                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                                {formatDateTime(pagamento.created_at)}
-                                                            </p>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                                                            {pagamento.cliente?.nome ?? "Cliente removido"}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                                                            {pagamento.factura.numero_factura}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-white">
-                                                            {formatCurrency(pagamento.valor_pago)}
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span
-                                                                className={cn(
-                                                                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
-                                                                    metodo.tone,
-                                                                )}
-                                                            >
-                                                                <MetodoIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                                                                {metodo.label}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                                                            {pagamento.recebido_por?.name ?? "—"}
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center justify-end gap-1.5">
-                                                                <IconButton onClick={() => abrirEdicao(pagamento)} title="Editar método / referência">
-                                                                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                                <IconLink href={`/pagamentos/${pagamento.id}/imprimir`} target="_blank" title="Imprimir recibo">
-                                                                    <Printer className="h-4 w-4" aria-hidden="true" />
-                                                                </IconLink>
-                                                                <IconButton
-                                                                    tone="danger"
-                                                                    onClick={() => setParaEstornar(pagamento)}
-                                                                    disabled={!ehAdministrador}
-                                                                    title={ehAdministrador ? "Estornar pagamento" : "Apenas administradores podem estornar"}
-                                                                >
-                                                                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                            </div>
-                                                        </td>
-                                                    </motion.tr>
-                                                );
-                                            })}
-                                        </motion.tbody>
-                                    </table>
-                                </div>
-                            </AnimatedPanel>
-                            <Pagination paginador={pagamentos} />
-                        </>
-                    )}
+                    <DataTable
+                        rota="/pagamentos"
+                        filtros={filtros}
+                        padroes={padroes}
+                        paginador={pagamentos}
+                        colunas={colunas}
+                        cartao={cartaoPagamento}
+                        placeholder="Pesquisar cliente, recibo ou factura"
+                        periodo
+                        filtrosConfig={filtrosConfig}
+                        accoes={accoesPagamento}
+                        rotuloAccoes={(pagamento) => `Mais acções sobre ${pagamento.numero_recibo}`}
+                        selecao={selecao}
+                        vazio={{
+                            mensagem: "Ainda não há pagamentos registados.",
+                            mensagemFiltrada: "Nenhum pagamento encontrado para os filtros seleccionados.",
+                            accao: {
+                                rotulo: "Registar pagamento",
+                                icone: Plus,
+                                onClick: () => abrirNovo(),
+                                disabled: facturasEmAberto.length === 0,
+                            },
+                        }}
+                    />
                 </div>
             </div>
 
@@ -523,7 +353,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                                                     </div>
                                                     <div className="flex shrink-0 flex-col items-end gap-1">
                                                         <span className="font-semibold text-slate-900 dark:text-white">
-                                                            {formatCurrency(factura.total_pagar)}
+                                                            {formatMoney(factura.total_pagar)}
                                                         </span>
                                                         <StatusBadge tone={factura.estado === "parcial" ? "cyan" : "amber"}>
                                                             {factura.estado === "parcial" ? "Parcial" : "Pendente"}
@@ -611,7 +441,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                 confirmLabel="Estornar"
                 description={
                     paraEstornar
-                        ? `Tem a certeza que deseja estornar o recibo ${paraEstornar.numero_recibo} (${paraEstornar.cliente?.nome ?? "cliente removido"}, ${formatCurrency(paraEstornar.valor_pago)})?`
+                        ? `Tem a certeza que deseja estornar o recibo ${paraEstornar.numero_recibo} (${paraEstornar.cliente?.nome ?? "cliente removido"}, ${formatMoney(paraEstornar.valor_pago)})?`
                         : ""
                 }
             />

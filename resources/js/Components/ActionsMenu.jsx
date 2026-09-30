@@ -40,6 +40,7 @@ export default function ActionsMenu({ children, label = "Mais acções", align =
                 onClick={() => setOpen((valor) => !valor)}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
                 aria-label={label}
+                title={label}
                 aria-haspopup="true"
                 aria-expanded={open}
             >
@@ -66,22 +67,33 @@ export default function ActionsMenu({ children, label = "Mais acções", align =
     );
 }
 
-export function ActionsMenuItem({ as: Component = "button", tone = "default", disabled = false, className = "", children, ...props }) {
+/**
+ * Item do menu. Quando desactivado mantém-se visível (esbatido) e com
+ * `title` a explicar porquê — por isso usa aria-disabled em vez do atributo
+ * `disabled`, que bloquearia o tooltip.
+ */
+export function ActionsMenuItem({ as: Component = "button", tone = "default", disabled = false, className = "", children, onClick, ...props }) {
     const toneClasses = {
         default: "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
         danger: "text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40",
     };
 
+    const bloquear = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
     return (
         <Component
             type={Component === "button" ? "button" : undefined}
-            disabled={disabled}
+            aria-disabled={disabled || undefined}
             className={cn(
-                "flex w-full items-center gap-2.5 px-3 py-3 text-left text-sm font-medium transition disabled:pointer-events-none disabled:opacity-40",
-                toneClasses[tone],
+                "flex w-full items-center gap-2.5 px-3 py-3 text-left text-sm font-medium transition",
+                disabled ? "cursor-not-allowed opacity-40" : toneClasses[tone],
                 className,
             )}
             {...props}
+            {...(disabled ? { href: undefined, onClick: bloquear } : { onClick })}
         >
             {children}
         </Component>

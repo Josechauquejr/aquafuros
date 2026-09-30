@@ -2,13 +2,14 @@
 
 namespace App\Rules;
 
+use App\Support\Telefone;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
- * Número de telemóvel moçambicano — 9 dígitos a começar por 8[2-7], com ou
- * sem o indicativo +258. Aceita qualquer espaçamento/pontuação de entrada
- * (ex.: "84 000 0000", "+258 84 000 0000"), só a sequência de dígitos é
+ * Telefone moçambicano — móvel com 9 dígitos a começar por 82–87, ou fixo
+ * com 8 dígitos a começar por 2, com ou sem o indicativo +258. Aceita
+ * qualquer espaçamento/pontuação de entrada; só a sequência de dígitos é
  * validada.
  */
 class TelefoneMocambicano implements ValidationRule
@@ -19,11 +20,8 @@ class TelefoneMocambicano implements ValidationRule
             return;
         }
 
-        $digitos = preg_replace('/\D+/', '', (string) $value);
-        $semIndicativo = str_starts_with($digitos, '258') ? substr($digitos, 3) : $digitos;
-
-        if (! preg_match('/^8[2-7]\d{7}$/', $semIndicativo)) {
-            $fail('O :attribute deve ser um número de telemóvel moçambicano válido, com 9 dígitos (ex.: 84 000 0000).');
+        if (! Telefone::valido(Telefone::normalizar($value))) {
+            $fail('O :attribute deve ser um telemóvel de 9 dígitos (ex.: 84 000 0000) ou um fixo de 8 dígitos (ex.: 21 000 000).');
         }
     }
 }

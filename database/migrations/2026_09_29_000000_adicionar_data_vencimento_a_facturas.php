@@ -22,7 +22,10 @@ return new class extends Migration
         // created_at + 15 dias (o prazo de pagamento já documentado em
         // Tarifas/Índex) para que o cálculo de "vencida" também se aplique
         // ao histórico, não só às facturas emitidas a partir de agora.
-        DB::statement("UPDATE facturas SET data_vencimento = (created_at + INTERVAL '15 days')::date WHERE data_vencimento IS NULL");
+        // (o SQL de datas difere por motor; o SQLite só corre nos testes)
+        DB::statement(DB::getDriverName() === 'sqlite'
+            ? "UPDATE facturas SET data_vencimento = date(created_at, '+15 days') WHERE data_vencimento IS NULL"
+            : "UPDATE facturas SET data_vencimento = (created_at + INTERVAL '15 days')::date WHERE data_vencimento IS NULL");
     }
 
     public function down(): void

@@ -6,8 +6,8 @@ use App\Models\Factura;
 use App\Models\FechoCaixa;
 use App\Models\Pagamento;
 use App\Models\User;
+use App\Support\ListaQuery;
 use App\Support\NumeracaoDocumentos;
-use App\Support\ResolvedorPeriodo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
@@ -22,14 +22,8 @@ class PagamentoController extends Controller
      */
     public function index(Request $request)
     {
-        $periodo = $request->query('periodo', 'mes');
-        $dataInicio = $request->query('data_inicio');
-        $dataFim = $request->query('data_fim');
         $search = $request->query('search');
         $metodo = $request->query('metodo');
-        $ordenar = $request->query('ordenar', 'recente');
-
-        $intervalo = ResolvedorPeriodo::resolver($periodo, $dataInicio, $dataFim);
 
         $query = Pagamento::with([
             'cliente' => fn ($q) => $q->withTrashed(),
@@ -37,9 +31,7 @@ class PagamentoController extends Controller
             'recebidoPor' => fn ($q) => $q->withTrashed(),
         ]);
 
-        if ($periodo !== 'todos') {
-            $query->whereBetween('created_at', [$intervalo['inicio'], $intervalo['fim']]);
-        }
+        $periodo = ListaQuery::periodo($query, $request, 'pagamentos.created_at', 'mes');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -62,7 +54,12 @@ class PagamentoController extends Controller
             ->orderByDesc('quantidade')
             ->first();
 
-        $this->ordenarPagamentos($query, $ordenar);
+        [$sort, $dir] = ListaQuery::ordenar($query, $request, [
+            'recibo' => fn ($q, $d) => $q->orderBy('pagamentos.created_at', $d),
+            'cliente' => fn ($q, $d) => $q->join('clientes', 'clientes.id', '=', 'pagamentos.cliente_id')
+                ->select('pagamentos.*')->orderBy('clientes.nome', $d),
+            'valor' => fn ($q, $d) => $q->orderBy('pagamentos.valor_pago', $d),
+        ], 'recibo', 'desc');
 
         return Inertia::render('Pagamentos/Index', [
             'pagamentos' => $query->paginate(15)->withQueryString(),
@@ -76,32 +73,13 @@ class PagamentoController extends Controller
                 'valorMedio' => $totalRegistados > 0 ? $totalRecebido / $totalRegistados : 0,
             ],
             'filtros' => [
-                'periodo' => $periodo,
-                'data_inicio' => $dataInicio,
-                'data_fim' => $dataFim,
+                ...$periodo,
                 'search' => $search ?? '',
-                'metodo' => $metodo ?? 'todos',
-                'ordenar' => $ordenar,
+                'metodo' => $metodo ?: 'todos',
+                'sort' => $sort,
+                'dir' => $dir,
             ],
         ]);
-    }
-
-    /**
-     * Aplicar a ordenação escolhida — por omissão, mais recente primeiro;
-     * ou alfabética (cliente) / numérica (nº de recibo), para organizar os
-     * pagamentos dentro do período seleccionado.
-     */
-    private function ordenarPagamentos($query, string $ordenar): void
-    {
-        match ($ordenar) {
-            'cliente_asc' => $query->join('clientes', 'clientes.id', '=', 'pagamentos.cliente_id')
-                ->select('pagamentos.*')->orderBy('clientes.nome'),
-            'cliente_desc' => $query->join('clientes', 'clientes.id', '=', 'pagamentos.cliente_id')
-                ->select('pagamentos.*')->orderByDesc('clientes.nome'),
-            'numero_asc' => $query->orderBy('numero_recibo'),
-            'numero_desc' => $query->orderByDesc('numero_recibo'),
-            default => $query->orderByDesc('created_at'),
-        };
     }
 
     /**

@@ -94,7 +94,7 @@ class DashboardController extends Controller
 
             fputcsv($saida, ['EVOLUÇÃO MENSAL']);
             fputcsv($saida, ['Mês', 'Ano', 'Facturado (MZN)', 'Recebido (MZN)']);
-            foreach ($dados['evolucaoMensal'] as $linha) {
+            foreach (array_slice($dados['evolucaoMensal'], -6) as $linha) { // o CSV mantém os últimos 6 meses
                 fputcsv($saida, [$this->nomeMes($linha['mes']), $linha['ano'], $linha['facturado'], $linha['recebido']]);
             }
             fputcsv($saida, []);
@@ -148,8 +148,8 @@ class DashboardController extends Controller
                 'variacaoConsumo' => $this->variacaoPercentual($actual['consumoM3'], $anterior['consumoM3']),
             ],
             'distribuicaoPorMetodo' => $this->distribuicaoPorMetodoIntervalo($intervalo['inicio'], $intervalo['fim']),
-            'evolucaoMensal' => $this->evolucaoMensal(Carbon::now(), 6),
-            'consumoMensal' => $this->consumoMensal(Carbon::now(), 6),
+            'evolucaoMensal' => $this->evolucaoMensal(Carbon::now(), 12),
+            'consumoMensal' => $this->consumoMensal(Carbon::now(), 12),
             'maioresConsumidores' => $this->maioresConsumidores($intervalo['inicio'], $intervalo['fim']),
             'desempenhoFuncionarios' => $this->desempenhoFuncionarios($intervalo['inicio'], $intervalo['fim']),
             'maioresDevedores' => Cliente::maioresDevedores(8),
@@ -276,7 +276,7 @@ class DashboardController extends Controller
                 'leiturasSemFactura' => Leitura::whereDoesntHave('factura')->where('confirmado', true)->count(),
             ],
             'mesActual' => $this->resumoPeriodo($hoje->month, $hoje->year),
-            'evolucaoMensal' => $this->evolucaoMensal($hoje, 6),
+            'evolucaoMensal' => $this->evolucaoMensal($hoje, 12),
             'distribuicaoPorMetodo' => $this->distribuicaoPorMetodo($hoje->month, $hoje->year),
             'maioresDevedores' => Cliente::maioresDevedores(5),
             'dividaTotal' => Cliente::dividaTotalEmAtraso(),

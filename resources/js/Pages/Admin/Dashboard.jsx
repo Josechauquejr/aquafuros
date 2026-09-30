@@ -21,9 +21,9 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
 import DistribuicaoMetodoChart from "@/Components/charts/DistribuicaoMetodoChart";
-import EvolucaoMensalChart from "@/Components/charts/EvolucaoMensalChart";
+import GraficoSerie, { FILTROS_MESES, formatarCompacto } from "@/Components/charts/GraficoSerie";
 import StatusBadge from "@/Components/StatusBadge";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatMoney } from "@/lib/utils";
 
 const meses = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -170,9 +170,9 @@ export default function Dashboard({
                         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             Cobrança e pendências
                         </h3>
-                        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+                        <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
                             {metrics.map((metric, index) => (
-                                <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
+                                <KpiCard key={metric.label} {...metric} visual={index % 2 === 0 ? 1 : 2} delay={index * 0.06} />
                             ))}
                         </div>
                     </section>
@@ -189,20 +189,20 @@ export default function Dashboard({
                     </section>
 
                     <section className="grid gap-6 lg:grid-cols-2">
-                        <AnimatedPanel delay={0.46}>
-                            <div className="p-6">
-                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                                    <BarChart3 className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                    Evolução mensal
-                                </h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    Facturado vs. recebido, últimos 6 meses
-                                </p>
-                                <div className="mt-5">
-                                    <EvolucaoMensalChart dados={evolucaoMensal} />
-                                </div>
-                            </div>
-                        </AnimatedPanel>
+                        <GraficoSerie
+                            titulo="Evolução mensal"
+                            descricao="Facturado vs. recebido"
+                            icone={BarChart3}
+                            dados={evolucaoMensal}
+                            series={[
+                                { chave: "facturado", label: "Facturado", cor: "#2a78d6" },
+                                { chave: "recebido", label: "Recebido", cor: "#1baf7a" },
+                            ]}
+                            tipo="bar"
+                            filtros={FILTROS_MESES}
+                            formatar={formatMoney}
+                            formatarEixo={formatarCompacto}
+                        />
 
                         <AnimatedPanel delay={0.52}>
                             <div className="p-6">

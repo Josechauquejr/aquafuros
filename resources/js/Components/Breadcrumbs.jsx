@@ -51,7 +51,7 @@ export default function Breadcrumbs({ casa = "/dashboard", className = "" }) {
     }));
 
     // Na própria página inicial só mostra o ícone + rótulo.
-    const naCasa = caminho === casa;
+    const naCasa = caminho === casa || caminho.endsWith("/dashboard");
 
     return (
         <nav aria-label="Breadcrumb" className={className}>
@@ -71,7 +71,7 @@ export default function Breadcrumbs({ casa = "/dashboard", className = "" }) {
                         const ultima = indice === migalhas.length - 1;
 
                         return (
-                            <li key={migalha.href} className="flex min-w-0 items-center gap-1">
+                            <li key={migalha.href} className={ultima ? "flex min-w-0 items-center gap-1" : "hidden min-w-0 items-center gap-1 sm:flex"}>
                                 <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 rtl:rotate-180" aria-hidden="true" />
                                 {ultima || migalha.semLink ? (
                                     <span

@@ -1,9 +1,14 @@
 import * as React from "react"
 
+// Adaptado: os textos de exemplo do badtzUI passam a props.
 export function Visual1({
   mainColor = "#8b5cf6",
   secondaryColor = "#fbbf24",
-  gridColor = "#80808015"
+  gridColor = "#80808015",
+  serie1 = "Actual",
+  serie2 = "Anterior",
+  titulo = "",
+  descricao = ""
 }) {
   return (
     <div
@@ -12,8 +17,8 @@ export function Visual1({
     >
       <Layer1 color={mainColor} secondaryColor={secondaryColor} />
       <Layer2 color={mainColor} />
-      <Layer3 color={mainColor} secondaryColor={secondaryColor} />
-      <Layer4 />
+      <Layer3 color={mainColor} secondaryColor={secondaryColor} serie1={serie1} serie2={serie2} />
+      <Layer4 titulo={titulo} descricao={descricao} />
       <EllipseGradient color={mainColor} />
       <GridLayer color={gridColor} />
     </div>
@@ -215,7 +220,9 @@ const Layer2 = ({
 
 const Layer3 = ({
   color,
-  secondaryColor
+  secondaryColor,
+  serie1,
+  serie2
 }) => {
   return (
     <div
@@ -230,29 +237,29 @@ const Layer3 = ({
       <div className="flex shrink-0 items-center rounded-full border border-zinc-200 bg-white/25 px-1.5 py-0.5 backdrop-blur-sm transition-opacity duration-300 ease-in-out group-hover/animated-card:opacity-0 dark:border-zinc-800 dark:bg-black/25">
         <div className="h-1.5 w-1.5 rounded-full bg-[var(--color)]" />
         <span className="ml-1 text-[10px] text-black dark:text-white">
-          Tommy
+          {serie1}
         </span>
       </div>
       <div className="flex shrink-0 items-center rounded-full border border-zinc-200 bg-white/25 px-1.5 py-0.5 backdrop-blur-sm transition-opacity duration-300 ease-in-out group-hover/animated-card:opacity-0 dark:border-zinc-800 dark:bg-black/25">
         <div className="h-1.5 w-1.5 rounded-full bg-[var(--secondary-color)]" />
         <span className="ml-1 text-[10px] text-black dark:text-white">
-          Megan
+          {serie2}
         </span>
       </div>
     </div>
   );
 }
 
-const Layer4 = () => {
+const Layer4 = ({ titulo, descricao }) => {
   return (
     <div className="group relative h-full w-[356px]">
       <div className="ease-[cubic-bezier(0.6, 0.6, 0, 1)] absolute inset-0 z-[7] flex max-w-[356px] -translate-y-full items-start justify-start bg-transparent p-4 transition-transform duration-500 group-hover/animated-card:translate-y-0">
         <div className="ease-[cubic-bezier(0.6, 0.6, 0, 1)] rounded-md border border-zinc-200 bg-white/25 p-1.5 opacity-0 backdrop-blur-sm transition-opacity duration-500 group-hover/animated-card:opacity-100 dark:border-zinc-800 dark:bg-black/25">
           <p className="mb-1 text-xs font-semibold text-black dark:text-white">
-            Random Data Visualization
+            {titulo}
           </p>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            Displaying some interesting stats.
+            {descricao}
           </p>
         </div>
       </div>

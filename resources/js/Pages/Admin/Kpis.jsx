@@ -19,11 +19,9 @@ import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
 import PeriodoFiltro from "@/Components/PeriodoFiltro";
 import StatusBadge from "@/Components/StatusBadge";
-import AreaChart from "@/Components/charts/AreaChart";
 import DistribuicaoMetodoChart from "@/Components/charts/DistribuicaoMetodoChart";
-import EvolucaoMensalChart from "@/Components/charts/EvolucaoMensalChart";
-import LineChart from "@/Components/charts/LineChart";
-import { formatCurrency } from "@/lib/utils";
+import GraficoSerie, { FILTROS_MESES, formatarCompacto } from "@/Components/charts/GraficoSerie";
+import { formatCurrency, formatMoney, formatVolume } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
 function formatarM3(valor) {
@@ -126,25 +124,26 @@ export default function Kpis({
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+                    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {metrics.map((metric, index) => (
-                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
+                            <KpiCard key={metric.label} {...metric} visual={index % 2 === 0 ? 1 : 2} delay={index * 0.06} />
                         ))}
                     </section>
 
                     <section className="grid gap-6 lg:grid-cols-2">
-                        <AnimatedPanel delay={0.24}>
-                            <div className="p-6">
-                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                                    <AreaChartIcon className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                    Tendência — facturado vs. recebido
-                                </h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">Últimos 6 meses</p>
-                                <div className="mt-5">
-                                    <AreaChart dados={evolucaoMensal} />
-                                </div>
-                            </div>
-                        </AnimatedPanel>
+                        <GraficoSerie
+                            titulo="Tendência — facturado vs. recebido"
+                            icone={AreaChartIcon}
+                            dados={evolucaoMensal}
+                            series={[
+                                { chave: "facturado", label: "Facturado", cor: "#2a78d6" },
+                                { chave: "recebido", label: "Recebido", cor: "#1baf7a" },
+                            ]}
+                            tipo="area"
+                            filtros={FILTROS_MESES}
+                            formatar={formatMoney}
+                            formatarEixo={formatarCompacto}
+                        />
 
                         <AnimatedPanel delay={0.3}>
                             <div className="p-6">
@@ -160,36 +159,33 @@ export default function Kpis({
                         </AnimatedPanel>
                     </section>
 
-                    <AnimatedPanel delay={0.36}>
-                        <div className="p-6">
-                            <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                                <BarChart3 className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                Evolução mensal — barras
-                            </h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                                Mesma janela de 6 meses, em barras
-                            </p>
-                            <div className="mt-5">
-                                <EvolucaoMensalChart dados={evolucaoMensal} />
-                            </div>
-                        </div>
-                    </AnimatedPanel>
+                    <GraficoSerie
+                        titulo="Evolução mensal — barras"
+                        descricao="Facturado vs. recebido, mês a mês"
+                        icone={BarChart3}
+                        dados={evolucaoMensal}
+                        series={[
+                                { chave: "facturado", label: "Facturado", cor: "#2a78d6" },
+                                { chave: "recebido", label: "Recebido", cor: "#1baf7a" },
+                            ]}
+                        tipo="bar"
+                        filtros={FILTROS_MESES}
+                        formatar={formatMoney}
+                        formatarEixo={formatarCompacto}
+                    />
 
                     <section className="grid gap-6 lg:grid-cols-2">
-                        <AnimatedPanel delay={0.39}>
-                            <div className="p-6">
-                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                                    <Droplets className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                    Consumo de água — tendência
-                                </h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    Últimos 6 meses, em m&sup3; registados
-                                </p>
-                                <div className="mt-5">
-                                    <LineChart dados={consumoMensal} chave="consumo" />
-                                </div>
-                            </div>
-                        </AnimatedPanel>
+                        <GraficoSerie
+                            titulo="Consumo de água — tendência"
+                            descricao="Metros cúbicos registados"
+                            icone={Droplets}
+                            dados={consumoMensal}
+                            series={[{ chave: "consumo", label: "Consumo", cor: "#2a78d6" }]}
+                            tipo="line"
+                            filtros={FILTROS_MESES}
+                            formatar={formatVolume}
+                            formatarEixo={formatarCompacto}
+                        />
 
                         <AnimatedPanel delay={0.4} className="overflow-hidden">
                             <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">

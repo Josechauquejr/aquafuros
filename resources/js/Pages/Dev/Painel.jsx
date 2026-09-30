@@ -5,19 +5,8 @@ import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
 import PeriodoFiltro from "@/Components/PeriodoFiltro";
-import AreaChart from "@/Components/charts/AreaChart";
-import LineChart from "@/Components/charts/LineChart";
+import GraficoSerie, { FILTROS_MESES } from "@/Components/charts/GraficoSerie";
 import { itemVariants, listVariants } from "@/lib/motion";
-
-const FACTURAS_VS_RECIBOS_SERIES = [
-    { chave: "facturas", label: "Facturas", cor: "#2a78d6", fill: "rgba(42,120,214,0.15)" },
-    { chave: "recibos", label: "Recibos", cor: "#1baf7a", fill: "rgba(27,175,122,0.18)" },
-];
-
-const DESEMPENHO_SERIES = [
-    { chave: "duracaoMedia", label: "Pedido (total)", cor: "#eb6834", fill: "rgba(235,104,52,0.15)" },
-    { chave: "tempoBdMedio", label: "Consulta à BD", cor: "#1baf7a", fill: "rgba(27,175,122,0.18)" },
-];
 
 function formatarInteiro(valor) {
     return `${Number(valor).toLocaleString("pt-MZ")}`;
@@ -93,64 +82,47 @@ export default function Painel({
                     </section>
 
                     <section className="grid gap-6 lg:grid-cols-2">
-                        <AnimatedPanel delay={0.24}>
-                            <div className="p-6">
-                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                                    <LineChartIcon className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                    Documentos gerados
-                                </h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    Facturas + recibos, últimos 6 meses
-                                </p>
-                                <div className="mt-5">
-                                    <LineChart
-                                        dados={documentosGerados}
-                                        chave="valor"
-                                        cor="#2a78d6"
-                                        valorFormatter={(v) => `${formatarInteiro(v)} documento(s)`}
-                                    />
-                                </div>
-                            </div>
-                        </AnimatedPanel>
+                        <GraficoSerie
+                            titulo="Documentos gerados"
+                            descricao="Facturas + recibos"
+                            icone={LineChartIcon}
+                            dados={documentosGerados}
+                            series={[{ chave: "valor", label: "Documentos", cor: "#2a78d6" }]}
+                            tipo="line"
+                            filtros={FILTROS_MESES.slice(0, 2)}
+                            formatar={(v) => `${formatarInteiro(v)} documento(s)`}
+                            formatarEixo={formatarInteiro}
+                        />
 
-                        <AnimatedPanel delay={0.3}>
-                            <div className="p-6">
-                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                                    <FileStack className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                    Facturas vs. recibos
-                                </h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">Últimos 6 meses</p>
-                                <div className="mt-5">
-                                    <AreaChart
-                                        dados={facturasVsRecibos}
-                                        series={FACTURAS_VS_RECIBOS_SERIES}
-                                        valorFormatter={(v) => `${formatarInteiro(v)} documento(s)`}
-                                    />
-                                </div>
-                            </div>
-                        </AnimatedPanel>
+                        <GraficoSerie
+                            titulo="Facturas vs. recibos"
+                            icone={FileStack}
+                            dados={facturasVsRecibos}
+                            series={[
+                                { chave: "facturas", label: "Facturas", cor: "#2a78d6" },
+                                { chave: "recibos", label: "Recibos", cor: "#1baf7a" },
+                            ]}
+                            tipo="area"
+                            filtros={FILTROS_MESES.slice(0, 2)}
+                            formatar={(v) => `${formatarInteiro(v)} documento(s)`}
+                            formatarEixo={formatarInteiro}
+                        />
                     </section>
 
-                    <AnimatedPanel delay={0.33}>
-                        <div className="p-6">
-                            <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                                <Gauge className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                Performance — tempo de pedido e de base de dados
-                            </h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                                Médias diárias, últimos 14 dias (milissegundos)
-                            </p>
-                            <div className="mt-5">
-                                <AreaChart
-                                    dados={desempenhoBaseDados}
-                                    series={DESEMPENHO_SERIES}
-                                    valorFormatter={(v) => `${v} ms`}
-                                    obterRotulo={(d) => d.rotulo}
-                                    obterRotuloEixo={(d) => d.rotulo}
-                                />
-                            </div>
-                        </div>
-                    </AnimatedPanel>
+                    <GraficoSerie
+                        titulo="Performance — tempo de pedido e de base de dados"
+                        descricao="Médias diárias, últimos 14 dias (milissegundos)"
+                        icone={Gauge}
+                        dados={desempenhoBaseDados}
+                        series={[
+                            { chave: "duracaoMedia", label: "Pedido (total)", cor: "#eb6834" },
+                            { chave: "tempoBdMedio", label: "Consulta à BD", cor: "#1baf7a" },
+                        ]}
+                        tipo="area"
+                        obterRotulo={(d) => d.rotulo}
+                        obterRotuloEixo={(d) => d.rotulo}
+                        formatar={(v) => `${v} ms`}
+                    />
 
                     <section className="grid gap-6 lg:grid-cols-2">
                         <AnimatedPanel delay={0.36} className="overflow-hidden">

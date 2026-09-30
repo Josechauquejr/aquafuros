@@ -1,10 +1,13 @@
 import * as React from "react"
 import { useEffect, useState } from "react"
 
+// Adaptado: os textos de exemplo do badtzUI passam a props.
 export function Visual2({
   mainColor = "#8b5cf6",
   secondaryColor = "#fbbf24",
-  gridColor = "#80808015"
+  gridColor = "#80808015",
+  titulo = "",
+  descricao = ""
 }) {
   const [hovered, setHovered] = useState(false)
 
@@ -27,7 +30,7 @@ export function Visual2({
           color={mainColor}
           secondaryColor={secondaryColor}
         />
-        <Layer2 color={mainColor} />
+        <Layer2 color={mainColor} titulo={titulo} descricao={descricao} />
         <Layer3 color={mainColor} />
         <Layer4
           color={mainColor}
@@ -171,7 +174,7 @@ const Layer1 = ({ hovered, color, secondaryColor }) => {
   )
 }
 
-const Layer2 = ({ color }) => {
+const Layer2 = ({ color, titulo, descricao }) => {
   return (
     <div
       className="relative h-full w-[356px]"
@@ -184,11 +187,11 @@ const Layer2 = ({ color }) => {
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 shrink-0 rounded-full bg-[var(--color)]" />
             <p className="text-xs text-black dark:text-white">
-              Random Data Visualization
+              {titulo}
             </p>
           </div>
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            Displaying some interesting stats.
+            {descricao}
           </p>
         </div>
       </div>

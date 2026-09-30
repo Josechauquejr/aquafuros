@@ -57,7 +57,7 @@ class LeituraController extends Controller
 
         return Inertia::render('Leituras/Index', [
             'leituras' => $query->paginate(15)->withQueryString(),
-            'clientes' => Cliente::where('estado', 'ativo')->orderBy('nome')->get(['id', 'nome']),
+            'clientes' => $this->clientesParaLeitura(),
             'totais' => [
                 'total' => Leitura::count(),
                 'confirmadas' => Leitura::where('confirmado', true)->count(),
@@ -72,6 +72,28 @@ class LeituraController extends Controller
                 'dir' => $dir,
             ],
         ]);
+    }
+
+    /**
+     * Clientes activos com o que é preciso para avisar antes de registar
+     * uma leitura suspeita: a leitura anterior que será usada e o consumo
+     * médio das leituras já registadas.
+     */
+    private function clientesParaLeitura()
+    {
+        $medias = Leitura::selectRaw('cliente_id, AVG(leitura_actual - leitura_anterior) as media')
+            ->groupBy('cliente_id')->pluck('media', 'cliente_id');
+
+        $ultimas = Leitura::orderBy('ano')->orderBy('mes')->get(['cliente_id', 'leitura_actual'])
+            ->groupBy('cliente_id')->map(fn ($grupo) => $grupo->last()->leitura_actual);
+
+        return Cliente::where('estado', 'ativo')->orderBy('nome')->get(['id', 'nome', 'leitura_inicial'])
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'nome' => $c->nome,
+                'leitura_anterior' => (float) ($ultimas[$c->id] ?? $c->leitura_inicial ?? 0),
+                'consumo_medio' => isset($medias[$c->id]) ? round((float) $medias[$c->id], 2) : null,
+            ])->values();
     }
 
     /**
@@ -98,7 +120,9 @@ class LeituraController extends Controller
         $ultima = Leitura::where('cliente_id', $data['cliente_id'])
             ->orderByDesc('ano')->orderByDesc('mes')->first();
 
-        $leituraAnterior = $ultima->leitura_actual ?? 0;
+        // Primeira leitura do cliente: parte da leitura inicial do contador
+        // registada no cliente (só cai para 0 em clientes antigos sem ela).
+        $leituraAnterior = $ultima->leitura_actual ?? Cliente::find($data['cliente_id'])?->leitura_inicial ?? 0;
 
         if ($data['leitura_actual'] < $leituraAnterior) {
             return back()->withErrors([

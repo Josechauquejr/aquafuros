@@ -41,6 +41,9 @@ const formVazio = {
     leitura_actual: "",
 };
 
+// Consumo acima de N × a média do cliente dispara o aviso ao registar/confirmar.
+const FACTOR_ACIMA_DA_MEDIA = 3;
+
 // Valores que o servidor assume quando o parâmetro não vem no URL.
 const padroes = { periodo: "todos", estado: "todos", sort: "periodo", dir: "desc" };
 
@@ -164,6 +167,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
     const [confirmarTodasAberto, setConfirmarTodasAberto] = useState(false);
     const [confirmandoTodas, setConfirmandoTodas] = useState(false);
     const [detalhe, setDetalhe] = useState(null);
+    const [avisoLeitura, setAvisoLeitura] = useState(null);
     const [confirmarSeleccao, setConfirmarSeleccao] = useState(null);
 
     const form = useForm(formVazio);
@@ -195,23 +199,60 @@ export default function Index({ leituras, clientes, totais, filtros }) {
         setShowModal(true);
     };
 
+    // Leituras suspeitas: "anterior = 0" (o consumo seria calculado desde o
+    // início do contador) ou consumo muito acima da média do cliente.
+    // Só avisa — quem regista decide se prossegue.
+    const avisosDaLeitura = (clienteId, anterior, actual) => {
+        const media = clientes.find((c) => String(c.id) === String(clienteId))?.consumo_medio;
+        const consumo = Number(actual) - Number(anterior);
+        const avisos = [];
+
+        if (Number(anterior) === 0) {
+            avisos.push(
+                "A leitura anterior é 0,00: o consumo será calculado desde o início do contador (pode dar uma factura muito alta). Confirme a leitura inicial do cliente.",
+            );
+        }
+        if (media > 0 && consumo > media * FACTOR_ACIMA_DA_MEDIA) {
+            avisos.push(
+                `O consumo (${formatVolume(consumo)}) é mais de ${FACTOR_ACIMA_DA_MEDIA} vezes a média deste cliente (${formatVolume(media)}).`,
+            );
+        }
+
+        return avisos;
+    };
+
+    const comAviso = (avisos, prosseguir) => {
+        if (avisos.length === 0) {
+            prosseguir();
+            return;
+        }
+        setAvisoLeitura({ avisos, prosseguir });
+    };
+
     const submit = (event) => {
         event.preventDefault();
 
         if (editando) {
-            form.transform((data) => ({ leitura_actual: data.leitura_actual, confirmado: editando.confirmado }))
-                .put(`/leituras/${editando.id}`, { onSuccess: () => setShowModal(false) });
+            const guardar = () =>
+                form
+                    .transform((data) => ({ leitura_actual: data.leitura_actual, confirmado: editando.confirmado }))
+                    .put(`/leituras/${editando.id}`, { onSuccess: () => setShowModal(false) });
+            comAviso(avisosDaLeitura(editando.cliente_id, editando.leitura_anterior, form.data.leitura_actual), guardar);
         } else {
-            form.post("/leituras", { onSuccess: () => setShowModal(false) });
+            const cliente = clientes.find((c) => String(c.id) === String(form.data.cliente_id));
+            const guardar = () => form.post("/leituras", { onSuccess: () => setShowModal(false) });
+            comAviso(avisosDaLeitura(form.data.cliente_id, cliente?.leitura_anterior ?? 0, form.data.leitura_actual), guardar);
         }
     };
 
     const confirmarLeitura = (leitura) => {
-        router.put(
-            `/leituras/${leitura.id}`,
-            { leitura_actual: leitura.leitura_actual, confirmado: true },
-            { preserveScroll: true, onSuccess: () => setLeituraParaFacturar(leitura) },
-        );
+        const confirmar = () =>
+            router.put(
+                `/leituras/${leitura.id}`,
+                { leitura_actual: leitura.leitura_actual, confirmado: true },
+                { preserveScroll: true, onSuccess: () => setLeituraParaFacturar(leitura) },
+            );
+        comAviso(avisosDaLeitura(leitura.cliente_id, leitura.leitura_anterior, leitura.leitura_actual), confirmar);
     };
 
     const irParaEmitirFactura = () => {
@@ -503,6 +544,20 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                         ? `Tem a certeza que deseja confirmar todas as leituras pendentes de clientes que correspondam a "${filtros.search}"? Depois de confirmadas, ficam bloqueadas para edição.`
                         : "Tem a certeza que deseja confirmar todas as leituras pendentes? Depois de confirmadas, ficam bloqueadas para edição."
                 }
+            />
+
+            <ConfirmDialog
+                show={Boolean(avisoLeitura)}
+                onClose={() => setAvisoLeitura(null)}
+                onConfirm={() => {
+                    const { prosseguir } = avisoLeitura;
+                    setAvisoLeitura(null);
+                    prosseguir();
+                }}
+                title="Verifique esta leitura"
+                confirmLabel="Prosseguir mesmo assim"
+                cancelLabel="Voltar"
+                description={avisoLeitura?.avisos.join(" ") ?? ""}
             />
 
             <ConfirmDialog

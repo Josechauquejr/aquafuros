@@ -1,46 +1,38 @@
 import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
-    ArrowDown,
-    ArrowUp,
-    ArrowUpDown,
-    Banknote,
     Droplets,
     Eye,
-    FileText,
-    MapPin,
     Pencil,
     Phone,
     Plus,
-    Printer,
     Receipt,
-    Search,
     Sparkles,
     Trash2,
     UserPlus,
     UserX,
     Users,
     Wallet,
+    FileText,
+    Banknote,
+    Printer,
+    MapPin,
 } from "lucide-react";
-import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
-import ActionsMenu, { ActionsMenuItem } from "@/Components/ActionsMenu";
 import AnimatedButton from "@/Components/AnimatedButton";
-import AnimatedPanel from "@/Components/AnimatedPanel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
-import IconButton, { IconLink } from "@/Components/IconButton";
+import DataTable from "@/Components/DataTable/DataTable";
+import { IconLink } from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import KpiCard from "@/Components/KpiCard";
 import Modal from "@/Components/Modal";
-import Pagination from "@/Components/Pagination";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
-import { cn, formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
-import { itemVariants, listVariants } from "@/lib/motion";
+import { cn, formatDate, formatDateTime, formatMoney, formatPhone, formatVolume, phoneDigits } from "@/lib/utils";
 
 const estadoConfig = {
     ativo: { label: "Activo", tone: "emerald" },
@@ -67,19 +59,88 @@ const meses = [
     "Jul", "Ago", "Set", "Out", "Nov", "Dez",
 ];
 
+// Valores que o servidor assume quando o parâmetro não vem no URL.
+const padroes = { estado: "todos", bairro: "todos", tarifa: "todos", sort: "nome", dir: "asc" };
+
+const dividaDe = (cliente) => Number(cliente.saldo_em_aberto ?? 0);
+
+function TelefoneLink({ telefone }) {
+    if (!telefone) return <span className="text-slate-400 dark:text-slate-600">—</span>;
+
+    return (
+        <a
+            href={`tel:${phoneDigits(telefone)}`}
+            className="inline-flex items-center gap-1.5 hover:text-cyan-700 dark:hover:text-cyan-300"
+        >
+            <Phone className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+            {formatPhone(telefone)}
+        </a>
+    );
+}
+
+// Cinzento quando não há dívida, vermelho quando há.
+function Divida({ cliente }) {
+    return (
+        <span
+            className={cn(
+                "font-semibold",
+                dividaDe(cliente) > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-400 dark:text-slate-500",
+            )}
+        >
+            {formatMoney(dividaDe(cliente))}
+        </span>
+    );
+}
+
 const colunas = [
-    { key: "nome", label: "Cliente" },
-    { key: "divida", label: "Dívida" },
-    { key: "estado", label: "Estado" },
+    {
+        chave: "nome",
+        titulo: "Cliente",
+        ordenavel: true,
+        render: (cliente) => (
+            <>
+                <p className="font-semibold text-slate-900 dark:text-white">{cliente.nome}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{cliente.numero_cliente}</p>
+            </>
+        ),
+    },
+    { chave: "telefone", titulo: "Telefone", render: (cliente) => <TelefoneLink telefone={cliente.telefone} /> },
+    { chave: "bairro", titulo: "Bairro", render: (cliente) => cliente.bairro || "—" },
+    { chave: "tarifa", titulo: "Tarifa", render: (cliente) => cliente.tarifa?.nome ?? "—" },
+    { chave: "divida", titulo: "Dívida", ordenavel: true, direita: true, render: (cliente) => <Divida cliente={cliente} /> },
+    {
+        chave: "estado",
+        titulo: "Estado",
+        ordenavel: true,
+        render: (cliente) => <StatusBadge tone={estadoConfig[cliente.estado].tone}>{estadoConfig[cliente.estado].label}</StatusBadge>,
+    },
 ];
 
-const formVazio = { nome: "", endereco: "", bairro: "", telefone: "", tarifa_id: "", estado: "ativo", novo_contrato: false };
+const cartaoCliente = (cliente) => (
+    <div className="space-y-2">
+        <div>
+            <p className="font-semibold text-slate-900 dark:text-white">{cliente.nome}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{cliente.numero_cliente}</p>
+        </div>
+        <div className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
+            {cliente.telefone && <TelefoneLink telefone={cliente.telefone} />}
+            <p className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                {cliente.bairro || "—"} &middot; {cliente.tarifa?.nome ?? "—"}
+            </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+            <Divida cliente={cliente} />
+            <StatusBadge tone={estadoConfig[cliente.estado].tone}>{estadoConfig[cliente.estado].label}</StatusBadge>
+        </div>
+    </div>
+);
 
-export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao }) {
+const formVazio = { nome: "", endereco: "", bairro: "", telefone: "", tarifa_id: "", estado: "ativo", novo_contrato: false, leitura_inicial: "" };
+
+export default function Index({ clientes, tarifas, todasTarifas, bairros, totais, filtros, taxaLigacao }) {
     const { flash, auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador");
-    const [search, setSearch] = useState(filtros.search ?? "");
-    const [sort, setSort] = useState({ key: null, direction: "asc" });
     const [etapaNovo, setEtapaNovo] = useState(null); // null | "escolha" | "formulario"
     const [novoContrato, setNovoContrato] = useState(false);
     const [editando, setEditando] = useState(null);
@@ -89,17 +150,6 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
     const ultimaFacturaTratadaRef = useRef(null);
 
     const form = useForm(formVazio);
-
-    const aplicarFiltros = (novosFiltros) => {
-        router.get("/clientes", { ...filtros, ...novosFiltros }, { preserveState: true, preserveScroll: true, replace: true });
-    };
-
-    useEffect(() => {
-        if (search === (filtros.search ?? "")) return;
-        const temporizador = setTimeout(() => aplicarFiltros({ search }), 350);
-        return () => clearTimeout(temporizador);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [search]);
 
     // Depois de criar um "novo contrato" (que gera a factura da taxa de
     // ligação), propõe o mesmo próximo passo natural que a emissão de uma
@@ -118,34 +168,45 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
         router.visit(`/pagamentos?factura_id=${facturaParaPagar.id}`);
     };
 
-    const mudarEstadoFiltro = (estado) => aplicarFiltros({ estado });
-
-    const toggleSort = (key) => {
-        setSort((prev) =>
-            prev.key === key
-                ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
-                : { key, direction: "asc" },
-        );
-    };
-
-    const dados = useMemo(() => {
-        const comDivida = clientes.data.map((c) => ({ ...c, dividaValor: Number(c.saldo_em_aberto ?? 0) }));
-
-        if (!sort.key) return comDivida;
-
-        return [...comDivida].sort((a, b) => {
-            const va = sort.key === "divida" ? a.dividaValor : a[sort.key];
-            const vb = sort.key === "divida" ? b.dividaValor : b[sort.key];
-            const comparacao = typeof va === "number" ? va - vb : String(va).localeCompare(String(vb), "pt");
-            return sort.direction === "asc" ? comparacao : -comparacao;
-        });
-    }, [clientes.data, sort]);
+    const filtrosConfig = useMemo(
+        () => [
+            {
+                chave: "estado",
+                rotulo: "Estado",
+                tipo: "select",
+                padrao: "todos",
+                opcoes: [
+                    { valor: "todos", rotulo: "Todos" },
+                    ...Object.entries(estadoConfig).map(([valor, { label }]) => ({ valor, rotulo: label })),
+                ],
+            },
+            {
+                chave: "bairro",
+                rotulo: "Bairro",
+                tipo: "select",
+                padrao: "todos",
+                opcoes: [{ valor: "todos", rotulo: "Todos" }, ...bairros.map((bairro) => ({ valor: bairro, rotulo: bairro }))],
+            },
+            {
+                chave: "tarifa",
+                rotulo: "Tarifa",
+                tipo: "select",
+                padrao: "todos",
+                opcoes: [
+                    { valor: "todos", rotulo: "Todas" },
+                    ...todasTarifas.map((tarifa) => ({ valor: String(tarifa.id), rotulo: tarifa.nome })),
+                ],
+            },
+            { chave: "so_divida", rotulo: "Só com dívida", tipo: "checkbox", padrao: false },
+        ],
+        [bairros, todasTarifas],
+    );
 
     const metrics = [
         { label: "Total de clientes", value: totais.total, icon: Users, tone: "cyan" },
         { label: "Clientes activos", value: totais.activos, icon: Droplets, tone: "emerald" },
         { label: "Clientes cortados", value: totais.cortados, icon: UserX, tone: "rose" },
-        { label: "Dívida acumulada", value: formatCurrency(totais.dividaAcumulada), icon: Wallet, tone: "amber" },
+        { label: "Dívida acumulada", value: formatMoney(totais.dividaAcumulada), icon: Wallet, tone: "amber" },
     ];
 
     const abrirNovo = () => {
@@ -196,6 +257,20 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
         if (!paraEliminar) return;
         router.delete(`/clientes/${paraEliminar.id}`, { onFinish: () => setParaEliminar(null), preserveScroll: true });
     };
+
+    const accoesCliente = (cliente) => ({
+        principal: { icone: Eye, rotulo: `Ver histórico de ${cliente.nome}`, onClick: () => setDetalhe(cliente) },
+        menu: [
+            { icone: Pencil, rotulo: "Editar", onClick: () => abrirEdicao(cliente) },
+            {
+                icone: Trash2,
+                rotulo: "Mover para a lixeira",
+                tone: "danger",
+                separadorAntes: true,
+                onClick: () => setParaEliminar(cliente),
+            },
+        ],
+    });
 
     return (
         <AdminLayout
@@ -259,250 +334,23 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                         ))}
                     </section>
 
-                    <AnimatedPanel delay={0.2} className="p-4">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <div className="relative flex-1">
-                                <Search
-                                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                                    aria-hidden="true"
-                                />
-                                <TextInput
-                                    value={search}
-                                    onChange={(event) => setSearch(event.target.value)}
-                                    placeholder="Nome, nº ou bairro"
-                                    className="w-full pl-9"
-                                />
-                            </div>
-                            <select
-                                value={filtros.estado}
-                                onChange={(event) => mudarEstadoFiltro(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                <option value="todos">Todos os estados</option>
-                                <option value="ativo">Activo</option>
-                                <option value="inativo">Inactivo</option>
-                                <option value="cortado">Cortado</option>
-                            </select>
-                        </div>
-                    </AnimatedPanel>
-
-                    {dados.length === 0 ? (
-                        <AnimatedPanel delay={0.28}>
-                            <p className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-                                Nenhum cliente encontrado para os filtros seleccionados.
-                            </p>
-                        </AnimatedPanel>
-                    ) : (
-                        <>
-                            {/* Cartões — visíveis apenas em telas pequenas (mobile) */}
-                            <motion.div
-                                variants={listVariants}
-                                initial="hidden"
-                                animate="show"
-                                className="space-y-3 sm:hidden"
-                            >
-                                {dados.map((cliente) => {
-                                    const estado = estadoConfig[cliente.estado];
-
-                                    return (
-                                        <motion.div
-                                            key={cliente.id}
-                                            variants={itemVariants}
-                                            onClick={() => setDetalhe(cliente)}
-                                            className="cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                                        >
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div>
-                                                    <p className="font-semibold text-slate-900 dark:text-white">
-                                                        {cliente.nome}
-                                                    </p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                        {cliente.numero_cliente}
-                                                    </p>
-                                                </div>
-                                                <StatusBadge tone={estado.tone}>{estado.label}</StatusBadge>
-                                            </div>
-
-                                            <div className="mt-3 space-y-1 text-sm">
-                                                {cliente.telefone && (
-                                                    <a
-                                                        href={`tel:${cliente.telefone.replace(/\s+/g, "")}`}
-                                                        onClick={(event) => event.stopPropagation()}
-                                                        className="flex items-center gap-1.5 text-slate-700 hover:text-cyan-700 dark:text-slate-300 dark:hover:text-cyan-300"
-                                                    >
-                                                        <Phone className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                                                        {cliente.telefone}
-                                                    </a>
-                                                )}
-                                                <p className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                                                    <MapPin className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                                                    {cliente.bairro || "—"} &middot; {cliente.tarifa?.nome ?? "—"}
-                                                </p>
-                                            </div>
-
-                                            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
-                                                <span
-                                                    className={cn(
-                                                        "font-semibold",
-                                                        cliente.dividaValor > 0
-                                                            ? "text-rose-600 dark:text-rose-400"
-                                                            : "text-slate-400 dark:text-slate-500",
-                                                    )}
-                                                >
-                                                    {formatCurrency(cliente.dividaValor)}
-                                                </span>
-                                                <div
-                                                    className="flex items-center gap-1"
-                                                    onClick={(event) => event.stopPropagation()}
-                                                >
-                                                    <IconButton onClick={() => setDetalhe(cliente)} title="Ver histórico" className="h-11 w-11">
-                                                        <Eye className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                    <IconButton onClick={() => abrirEdicao(cliente)} title="Editar cliente" className="h-11 w-11">
-                                                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                    <ActionsMenu label={`Mais acções sobre ${cliente.nome}`}>
-                                                        <ActionsMenuItem tone="danger" onClick={() => setParaEliminar(cliente)}>
-                                                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                                            Eliminar cliente
-                                                        </ActionsMenuItem>
-                                                    </ActionsMenu>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    );
-                                })}
-                            </motion.div>
-
-                            {/* Tabela — visível a partir de sm (tablet/desktop) */}
-                            <AnimatedPanel delay={0.28} className="hidden overflow-hidden sm:block">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[920px] text-left text-sm">
-                                        <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-                                            <tr>
-                                                {colunas.map((coluna) => {
-                                                    const activa = sort.key === coluna.key;
-                                                    const Icon = activa
-                                                        ? sort.direction === "asc"
-                                                            ? ArrowUp
-                                                            : ArrowDown
-                                                        : ArrowUpDown;
-
-                                                    return (
-                                                        <th
-                                                            key={coluna.key}
-                                                            className={cn(
-                                                                "px-6 py-3",
-                                                                coluna.key === "divida" && "text-right",
-                                                            )}
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => toggleSort(coluna.key)}
-                                                                className={cn(
-                                                                    "inline-flex items-center gap-1.5 transition hover:text-slate-950 dark:hover:text-white",
-                                                                    coluna.key === "divida" && "flex-row-reverse",
-                                                                    activa && "text-cyan-700 dark:text-cyan-300",
-                                                                )}
-                                                            >
-                                                                {coluna.label}
-                                                                <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                                                            </button>
-                                                        </th>
-                                                    );
-                                                })}
-                                                <th className="px-6 py-3">Telefone</th>
-                                                <th className="px-6 py-3">Bairro</th>
-                                                <th className="px-6 py-3">Tarifa</th>
-                                                <th className="px-6 py-3 text-right">Acções</th>
-                                            </tr>
-                                        </thead>
-                                        <motion.tbody
-                                            variants={listVariants}
-                                            initial="hidden"
-                                            animate="show"
-                                            className="divide-y divide-slate-100 dark:divide-slate-800"
-                                        >
-                                            {dados.map((cliente) => {
-                                                const estado = estadoConfig[cliente.estado];
-
-                                                return (
-                                                    <motion.tr
-                                                        key={cliente.id}
-                                                        variants={itemVariants}
-                                                        onClick={() => setDetalhe(cliente)}
-                                                        className="cursor-pointer transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                                                    >
-                                                        <td className="px-6 py-4">
-                                                            <p className="font-semibold text-slate-900 dark:text-white">
-                                                                {cliente.nome}
-                                                            </p>
-                                                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                                {cliente.numero_cliente}
-                                                            </p>
-                                                        </td>
-                                                        <td
-                                                            className={cn(
-                                                                "px-6 py-4 text-right font-semibold",
-                                                                cliente.dividaValor > 0
-                                                                    ? "text-rose-600 dark:text-rose-400"
-                                                                    : "text-slate-400 dark:text-slate-500",
-                                                            )}
-                                                        >
-                                                            {formatCurrency(cliente.dividaValor)}
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <StatusBadge tone={estado.tone}>{estado.label}</StatusBadge>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                                                            {cliente.telefone ? (
-                                                                <a
-                                                                    href={`tel:${cliente.telefone.replace(/\s+/g, "")}`}
-                                                                    onClick={(event) => event.stopPropagation()}
-                                                                    className="flex items-center gap-1.5 hover:text-cyan-700 dark:hover:text-cyan-300"
-                                                                >
-                                                                    <Phone className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                                                                    {cliente.telefone}
-                                                                </a>
-                                                            ) : (
-                                                                <span className="text-slate-400 dark:text-slate-600">—</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                                                            {cliente.bairro || "—"}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                                                            {cliente.tarifa?.nome ?? "—"}
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <div
-                                                                className="flex items-center justify-end gap-1"
-                                                                onClick={(event) => event.stopPropagation()}
-                                                            >
-                                                                <IconButton onClick={() => setDetalhe(cliente)} title="Ver histórico" className="h-11 w-11">
-                                                                    <Eye className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                                <IconButton onClick={() => abrirEdicao(cliente)} title="Editar cliente" className="h-11 w-11">
-                                                                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                                <ActionsMenu label={`Mais acções sobre ${cliente.nome}`}>
-                                                                    <ActionsMenuItem tone="danger" onClick={() => setParaEliminar(cliente)}>
-                                                                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                                                        Eliminar cliente
-                                                                    </ActionsMenuItem>
-                                                                </ActionsMenu>
-                                                            </div>
-                                                        </td>
-                                                    </motion.tr>
-                                                );
-                                            })}
-                                        </motion.tbody>
-                                    </table>
-                                </div>
-                            </AnimatedPanel>
-                            <Pagination paginador={clientes} />
-                        </>
-                    )}
+                    <DataTable
+                        rota="/clientes"
+                        filtros={filtros}
+                        padroes={padroes}
+                        paginador={clientes}
+                        colunas={colunas}
+                        cartao={cartaoCliente}
+                        placeholder="Pesquisar nome, nº ou bairro"
+                        filtrosConfig={filtrosConfig}
+                        accoes={accoesCliente}
+                        rotuloAccoes={(cliente) => `Mais acções sobre ${cliente.nome}`}
+                        vazio={{
+                            mensagem: "Ainda não há clientes registados.",
+                            mensagemFiltrada: "Nenhum cliente encontrado para os filtros seleccionados.",
+                            accao: { rotulo: "Novo cliente", icone: Plus, onClick: abrirNovo, disabled: tarifas.length === 0 },
+                        }}
+                    />
                 </div>
             </div>
 
@@ -529,7 +377,7 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                             <p className="font-semibold text-slate-950 dark:text-white">Novo contrato</p>
                             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                                 Primeira ligação de água deste cliente. É gerada automaticamente uma factura da
-                                taxa de ligação de {formatCurrency(taxaLigacao)}.
+                                taxa de ligação de {formatMoney(taxaLigacao)}.
                             </p>
                         </div>
                     </button>
@@ -562,7 +410,7 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                     {!editando && novoContrato && (
                         <InlineNotice show tone="info">
                             Será criada automaticamente uma factura da taxa de ligação de água no valor de{" "}
-                            {formatCurrency(taxaLigacao)} após guardar.
+                            {formatMoney(taxaLigacao)} após guardar.
                         </InlineNotice>
                     )}
 
@@ -596,7 +444,7 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                 value={form.data.telefone}
                                 onChange={(event) => form.setData("telefone", event.target.value)}
                                 className="mt-1 block w-full"
-                                placeholder="84 000 0000"
+                                placeholder="84 562 6156"
                             />
                         </div>
                     </div>
@@ -643,6 +491,29 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                         </div>
                     </div>
 
+                    {!editando && (
+                        <div>
+                            <InputLabel htmlFor="leitura_inicial" value="Leitura inicial do contador" />
+                            <TextInput
+                                id="leitura_inicial"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                required
+                                value={form.data.leitura_inicial}
+                                onChange={(event) => form.setData("leitura_inicial", event.target.value)}
+                                className="mt-1 block w-full"
+                                placeholder="Ex.: 430,00"
+                            />
+                            <InputError message={form.errors.leitura_inicial} className="mt-1" />
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                O que o contador marca hoje. A primeira leitura mensal parte deste valor, para o cliente
+                                não pagar o consumo anterior à ligação. Use 0 só num contador novo.
+                            </p>
+                        </div>
+                    )}
+                    <InputError message={form.errors.telefone} className="-mt-2" />
+
                     <div className="flex justify-end gap-3 pt-2">
                         <SecondaryButton type="button" onClick={fecharModalCliente}>
                             Cancelar
@@ -677,7 +548,7 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                 cancelLabel="Agora não"
                 description={
                     facturaParaPagar
-                        ? `Factura ${facturaParaPagar.numero_factura} emitida (${formatCurrency(facturaParaPagar.total_pagar)}). Deseja efectuar o pagamento agora?`
+                        ? `Factura ${facturaParaPagar.numero_factura} emitida (${formatMoney(facturaParaPagar.total_pagar)}). Deseja efectuar o pagamento agora?`
                         : ""
                 }
             />
@@ -731,10 +602,10 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                 <p className="font-medium text-slate-900 dark:text-white">
                                     {detalhe.telefone ? (
                                         <a
-                                            href={`tel:${detalhe.telefone.replace(/\s+/g, "")}`}
+                                            href={`tel:${phoneDigits(detalhe.telefone)}`}
                                             className="hover:text-cyan-700 dark:hover:text-cyan-300"
                                         >
-                                            {detalhe.telefone}
+                                            {formatPhone(detalhe.telefone)}
                                         </a>
                                     ) : (
                                         "—"
@@ -754,11 +625,11 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                             : "text-slate-900 dark:text-white",
                                     )}
                                 >
-                                    {formatCurrency(detalhe.saldo_em_aberto ?? 0)}
+                                    {formatMoney(detalhe.saldo_em_aberto ?? 0)}
                                 </p>
                                 {Number(detalhe.divida_em_atraso ?? 0) > 0 && (
                                     <p className="mt-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                                        {formatCurrency(detalhe.divida_em_atraso)} vencido
+                                        {formatMoney(detalhe.divida_em_atraso)} vencido
                                     </p>
                                 )}
                             </div>
@@ -792,14 +663,21 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                         {detalhe.facturas.map((f) => (
                                             <tr key={f.id}>
-                                                <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">
-                                                    {f.numero_factura}
+                                                <td className="px-4 py-2 font-medium">
+                                                    <a
+                                                        href={`/facturas/${f.id}/imprimir`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-cyan-700 hover:underline dark:text-cyan-300"
+                                                    >
+                                                        {f.numero_factura}
+                                                    </a>
                                                 </td>
                                                 <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
                                                     {meses[f.mes - 1]}/{f.ano}
                                                 </td>
                                                 <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
-                                                    {formatCurrency(f.total_pagar)}
+                                                    {formatMoney(f.total_pagar)}
                                                 </td>
                                                 <td className="px-4 py-2">
                                                     <StatusBadge tone={estadoFacturaConfig[f.estado].tone}>
@@ -848,7 +726,7 @@ export default function Index({ clientes, tarifas, totais, filtros, taxaLigacao 
                                                     {formatDateTime(p.created_at)}
                                                 </td>
                                                 <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
-                                                    {formatCurrency(p.valor_pago)}
+                                                    {formatMoney(p.valor_pago)}
                                                 </td>
                                                 <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
                                                     {metodoLabels[p.metodo_pagamento] ?? p.metodo_pagamento}

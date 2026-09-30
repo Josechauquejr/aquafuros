@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Rules\TelefoneMocambicano;
+use App\Support\Telefone;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -67,11 +69,13 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
+        $request->merge(['telefone' => Telefone::normalizar($request->input('telefone'))]);
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:255|unique:users,username',
             'email' => 'required|email|max:255|unique:users,email',
-            'telefone' => 'nullable|string|max:20',
+            'telefone' => ['nullable', 'string', 'max:20', new TelefoneMocambicano],
             'papel' => ['required', Rule::in(self::PAPEIS)],
             'is_active' => 'boolean',
         ]);
@@ -101,11 +105,13 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
+        $request->merge(['telefone' => Telefone::normalizar($request->input('telefone'))]);
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'username' => ['required', 'string', 'max:255', Rule::unique('users', 'username')->ignore($user->id)],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'telefone' => 'nullable|string|max:20',
+            'telefone' => ['nullable', 'string', 'max:20', new TelefoneMocambicano],
             'papel' => ['required', Rule::in(self::PAPEIS)],
             'is_active' => 'boolean',
         ]);

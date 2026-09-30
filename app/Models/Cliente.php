@@ -33,7 +33,8 @@ class Cliente extends Model
         'bairro',
         'tarifa_id',
         'estado',
-        'data_adesao'
+        'data_adesao',
+        'leitura_inicial',
     ];
 
     // Um cliente pertence a uma tarifa

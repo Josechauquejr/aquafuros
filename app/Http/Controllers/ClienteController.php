@@ -7,6 +7,9 @@ use App\Models\Configuracao;
 use App\Models\Divida;
 use App\Models\Factura;
 use App\Models\Tarifa;
+use App\Rules\TelefoneMocambicano;
+use App\Support\ListaQuery;
+use App\Support\Telefone;
 use App\Support\NumeracaoDocumentos;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -24,6 +27,9 @@ class ClienteController extends Controller
     {
         $search = $request->query('search');
         $estado = $request->query('estado');
+        $bairro = $request->query('bairro');
+        $tarifaId = $request->query('tarifa');
+        $soDivida = $request->boolean('so_divida');
 
         $query = Cliente::with([
             'tarifa',
@@ -43,7 +49,30 @@ class ClienteController extends Controller
             $query->where('estado', $estado);
         }
 
-        $clientes = $query->orderBy('nome')->paginate(15)->withQueryString();
+        if ($bairro && $bairro !== 'todos') {
+            $query->where('bairro', $bairro);
+        }
+
+        if ($tarifaId && $tarifaId !== 'todos') {
+            $query->where('tarifa_id', (int) $tarifaId);
+        }
+
+        $divida = $this->sqlSaldoEmAberto();
+
+        if ($soDivida) {
+            $query->whereRaw("({$divida}) > 0");
+        }
+
+        [$sort, $dir] = ListaQuery::ordenar($query, $request, [
+            'nome' => fn ($q, $d) => $q->orderBy('clientes.nome', $d),
+            'divida' => fn ($q, $d) => $q->orderByRaw("({$divida}) {$d}")->orderBy('clientes.nome'),
+            // Activo → inactivo → cortado
+            'estado' => fn ($q, $d) => $q->orderByRaw(
+                "CASE clientes.estado WHEN 'ativo' THEN 0 WHEN 'inativo' THEN 1 ELSE 2 END {$d}",
+            )->orderBy('clientes.nome'),
+        ], 'nome', 'asc');
+
+        $clientes = $query->paginate(15)->withQueryString();
 
         // Saldo em aberto e dívida vencida a partir das facturas/pagamentos
         // já carregados acima (sem consultas extra) — nunca um valor
@@ -67,6 +96,9 @@ class ClienteController extends Controller
         return Inertia::render('Clientes/Index', [
             'clientes' => $clientes,
             'tarifas' => Tarifa::where('is_active', true)->orderBy('nome')->get(['id', 'nome']),
+            'todasTarifas' => Tarifa::orderBy('nome')->get(['id', 'nome']),
+            'bairros' => Cliente::whereNotNull('bairro')->where('bairro', '!=', '')
+                ->distinct()->orderBy('bairro')->pluck('bairro'),
             'taxaLigacao' => Configuracao::valor('taxa_ligacao_nova', 3250.00),
             'totais' => [
                 'total' => Cliente::count(),
@@ -76,9 +108,28 @@ class ClienteController extends Controller
             ],
             'filtros' => [
                 'search' => $search ?? '',
-                'estado' => $estado ?? 'todos',
+                'estado' => $estado ?: 'todos',
+                'bairro' => $bairro ?: 'todos',
+                'tarifa' => $tarifaId ?: 'todos',
+                'so_divida' => $soDivida,
+                'sort' => $sort,
+                'dir' => $dir,
             ],
         ]);
+    }
+
+    /**
+     * Saldo em aberto do cliente como subconsulta SQL (mesma fórmula do
+     * cálculo em PHP: facturas pendentes/parciais menos o já pago, por
+     * factura, nunca negativo) — para poder ordenar e filtrar por dívida no
+     * servidor.
+     */
+    private function sqlSaldoEmAberto(): string
+    {
+        $pago = '(SELECT COALESCE(SUM(p.valor_pago), 0) FROM pagamentos p WHERE p.factura_id = f.id AND p.deleted_at IS NULL)';
+
+        return 'SELECT COALESCE(SUM(CASE WHEN f.total_pagar > '.$pago.' THEN f.total_pagar - '.$pago.' ELSE 0 END), 0)'
+            ." FROM facturas f WHERE f.cliente_id = clientes.id AND f.estado IN ('pendente', 'parcial') AND f.deleted_at IS NULL";
     }
 
     /**
@@ -105,14 +156,19 @@ class ClienteController extends Controller
      */
     public function store(Request $request)
     {
+        $request->merge(['telefone' => Telefone::normalizar($request->input('telefone'))]);
+
         $data = $request->validate([
             'nome' => 'required|string|max:255',
             'endereco' => 'nullable|string|max:255',
-            'telefone' => 'nullable|string|max:20',
+            'telefone' => ['nullable', 'string', 'max:20', new TelefoneMocambicano],
             'bairro' => 'nullable|string|max:255',
             'tarifa_id' => 'required|exists:tarifas,id',
             'estado' => 'required|in:ativo,inativo,cortado',
             'novo_contrato' => 'nullable|boolean',
+            // Ponto de partida do contador: a primeira leitura usa-o como
+            // "anterior" (senão o cliente pagaria todo o consumo desde 0).
+            'leitura_inicial' => 'required|numeric|min:0|max:99999999',
         ]);
 
         $novoContrato = (bool) ($data['novo_contrato'] ?? false);
@@ -168,10 +224,12 @@ class ClienteController extends Controller
      */
     public function update(Request $request, Cliente $cliente)
     {
+        $request->merge(['telefone' => Telefone::normalizar($request->input('telefone'))]);
+
         $data = $request->validate([
             'nome' => 'required|string|max:255',
             'endereco' => 'nullable|string|max:255',
-            'telefone' => 'nullable|string|max:20',
+            'telefone' => ['nullable', 'string', 'max:20', new TelefoneMocambicano],
             'bairro' => 'nullable|string|max:255',
             'tarifa_id' => 'required|exists:tarifas,id',
             'estado' => 'required|in:ativo,inativo,cortado',

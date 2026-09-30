@@ -379,7 +379,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                             </AnimatedButton>
                         )}
                         {ehAdministrador && (
-                            <AnimatedButton as={Link} href="/leituras/lixeira" variant="secondary">
+                            <AnimatedButton as={Link} href="/lixeira?tipo=leituras" variant="secondary">
                                 <Trash2 className="h-4 w-4" aria-hidden="true" />
                                 Lixeira
                             </AnimatedButton>

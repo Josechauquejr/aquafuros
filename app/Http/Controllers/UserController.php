@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Rules\TelefoneMocambicano;
 use App\Support\BuscaDifusa;
+use App\Support\ListaQuery;
 use App\Support\Telefone;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -174,16 +175,32 @@ class UserController extends Controller
      * definitivamente. Sem tarefa agendada configurada, a purga de quem já
      * passou o prazo corre aqui mesmo, à semelhança das outras lixeiras.
      */
-    public function lixeira()
+    public function lixeira(Request $request)
     {
         $limite = Carbon::now()->subDays(self::DIAS_RETENCAO);
         User::onlyTrashed()->where('deleted_at', '<=', $limite)->forceDelete();
 
-        $utilizadores = User::onlyTrashed()
-            ->with('roles')
-            ->orderByDesc('deleted_at')
-            ->get()
-            ->map(fn (User $user) => [
+        $search = $request->query('search');
+        $query = User::onlyTrashed()->with('roles');
+
+        $periodo = ListaQuery::periodo($query, $request, 'users.deleted_at');
+
+        $idsPesquisa = BuscaDifusa::ids(
+            User::onlyTrashed()->get(['id', 'name', 'username', 'email']),
+            $search,
+            fn ($u) => "{$u->name} {$u->username} {$u->email}",
+        );
+        if ($idsPesquisa !== null) {
+            $query->whereIn('users.id', $idsPesquisa);
+        }
+
+        [$sort, $dir] = ListaQuery::ordenar($query, $request, [
+            'item' => fn ($q, $d) => $q->orderBy('users.name', $d),
+            'eliminado' => fn ($q, $d) => $q->orderBy('users.deleted_at', $d),
+        ], 'eliminado', 'desc');
+
+        $utilizadores = $query->paginate(15)->withQueryString()
+            ->through(fn (User $user) => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'username' => $user->username,
@@ -196,6 +213,7 @@ class UserController extends Controller
         return Inertia::render('Users/Lixeira', [
             'utilizadores' => $utilizadores,
             'diasRetencao' => self::DIAS_RETENCAO,
+            'filtros' => [...$periodo, 'search' => $search ?? '', 'sort' => $sort, 'dir' => $dir],
         ]);
     }
 

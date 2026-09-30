@@ -217,4 +217,76 @@ class ListasTest extends TestCase
         $this->actingAs($this->admin)->get('/facturas?sort=total&dir=asc')
             ->assertInertia(fn (Assert $page) => $page->where('facturas.data.0.numero_factura', 'F-2'));
     }
+
+    public function test_factura_parcial_mostra_o_que_falta_e_o_pagamento_nao_excede_o_remanescente(): void
+    {
+        $ana = $this->cliente('Ana');
+        $factura = $this->factura($ana, 'F-9', 'pendente', total: 1000);
+
+        $this->actingAs($this->admin)->post('/pagamentos', [
+            'factura_id' => $factura->id, 'valor_pago' => 400, 'metodo_pagamento' => 'dinheiro',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('parcial', $factura->fresh()->estado);
+
+        $this->actingAs($this->admin)->get('/facturas')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('facturas.data.0.em_falta', 600)
+                ->where('facturas.data.0.total_pago', 400));
+
+        // O formulário de pagamento recebe o remanescente, não o total.
+        $this->actingAs($this->admin)->get('/pagamentos')
+            ->assertInertia(fn (Assert $page) => $page->where('facturasEmAberto.0.em_falta', 600));
+
+        // Não aceita mais do que falta pagar...
+        $this->actingAs($this->admin)->post('/pagamentos', [
+            'factura_id' => $factura->id, 'valor_pago' => 700, 'metodo_pagamento' => 'dinheiro',
+        ])->assertSessionHasErrors('valor_pago');
+
+        // ...mas aceita pagar o resto, em mais uma prestação.
+        $this->actingAs($this->admin)->post('/pagamentos', [
+            'factura_id' => $factura->id, 'valor_pago' => 600, 'metodo_pagamento' => 'mpesa',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('paga', $factura->fresh()->estado);
+    }
+
+    public function test_ligacao_directa_para_editar_ou_anular_uma_factura(): void
+    {
+        $factura = $this->factura($this->cliente('Ana'), 'F-7', 'pendente');
+
+        $this->actingAs($this->admin)->get('/facturas?editar='.$factura->id)
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('accaoAlvo', 'editar')
+                ->where('facturaAlvo.id', $factura->id));
+
+        $this->actingAs($this->admin)->get('/facturas')
+            ->assertInertia(fn (Assert $page) => $page->where('accaoAlvo', null)->where('facturaAlvo', null));
+    }
+
+    public function test_lixeira_unica_com_tipo_pesquisa_e_ordenacao(): void
+    {
+        $ana = $this->cliente('Ana Maria');
+        $rui = $this->cliente('Rui Cossa');
+        $this->leitura($ana, 8, 0, 10);
+        $apagada = $this->leitura($ana, 9, 10, 20);
+        $apagada->delete();
+        $rui->delete();
+
+        $this->actingAs($this->admin)->get('/lixeira')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filtros.tipo', 'clientes')
+                ->has('linhas.data', 1)
+                ->where('linhas.data.0.titulo', 'Rui Cossa'));
+
+        $this->actingAs($this->admin)->get('/lixeira?tipo=clientes&search=cosa')
+            ->assertInertia(fn (Assert $page) => $page->has('linhas.data', 1));
+
+        $this->actingAs($this->admin)->get('/lixeira?tipo=leituras')
+            ->assertInertia(fn (Assert $page) => $page->has('linhas.data', 1)->where('linhas.data.0.subtitulo', 'Leitura de Set/2026'));
+
+        // Só o administrador vê a lixeira.
+        $gestor = User::factory()->create();
+        $gestor->assignRole('gestor');
+        $this->actingAs($gestor)->get('/lixeira')->assertForbidden();
+    }
 }

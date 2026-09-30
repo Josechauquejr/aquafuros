@@ -479,7 +479,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, totais
                     </div>
                     <div className="flex items-center gap-2">
                         {ehAdministrador && (
-                            <AnimatedButton as={Link} href="/clientes/lixeira" variant="secondary">
+                            <AnimatedButton as={Link} href="/lixeira?tipo=clientes" variant="secondary">
                                 <Trash2 className="h-4 w-4" aria-hidden="true" />
                                 Lixeira
                             </AnimatedButton>

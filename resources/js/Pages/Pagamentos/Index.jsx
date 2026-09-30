@@ -300,7 +300,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                             Fecho de caixa
                         </AnimatedButton>
                         {ehAdministrador && (
-                            <AnimatedButton as={Link} href="/pagamentos/lixeira" variant="secondary">
+                            <AnimatedButton as={Link} href="/lixeira?tipo=pagamentos" variant="secondary">
                                 <Trash2 className="h-4 w-4" aria-hidden="true" />
                                 Lixeira
                             </AnimatedButton>

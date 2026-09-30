@@ -1,5 +1,5 @@
 import { usePage } from "@inertiajs/react";
-import { Banknote, FileText, Gauge, PieChart, QrCode, SlidersHorizontal, Users, Waves } from "lucide-react";
+import { Banknote, FileText, Gauge, PieChart, QrCode, SlidersHorizontal, Trash2, Users, Waves } from "lucide-react";
 import AppShell from "@/Components/AppShell";
 
 // Layout partilhado por administrador, gestor, caixa e técnico — o
@@ -27,6 +27,7 @@ const navGroups = [
         items: [
             { label: "KPIs", href: "/admin/kpis", icon: PieChart, roles: ["administrador"] },
             { label: "Valores e Regras", href: "/tarifas", icon: SlidersHorizontal, roles: ["administrador"] },
+            { label: "Lixeira", href: "/lixeira", icon: Trash2, roles: ["administrador"] },
         ],
     },
 ];

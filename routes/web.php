@@ -63,15 +63,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Lixeiras (30 dias para restaurar/apagar definitivamente) — só o
         // administrador tem acesso.
-        Route::get('clientes/lixeira', [LixeiraController::class, 'index'])->name('clientes.lixeira');
+        // Uma só página para as 3 lixeiras (?tipo=clientes|leituras|pagamentos).
+        Route::get('lixeira', [LixeiraController::class, 'index'])->name('lixeira.index');
+        Route::redirect('clientes/lixeira', '/lixeira?tipo=clientes');
+        Route::redirect('leituras/lixeira', '/lixeira?tipo=leituras');
+        Route::redirect('pagamentos/lixeira', '/lixeira?tipo=pagamentos');
+
         Route::post('clientes/lixeira/{id}/restaurar', [LixeiraController::class, 'restaurar'])->name('clientes.lixeira.restaurar');
         Route::delete('clientes/lixeira/{id}', [LixeiraController::class, 'destroyDefinitivo'])->name('clientes.lixeira.destruir');
 
-        Route::get('leituras/lixeira', [LixeiraController::class, 'leituras'])->name('leituras.lixeira');
         Route::post('leituras/lixeira/{id}/restaurar', [LixeiraController::class, 'restaurarLeitura'])->name('leituras.lixeira.restaurar');
         Route::delete('leituras/lixeira/{id}', [LixeiraController::class, 'destroyLeituraDefinitivo'])->name('leituras.lixeira.destruir');
 
-        Route::get('pagamentos/lixeira', [LixeiraController::class, 'pagamentos'])->name('pagamentos.lixeira');
         Route::post('pagamentos/lixeira/{id}/restaurar', [LixeiraController::class, 'restaurarPagamento'])->name('pagamentos.lixeira.restaurar');
         Route::delete('pagamentos/lixeira/{id}', [LixeiraController::class, 'destroyPagamentoDefinitivo'])->name('pagamentos.lixeira.destruir');
     });

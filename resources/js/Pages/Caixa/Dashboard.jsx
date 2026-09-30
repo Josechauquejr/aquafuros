@@ -30,12 +30,6 @@ export default function Dashboard({ resumoHoje, ultimosPagamentos, facturasEmAbe
     const metrics = [
         { label: "Recebido hoje", value: formatCurrency(resumoHoje.totalRecebido), icon: Wallet, tone: "cyan" },
         { label: "Pagamentos hoje", value: resumoHoje.quantidade, icon: Receipt, tone: "emerald" },
-        {
-            label: "Ticket médio hoje",
-            value: resumoHoje.ticketMedio === null ? "—" : formatCurrency(resumoHoje.ticketMedio),
-            icon: Banknote,
-            tone: "amber",
-        },
         { label: "Facturas em aberto", value: contadorFacturasEmAberto, icon: Receipt, tone: "rose" },
     ];
 
@@ -71,7 +65,7 @@ export default function Dashboard({ resumoHoje, ultimosPagamentos, facturasEmAbe
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+                    <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         {metrics.map((metric, index) => (
                             <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
                         ))}

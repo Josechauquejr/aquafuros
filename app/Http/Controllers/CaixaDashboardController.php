@@ -27,7 +27,6 @@ class CaixaDashboardController extends Controller
             'resumoHoje' => [
                 'totalRecebido' => (float) $pagamentosHoje->sum('valor_pago'),
                 'quantidade' => $pagamentosHoje->count(),
-                'ticketMedio' => $pagamentosHoje->isEmpty() ? null : round((float) $pagamentosHoje->avg('valor_pago'), 2),
             ],
             'ultimosPagamentos' => Pagamento::where('recebido_por', $utilizador->id)
                 ->with(['cliente' => fn ($q) => $q->withTrashed()])

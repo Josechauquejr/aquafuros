@@ -3,8 +3,7 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import { motion } from "motion/react";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import { AnimatedCard, CardBody, CardDescription, CardTitle, CardVisual } from "@/Components/ui/animated-card";
-import { Visual1 } from "@/Components/ui/visual-1";
-import { Visual2 } from "@/Components/ui/visual-2";
+import GraficoKpi from "@/Components/charts/GraficoKpi";
 import { cn } from "@/lib/utils";
 
 const toneClasses = {
@@ -15,13 +14,13 @@ const toneClasses = {
     slate: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
 };
 
-// Cores do visual animado por tom (principal, secundária).
-const coresVisual = {
-    cyan: ["#06b6d4", "#fbbf24"],
-    emerald: ["#10b981", "#38bdf8"],
-    amber: ["#f59e0b", "#06b6d4"],
-    rose: ["#f43f5e", "#fbbf24"],
-    slate: ["#64748b", "#06b6d4"],
+// Cor do mini-gráfico por tom.
+const coresGrafico = {
+    cyan: "#06b6d4",
+    emerald: "#10b981",
+    amber: "#f59e0b",
+    rose: "#f43f5e",
+    slate: "#71717a",
 };
 
 /**
@@ -29,30 +28,28 @@ const coresVisual = {
  * opcional e um badge de variação (↑/↓ %) opcional, para comparações
  * período-a-período. Usado em /dashboard e /admin/kpis.
  */
-export default function KpiCard({ label, value, detail, icon: Icon, tone = "cyan", variacao, delay = 0, href, visual }) {
+export default function KpiCard({ label, value, detail, icon: Icon, tone = "cyan", variacao, delay = 0, href, grafico }) {
     const temVariacao = variacao !== undefined && variacao !== null;
     const subiu = temVariacao && variacao >= 0;
 
-    // Versão com o visual animado (Animated Card 1/2 do badtzUI): usada nos
-    // painéis de indicadores; `visual` = 1 ou 2 escolhe a animação.
-    if (visual) {
-        const [principal, secundaria] = coresVisual[tone] ?? coresVisual.cyan;
-        const Visual = visual === 2 ? Visual2 : Visual1;
+    // Versão com mini-gráfico (cartão animado do badtzUI): o gráfico mostra
+    // sempre dados reais do indicador — ver GraficoKpi.
+    if (grafico) {
 
         const cartao = (
             <AnimatedCard className="h-full w-full">
-                <CardVisual className="relative h-[120px] w-full">
-                    <div className="absolute left-1/2 top-0 h-[180px] w-[356px] -translate-x-1/2">
-                        <Visual mainColor={principal} secondaryColor={secundaria} titulo={label} descricao={detail} />
+                <CardVisual className="relative flex h-[120px] w-full items-center justify-center bg-gradient-to-b from-transparent to-black/[0.03] dark:to-white/[0.03]">
+                    <div className="w-full px-3">
+                        <GraficoKpi grafico={grafico} cor={coresGrafico[tone] ?? coresGrafico.cyan} altura={120} rotulo={label} formatar={grafico.formatar} />
                     </div>
                     {Icon && (
                         <div
                             className={cn(
-                                "absolute left-4 top-4 z-30 flex h-10 w-10 items-center justify-center rounded-md",
+                                "absolute left-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-md",
                                 toneClasses[tone],
                             )}
                         >
-                            <Icon className="h-5 w-5" aria-hidden="true" />
+                            <Icon className="h-4 w-4" aria-hidden="true" />
                         </div>
                     )}
                 </CardVisual>

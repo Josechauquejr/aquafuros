@@ -8,6 +8,7 @@ use App\Models\Factura;
 use App\Models\Leitura;
 use App\Models\Pagamento;
 use App\Models\User;
+use App\Support\MesReferencia;
 use App\Support\ResolvedorPeriodo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -31,18 +32,18 @@ class DashboardController extends Controller
      * dados: taxa de cobrança, dívida em atraso, evolução mensal,
      * distribuição de pagamentos por método e maiores devedores.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return Inertia::render('Admin/Dashboard', $this->dadosPainel());
+        return Inertia::render('Admin/Dashboard', $this->dadosPainel(MesReferencia::resolver($request)));
     }
 
     /**
      * Exportação em CSV de todos os KPIs e estatísticas do painel — um
      * ficheiro com secções separadas, pronto a abrir no Excel.
      */
-    public function exportar(): StreamedResponse
+    public function exportar(Request $request): StreamedResponse
     {
-        $dados = $this->dadosPainel();
+        $dados = $this->dadosPainel(MesReferencia::resolver($request));
         $utilizador = request()->user();
         $nomeFicheiro = 'aquafuros-kpis-' . now()->format('Y-m-d_His') . '.csv';
 
@@ -71,8 +72,8 @@ class DashboardController extends Controller
             fputcsv($saida, ['Nº de pagamentos registados', $dados['mesActual']['numeroPagamentos']]);
             fputcsv($saida, ['Consumo total (m³)', $dados['consumoTotalMes']]);
             fputcsv($saida, ['Clientes novos no mês', $dados['clientesNovosMes']]);
-            fputcsv($saida, ['Ticket médio por pagamento (MZN)', $dados['ticketMedioPagamento']]);
-            fputcsv($saida, ['Tempo médio até pagamento (dias)', $dados['tempoMedioPagamentoDias']]);
+            fputcsv($saida, ['Facturas vencidas (quantidade)', $dados['facturasVencidas']['quantidade']]);
+            fputcsv($saida, ['Facturas vencidas — em falta (MZN)', $dados['facturasVencidas']['valor']]);
             fputcsv($saida, []);
             fputcsv($saida, []);
 
@@ -262,19 +263,24 @@ class DashboardController extends Controller
             ->toArray();
     }
 
-    private function dadosPainel(): array
+    /**
+     * @param  Carbon  $hoje  mês de referência (por omissão o actual); os
+     *                        indicadores "de situação" — dívida, leituras
+     *                        por confirmar — são sempre os de agora.
+     */
+    private function dadosPainel(Carbon $hoje): array
     {
-        $hoje = Carbon::now();
-
         return [
             'contadores' => [
                 'clientesActivos' => Cliente::where('estado', 'ativo')->count(),
                 'clientesTotal' => Cliente::count(),
                 'clientesCortados' => Cliente::where('estado', 'cortado')->count(),
                 'clientesCortadosSemDivida' => Cliente::clientesCortadosSemDividaCount(),
+                'leiturasConfirmadas' => Leitura::where('confirmado', true)->count(),
                 'leiturasPendentes' => Leitura::where('confirmado', false)->count(),
                 'leiturasSemFactura' => Leitura::whereDoesntHave('factura')->where('confirmado', true)->count(),
             ],
+            'mesReferencia' => MesReferencia::paraSeletor($hoje),
             'mesActual' => $this->resumoPeriodo($hoje->month, $hoje->year),
             'evolucaoMensal' => $this->evolucaoMensal($hoje, 12),
             'distribuicaoPorMetodo' => $this->distribuicaoPorMetodo($hoje->month, $hoje->year),
@@ -287,8 +293,7 @@ class DashboardController extends Controller
                 ->where('ano', $hoje->year)
                 ->get()
                 ->sum(fn ($l) => max(0, $l->leitura_actual - $l->leitura_anterior)),
-            'ticketMedioPagamento' => $this->ticketMedioPagamento($hoje->month, $hoje->year),
-            'tempoMedioPagamentoDias' => $this->tempoMedioPagamentoDias(),
+            'facturasVencidas' => $this->facturasVencidas(),
         ];
     }
 
@@ -400,37 +405,25 @@ class DashboardController extends Controller
             ->toArray();
     }
 
-    private function ticketMedioPagamento(int $mes, int $ano): ?float
-    {
-        $pagamentos = Pagamento::whereMonth('created_at', $mes)->whereYear('created_at', $ano)->get();
-
-        return $pagamentos->isEmpty() ? null : round((float) $pagamentos->avg('valor_pago'), 2);
-    }
-
     /**
-     * Média de dias entre a emissão da factura e o primeiro pagamento
-     * recebido, sobre as facturas pagas nos últimos 6 meses — indicador de
-     * eficiência de cobrança.
+     * Facturas por pagar (pendentes ou parciais) cujo prazo já terminou —
+     * quantas são e quanto falta receber delas. Situação de agora.
+     *
+     * @return array{quantidade: int, valor: float}
      */
-    private function tempoMedioPagamentoDias(): ?float
+    private function facturasVencidas(): array
     {
-        $desde = Carbon::now()->subMonths(6)->startOfMonth();
+        $facturas = Factura::whereIn('estado', ['pendente', 'parcial'])
+            ->where('data_vencimento', '<', now())
+            ->withSum('pagamentos', 'valor_pago')
+            ->get(['id', 'total_pagar']);
 
-        $facturas = Factura::where('estado', 'paga')
-            ->where('created_at', '>=', $desde)
-            ->with(['pagamentos' => fn ($q) => $q->orderBy('created_at')])
-            ->get()
-            ->filter(fn ($f) => $f->pagamentos->isNotEmpty());
-
-        if ($facturas->isEmpty()) {
-            return null;
-        }
-
-        $mediasDias = $facturas->map(
-            fn ($f) => $f->created_at->diffInDays($f->pagamentos->first()->created_at),
-        );
-
-        return round((float) $mediasDias->avg(), 1);
+        return [
+            'quantidade' => $facturas->count(),
+            'valor' => round((float) $facturas->sum(
+                fn ($f) => max(0, (float) $f->total_pagar - (float) ($f->pagamentos_sum_valor_pago ?? 0)),
+            ), 2),
+        ];
     }
 
     private function nomeMes(int $mes): string

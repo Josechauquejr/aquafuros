@@ -38,9 +38,10 @@ export default function useTableState({ rota, filtros, padroes }) {
                 preserveState: true,
                 preserveScroll: true,
                 replace: true,
+                showProgress: false,
                 onStart: () => {
-                    // Só mostra o skeleton se a resposta demorar — evita o
-                    // pisca-pisca em pedidos rápidos.
+                    // A lista só esmaece se a resposta demorar — pesquisar e
+                    // filtrar é contínuo, sem pisca-pisca nem saltos.
                     temporizadorCarga.current = setTimeout(() => setCarregando(true), 150);
                 },
                 onFinish: () => {

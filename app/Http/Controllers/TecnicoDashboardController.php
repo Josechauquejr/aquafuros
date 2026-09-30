@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\Leitura;
-use Illuminate\Support\Carbon;
+use App\Support\MesReferencia;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 /**
@@ -14,16 +15,17 @@ use Inertia\Inertia;
  */
 class TecnicoDashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $utilizador = request()->user();
-        $hoje = Carbon::now();
+        $utilizador = $request->user();
+        $hoje = MesReferencia::resolver($request);
 
         $clientesComLeituraEsteMes = Leitura::where('mes', $hoje->month)
             ->where('ano', $hoje->year)
             ->pluck('cliente_id');
 
         return Inertia::render('Tecnico/Dashboard', [
+            'mesReferencia' => MesReferencia::paraSeletor($hoje),
             'contadores' => [
                 'leiturasRegistadasEsteMes' => Leitura::where('registado_por', $utilizador->id)
                     ->where('mes', $hoje->month)

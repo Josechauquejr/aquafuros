@@ -9,7 +9,6 @@ import {
     PieChart,
     Receipt,
     TrendingUp,
-    UserPlus,
     UserX,
     Wallet,
 } from "lucide-react";
@@ -17,10 +16,11 @@ import { motion } from "motion/react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
+import DevedoresChart from "@/Components/charts/DevedoresChart";
 import PeriodoFiltro from "@/Components/PeriodoFiltro";
 import StatusBadge from "@/Components/StatusBadge";
 import DistribuicaoMetodoChart from "@/Components/charts/DistribuicaoMetodoChart";
-import GraficoSerie, { FILTROS_MESES, formatarCompacto } from "@/Components/charts/GraficoSerie";
+import GraficoSerie, { FILTROS_MESES, formatarCompacto, rotuloMensal } from "@/Components/charts/GraficoSerie";
 import { formatCurrency, formatMoney, formatVolume } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
@@ -39,7 +39,9 @@ export default function Kpis({
     dividaTotal,
     filtros,
 }) {
-    const { actual, anterior, variacaoFacturado, variacaoRecebido, variacaoClientesNovos, variacaoConsumo } = periodo;
+    const { actual, anterior, variacaoFacturado, variacaoRecebido, variacaoConsumo } = periodo;
+    const ultimos = evolucaoMensal.slice(-6);
+    const consumos = consumoMensal.slice(-6);
 
     const aplicarFiltros = (novosFiltros) => {
         router.get("/admin/kpis", { ...filtros, ...novosFiltros }, { preserveState: true, preserveScroll: true, replace: true });
@@ -56,6 +58,7 @@ export default function Kpis({
             icon: FileText,
             tone: "cyan",
             variacao: variacaoFacturado,
+            grafico: { tipo: "spark", serie: ultimos.map((d) => d.facturado), rotulos: ultimos.map(rotuloMensal), formatar: formatMoney },
         },
         {
             label: "Total recebido",
@@ -64,6 +67,7 @@ export default function Kpis({
             icon: Receipt,
             tone: "emerald",
             variacao: variacaoRecebido,
+            grafico: { tipo: "spark", serie: ultimos.map((d) => d.recebido), rotulos: ultimos.map(rotuloMensal), formatar: formatMoney },
         },
         {
             label: "Taxa de cobrança",
@@ -71,14 +75,7 @@ export default function Kpis({
             detail: anterior.taxaCobranca === null ? "sem termo de comparação" : `período anterior: ${anterior.taxaCobranca}%`,
             icon: TrendingUp,
             tone: "amber",
-        },
-        {
-            label: "Clientes novos",
-            value: actual.clientesNovos,
-            detail: `período anterior: ${anterior.clientesNovos}`,
-            icon: UserPlus,
-            tone: "rose",
-            variacao: variacaoClientesNovos,
+            grafico: { tipo: "radial", valor: actual.taxaCobranca ?? 0 },
         },
         {
             label: "Consumo de água",
@@ -87,6 +84,7 @@ export default function Kpis({
             icon: Droplets,
             tone: "cyan",
             variacao: variacaoConsumo,
+            grafico: { tipo: "spark", serie: consumos.map((d) => d.consumo), rotulos: consumos.map(rotuloMensal), formatar: formatVolume },
         },
     ];
 
@@ -124,9 +122,9 @@ export default function Kpis({
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         {metrics.map((metric, index) => (
-                            <KpiCard key={metric.label} {...metric} visual={index % 2 === 0 ? 1 : 2} delay={index * 0.06} />
+                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
                         ))}
                     </section>
 
@@ -290,50 +288,11 @@ export default function Kpis({
                         )}
                     </AnimatedPanel>
 
-                    <AnimatedPanel delay={0.48} className="overflow-hidden">
-                        <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                            <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-950 dark:text-white">
-                                <UserX className="h-5 w-5 text-rose-600 dark:text-rose-400" aria-hidden="true" />
-                                Maiores devedores
-                            </h3>
-                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                Dívida total acumulada: {formatCurrency(dividaTotal)}
-                            </p>
-                        </div>
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {maioresDevedores.length === 0 && (
-                                <p className="px-6 py-6 text-sm text-slate-500 dark:text-slate-400">
-                                    Nenhum cliente em dívida no momento.
-                                </p>
-                            )}
-                            {maioresDevedores.map((divida, index) => (
-                                <Link
-                                    key={divida.id}
-                                    href="/clientes"
-                                    className="flex items-center justify-between gap-3 px-6 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                            {index + 1}
-                                        </span>
-                                        <div>
-                                            <p className="font-medium text-slate-900 dark:text-white">
-                                                {divida.cliente?.nome ?? "Cliente removido"}
-                                            </p>
-                                            {divida.em_corte && (
-                                                <StatusBadge tone="rose" className="mt-1">
-                                                    Cortado
-                                                </StatusBadge>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <span className="font-semibold text-rose-600 dark:text-rose-400">
-                                        {formatCurrency(divida.valor_divida)}
-                                    </span>
-                                </Link>
-                            ))}
-                        </div>
-                    </AnimatedPanel>
+                    <DevedoresChart
+                        devedores={maioresDevedores}
+                        delay={0.48}
+                        descricao={`Dívida total acumulada: ${formatCurrency(dividaTotal)}`}
+                    />
                 </div>
             </div>
         </AdminLayout>

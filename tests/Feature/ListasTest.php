@@ -289,4 +289,52 @@ class ListasTest extends TestCase
         $gestor->assignRole('gestor');
         $this->actingAs($gestor)->get('/lixeira')->assertForbidden();
     }
+
+    public function test_paineis_mostram_o_mes_pedido_e_ignoram_meses_invalidos_ou_futuros(): void
+    {
+        $ana = $this->cliente('Ana');
+        $mesPassado = now()->startOfMonth()->subMonth();
+        Factura::create([
+            'numero_factura' => 'F-P', 'cliente_id' => $ana->id, 'mes' => $mesPassado->month, 'ano' => $mesPassado->year,
+            'total_pagar' => 500, 'estado' => 'pendente',
+        ]);
+
+        $this->actingAs($this->admin)->get('/admin/dashboard?mes='.$mesPassado->format('Y-m'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('mesReferencia.valor', $mesPassado->format('Y-m'))
+                ->where('mesReferencia.eActual', false)
+                ->where('mesActual.mes', $mesPassado->month)
+                ->where('mesActual.totalFacturado', 500));
+
+        // Sem pedido, ou com lixo / futuro: o mês actual.
+        foreach (['', '?mes=abc', '?mes=2999-01', '?mes=2026-13'] as $query) {
+            $this->actingAs($this->admin)->get('/admin/dashboard'.$query)
+                ->assertInertia(fn (Assert $page) => $page->where('mesReferencia.eActual', true));
+        }
+
+        $gestor = User::factory()->create();
+        $gestor->assignRole('gestor');
+        $this->actingAs($gestor)->get('/gestor/dashboard?mes='.$mesPassado->format('Y-m'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('resumoMes.mes', $mesPassado->month)
+                ->where('resumoMes.totalFacturado', 500));
+
+        $tecnico = User::factory()->create();
+        $tecnico->assignRole('tecnico');
+        $this->actingAs($tecnico)->get('/tecnico/dashboard?mes='.$mesPassado->format('Y-m'))
+            ->assertInertia(fn (Assert $page) => $page->where('mesReferencia.valor', $mesPassado->format('Y-m')));
+    }
+
+    public function test_painel_do_admin_tem_facturas_vencidas_e_ja_nao_tem_ticket_medio(): void
+    {
+        $ana = $this->cliente('Ana');
+        $this->factura($ana, 'F-V', 'pendente', '2000-01-01', 300);
+
+        $this->actingAs($this->admin)->get('/admin/dashboard')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('facturasVencidas.quantidade', 1)
+                ->where('facturasVencidas.valor', 300)
+                ->missing('ticketMedioPagamento')
+                ->missing('tempoMedioPagamentoDias'));
+    }
 }

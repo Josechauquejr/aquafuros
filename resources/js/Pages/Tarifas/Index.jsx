@@ -36,12 +36,12 @@ import { itemVariants, listVariants } from "@/lib/motion";
 const regras = [
     {
         titulo: "Prazo de pagamento",
-        descricao: "15 dias corridos após a emissão da factura, antes de incorrer em multa.",
+        descricao: "15 dias corridos após a emissão da factura. Passado o prazo, a factura fica \"Vencida\" (a multa tem a sua própria regra, abaixo).",
         icon: Clock,
     },
     {
         titulo: "Multa por atraso",
-        descricao: "Aplicada automaticamente sobre o valor em dívida, segundo a percentagem definida em cada tarifa.",
+        descricao: "Só é cobrada quando se emite a factura seguinte de um cliente cuja dívida em aberto já atingiu o limiar de corte da sua tarifa: essa factura inclui a percentagem de multa da tarifa sobre a dívida. Não depende dos 15 dias.",
         icon: Percent,
     },
     {

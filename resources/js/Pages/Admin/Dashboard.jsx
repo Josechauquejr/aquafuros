@@ -1,5 +1,6 @@
 import { Head, Link } from "@inertiajs/react";
 import {
+    AlertTriangle,
     BarChart3,
     Banknote,
     Clock,
@@ -10,20 +11,19 @@ import {
     Gauge,
     PieChart,
     Receipt,
-    Timer,
     TrendingUp,
     UserPlus,
-    UserX,
     Wallet,
     Waves,
 } from "lucide-react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
+import SeletorMes from "@/Components/SeletorMes";
+import DevedoresChart from "@/Components/charts/DevedoresChart";
 import DistribuicaoMetodoChart from "@/Components/charts/DistribuicaoMetodoChart";
-import GraficoSerie, { FILTROS_MESES, formatarCompacto } from "@/Components/charts/GraficoSerie";
-import StatusBadge from "@/Components/StatusBadge";
-import { formatCurrency, formatMoney } from "@/lib/utils";
+import GraficoSerie, { FILTROS_MESES, formatarCompacto, rotuloMensal } from "@/Components/charts/GraficoSerie";
+import { formatMoney, formatVolume } from "@/lib/utils";
 
 const meses = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -31,86 +31,115 @@ const meses = [
 ];
 
 export default function Dashboard({
+    mesReferencia,
     contadores,
     mesActual,
     evolucaoMensal,
     distribuicaoPorMetodo,
     maioresDevedores,
     dividaTotal,
-    clientesNovosMes,
     consumoTotalMes,
-    ticketMedioPagamento,
-    tempoMedioPagamentoDias,
+    facturasVencidas,
 }) {
-    const metrics = [
+    const nomeMes = meses[mesActual.mes - 1];
+    const ultimos = evolucaoMensal.slice(-6);
+    const totalLeituras = contadores.leiturasConfirmadas + contadores.leiturasPendentes;
+
+    // Indicadores DO MÊS escolhido — cada um com um gráfico desenhado com
+    // os números reais (evolução dos últimos meses, percentagem, partes).
+    const doMes = [
         {
-            label: `Taxa de cobrança — ${meses[mesActual.mes - 1]}`,
-            value: mesActual.taxaCobranca === null ? "—" : `${mesActual.taxaCobranca}%`,
-            detail: `${formatCurrency(mesActual.totalRecebido)} de ${formatCurrency(mesActual.totalFacturado)}`,
-            icon: TrendingUp,
+            label: `Facturado — ${nomeMes}`,
+            value: formatMoney(mesActual.totalFacturado),
+            detail: `${mesActual.numeroFacturas} factura(s) emitida(s)`,
+            icon: FileText,
             tone: "cyan",
+            grafico: {
+                tipo: "spark",
+                serie: ultimos.map((d) => d.facturado),
+                rotulos: ultimos.map(rotuloMensal),
+                formatar: formatMoney,
+            },
         },
         {
+            label: `Recebido — ${nomeMes}`,
+            value: formatMoney(mesActual.totalRecebido),
+            detail: `${mesActual.numeroPagamentos} pagamento(s) registado(s)`,
+            icon: Banknote,
+            tone: "emerald",
+            grafico: {
+                tipo: "spark",
+                serie: ultimos.map((d) => d.recebido),
+                rotulos: ultimos.map(rotuloMensal),
+                formatar: formatMoney,
+            },
+        },
+        {
+            label: "Taxa de cobrança",
+            value: mesActual.taxaCobranca === null ? "—" : `${mesActual.taxaCobranca}%`,
+            detail: `${formatMoney(mesActual.totalRecebido)} de ${formatMoney(mesActual.totalFacturado)}`,
+            icon: TrendingUp,
+            tone: "amber",
+            grafico: { tipo: "radial", valor: mesActual.taxaCobranca ?? 0 },
+        },
+        {
+            label: "Leituras por confirmar",
+            value: contadores.leiturasPendentes,
+            detail: `${contadores.leiturasConfirmadas} de ${totalLeituras} já confirmadas`,
+            icon: Clock,
+            tone: "rose",
+            href: "/leituras?estado=pendente",
+            grafico: {
+                tipo: "donut",
+                series: [contadores.leiturasConfirmadas, contadores.leiturasPendentes],
+                labels: ["Confirmadas", "Por confirmar"],
+                cores: ["#10b981", "#f43f5e"],
+                formatar: (v) => String(Math.round(v)),
+            },
+        },
+    ];
+
+    // Situação de AGORA — não depende do mês escolhido.
+    const situacao = [
+        {
             label: "Dívida total em atraso",
-            value: formatCurrency(dividaTotal),
+            value: formatMoney(dividaTotal),
             detail: contadores.clientesCortadosSemDivida > 0
                 ? `${contadores.clientesCortados} cortado(s) — ${contadores.clientesCortadosSemDivida} já sem dívida`
                 : `${contadores.clientesCortados} cliente(s) cortado(s)`,
             icon: Wallet,
             tone: "rose",
+            href: "/clientes?so_divida=1",
         },
         {
-            label: "Leituras por confirmar",
-            value: contadores.leiturasPendentes,
-            detail: "aguardam validação do técnico",
-            icon: Clock,
-            tone: "amber",
-            href: "/leituras?estado=pendente",
+            label: "Facturas vencidas",
+            value: facturasVencidas.quantidade,
+            detail: `${formatMoney(facturasVencidas.valor)} por receber`,
+            icon: AlertTriangle,
+            tone: facturasVencidas.quantidade > 0 ? "rose" : "emerald",
+            href: "/facturas?estado=vencida",
         },
         {
             label: "Leituras confirmadas sem factura",
             value: contadores.leiturasSemFactura,
             detail: "prontas para facturar",
-            icon: FileText,
-            tone: "emerald",
-            href: "/facturas",
-        },
-    ];
-
-    const secondaryMetrics = [
-        {
-            label: "Clientes novos este mês",
-            value: clientesNovosMes,
-            icon: UserPlus,
-            tone: "cyan",
-        },
-        {
-            label: "Consumo total do mês",
-            value: `${consumoTotalMes.toLocaleString("pt-PT", { maximumFractionDigits: 0 })} m³`,
-            detail: "somado de todas as leituras do período",
-            icon: Droplets,
-            tone: "emerald",
-        },
-        {
-            label: "Ticket médio por pagamento",
-            value: ticketMedioPagamento === null ? "—" : formatCurrency(ticketMedioPagamento),
-            detail: `${mesActual.numeroPagamentos} pagamento(s) este mês`,
             icon: Receipt,
             tone: "amber",
+            href: "/facturas",
         },
         {
-            label: "Tempo médio até pagamento",
-            value: tempoMedioPagamentoDias === null ? "—" : `${tempoMedioPagamentoDias} dia(s)`,
-            detail: "da emissão da factura ao 1º pagamento",
-            icon: Timer,
-            tone: "rose",
+            label: `Consumo de água — ${nomeMes}`,
+            value: formatVolume(consumoTotalMes),
+            detail: "somado de todas as leituras do mês",
+            icon: Droplets,
+            tone: "cyan",
         },
     ];
 
     return (
         <AdminLayout
             header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
                             Painel do administrador
@@ -120,10 +149,7 @@ export default function Dashboard({
                         </h2>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        <span className="inline-flex w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-200">
-                            <Waves className="h-3.5 w-3.5" aria-hidden="true" />
-                            Sistema operacional
-                        </span>
+                        <SeletorMes rota="/admin/dashboard" mesReferencia={mesReferencia} />
                         <Link
                             href="/admin/kpis"
                             className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -133,7 +159,7 @@ export default function Dashboard({
                             KPIs
                         </Link>
                         <a
-                            href="/admin/dashboard/exportar"
+                            href={`/admin/dashboard/exportar${mesReferencia.eActual ? "" : `?mes=${mesReferencia.valor}`}`}
                             className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                             title="Exportar KPIs e estatísticas em CSV"
                         >
@@ -151,7 +177,7 @@ export default function Dashboard({
                     <section className="flex flex-wrap gap-2">
                         {[
                             { label: "Emitir factura", href: "/facturas", icon: FileStack },
-                            { label: "Registar leitura", href: "/leituras", icon: Droplets },
+                            { label: "Registar leitura", href: "/leituras", icon: Waves },
                             { label: "Registar pagamento", href: "/pagamentos", icon: Banknote },
                             { label: "Novo cliente", href: "/clientes", icon: UserPlus },
                         ].map((accao) => (
@@ -168,21 +194,25 @@ export default function Dashboard({
 
                     <section>
                         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Cobrança e pendências
+                            {mesReferencia.rotulo}
                         </h3>
                         <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-                            {metrics.map((metric, index) => (
-                                <KpiCard key={metric.label} {...metric} visual={index % 2 === 0 ? 1 : 2} delay={index * 0.06} />
+                            {doMes.map((metric, index) => (
+                                <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
                             ))}
                         </div>
                     </section>
 
                     <section>
                         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Indicadores do mês
+                            Situação actual
+                            <span className="ml-2 font-normal normal-case tracking-normal">
+                                — o estado de agora, não depende do mês escolhido
+                                {!mesReferencia.eActual && ` (excepto o consumo de ${nomeMes})`}
+                            </span>
                         </h3>
                         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                            {secondaryMetrics.map((metric, index) => (
+                            {situacao.map((metric, index) => (
                                 <KpiCard key={metric.label} {...metric} delay={0.24 + index * 0.05} />
                             ))}
                         </div>
@@ -191,7 +221,7 @@ export default function Dashboard({
                     <section className="grid gap-6 lg:grid-cols-2">
                         <GraficoSerie
                             titulo="Evolução mensal"
-                            descricao="Facturado vs. recebido"
+                            descricao={`Facturado vs. recebido, até ${nomeMes}`}
                             icone={BarChart3}
                             dados={evolucaoMensal}
                             series={[
@@ -208,62 +238,19 @@ export default function Dashboard({
                             <div className="p-6">
                                 <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
                                     <PieChart className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                    Pagamentos por método
+                                    Métodos de pagamento mais usados
                                 </h3>
                                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    {meses[mesActual.mes - 1]} de {mesActual.ano}
+                                    {nomeMes} de {mesActual.ano}
                                 </p>
                                 <div className="mt-5">
-                                    <DistribuicaoMetodoChart dados={distribuicaoPorMetodo} />
+                                    <DistribuicaoMetodoChart dados={distribuicaoPorMetodo} variant="donut" />
                                 </div>
                             </div>
                         </AnimatedPanel>
                     </section>
 
-                    <AnimatedPanel delay={0.58} className="overflow-hidden">
-                        <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                            <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-950 dark:text-white">
-                                <UserX className="h-5 w-5 text-rose-600 dark:text-rose-400" aria-hidden="true" />
-                                Maiores devedores
-                            </h3>
-                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                Top 5 clientes por dívida acumulada
-                            </p>
-                        </div>
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {maioresDevedores.length === 0 && (
-                                <p className="px-6 py-6 text-sm text-slate-500 dark:text-slate-400">
-                                    Nenhum cliente em dívida no momento.
-                                </p>
-                            )}
-                            {maioresDevedores.map((divida, index) => (
-                                <Link
-                                    key={divida.id}
-                                    href="/clientes"
-                                    className="flex items-center justify-between gap-3 px-6 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                            {index + 1}
-                                        </span>
-                                        <div>
-                                            <p className="font-medium text-slate-900 dark:text-white">
-                                                {divida.cliente?.nome ?? "Cliente removido"}
-                                            </p>
-                                            {divida.em_corte && (
-                                                <StatusBadge tone="rose" className="mt-1">
-                                                    Cortado
-                                                </StatusBadge>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <span className="font-semibold text-rose-600 dark:text-rose-400">
-                                        {formatCurrency(divida.valor_divida)}
-                                    </span>
-                                </Link>
-                            ))}
-                        </div>
-                    </AnimatedPanel>
+                    <DevedoresChart devedores={maioresDevedores} />
                 </div>
             </div>
         </AdminLayout>

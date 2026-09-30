@@ -98,6 +98,25 @@ function EmFalta({ factura }) {
     );
 }
 
+// Quando é que há multa — a regra do cálculo (BillingService): ao emitir a
+// factura SEGUINTE de um cliente, se a dívida em aberto dele já chegou ao
+// limiar de corte da tarifa, a nova factura inclui a percentagem de multa
+// da tarifa sobre essa dívida. Não depende da data de vencimento.
+function ExplicacaoMulta({ factura }) {
+    const tarifa = factura.cliente?.tarifa;
+    if (!tarifa) return null;
+
+    const percentagem = formatNumero(Number(tarifa.percentagem_multa) * 100, 0);
+
+    return (
+        <Explicacao tom="info" titulo="Quando há multa?" className="mt-4">
+            A multa só é cobrada na próxima factura deste cliente: se nessa altura a dívida em aberto for de{" "}
+            {formatMoney(tarifa.limiar_corte)} ou mais, essa factura inclui {percentagem}% dessa dívida como multa.
+            Esta factura, por si só, não gera multa por passar do vencimento.
+        </Explicacao>
+    );
+}
+
 // O que cada estado quer dizer, em linguagem simples.
 function explicarEstado(factura) {
     const vencimento = formatDate(factura.data_vencimento);
@@ -245,7 +264,14 @@ const detalheFactura = {
                         {meses[factura.mes - 1]}/{factura.ano}
                     </Campo>
                     <Campo rotulo="Vencimento">{formatDate(factura.data_vencimento)}</Campo>
+                    {Number(factura.multa) > 0 && (
+                        <Campo rotulo="Multa incluída" largo>
+                            <span className="text-rose-600 dark:text-rose-400">{formatMoney(factura.multa)}</span>
+                        </Campo>
+                    )}
                 </Campos>
+
+                {emAberto && <ExplicacaoMulta factura={factura} />}
 
                 {factura.pagamentos?.length > 0 && (
                     <SeccaoDetalhe titulo="Pagamentos recebidos" icone={Banknote}>

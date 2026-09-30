@@ -6,7 +6,8 @@ use App\Models\Cliente;
 use App\Models\Factura;
 use App\Models\Leitura;
 use App\Models\Pagamento;
-use Illuminate\Support\Carbon;
+use App\Support\MesReferencia;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 /**
@@ -17,9 +18,9 @@ use Inertia\Inertia;
  */
 class GestorDashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $hoje = Carbon::now();
+        $hoje = MesReferencia::resolver($request);
 
         $facturas = Factura::where('mes', $hoje->month)
             ->where('ano', $hoje->year)
@@ -29,6 +30,7 @@ class GestorDashboardController extends Controller
         $totalRecebido = (float) Pagamento::whereIn('factura_id', $facturas->pluck('id'))->sum('valor_pago');
 
         return Inertia::render('Gestor/Dashboard', [
+            'mesReferencia' => MesReferencia::paraSeletor($hoje),
             'resumoMes' => [
                 'mes' => $hoje->month,
                 'ano' => $hoje->year,

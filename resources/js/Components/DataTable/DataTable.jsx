@@ -16,10 +16,6 @@ import useTableState from "./useTableState";
 const checkboxClasses =
     "h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900";
 
-function Barra({ className }) {
-    return <div className={cn("h-4 animate-pulse rounded bg-slate-100 dark:bg-slate-800", className)} />;
-}
-
 /**
  * Acções de uma linha tal como a página as descreve: os itens com
  * `expandir: true` abrem o cartão expandido em vez de correr um `onClick`.
@@ -163,7 +159,6 @@ export default function DataTable({
         navegar(alteracoes);
     };
 
-    const nColunasTabela = colunas.length + (selecao ? 1 : 0) + (accoes ? 1 : 0);
     const VazioIcone = vazio?.accao?.icone;
 
     // Linha com o cartão expandido aberto — lembra a última para o cartão não
@@ -195,7 +190,7 @@ export default function DataTable({
                 />
             </AnimatedPanel>
 
-            {linhas.length === 0 && !carregando ? (
+            {linhas.length === 0 ? (
                 <AnimatedPanel>
                     <div className="flex flex-col items-center gap-4 px-6 py-10 text-center">
                         <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -221,19 +216,8 @@ export default function DataTable({
                 <>
                     {/* Cartões — móvel (<md): não há cabeçalhos, a ordenação está no painel de Filtros */}
                     {!ecraGrande && (
-                        <div className="space-y-3" aria-busy={carregando}>
-                            {carregando
-                                ? [0, 1, 2].map((i) => (
-                                      <div
-                                          key={i}
-                                          className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
-                                      >
-                                          <Barra className="w-2/3" />
-                                          <Barra className="w-1/2" />
-                                          <Barra className="w-1/3" />
-                                      </div>
-                                  ))
-                                : linhas.map((linha) => {
+                        <div className={cn("space-y-3 transition-opacity duration-150", carregando && "opacity-60")} aria-busy={carregando}>
+                            {linhas.map((linha) => {
                                       const id = linhaId(linha);
                                       const accao = accoesDe(linha);
                                       const corpo = (
@@ -275,7 +259,7 @@ export default function DataTable({
                     {ecraGrande && (
                         <AnimatedPanel className="overflow-hidden">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm" aria-busy={carregando}>
+                                <table className={cn("w-full text-left text-sm transition-opacity duration-150", carregando && "opacity-60")} aria-busy={carregando}>
                                     <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/60">
                                         <tr>
                                             {selecao && (
@@ -309,17 +293,7 @@ export default function DataTable({
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {carregando
-                                            ? [0, 1, 2, 3, 4].map((i) => (
-                                                  <tr key={i}>
-                                                      {Array.from({ length: nColunasTabela }).map((_, c) => (
-                                                          <td key={c} className="px-4 py-4">
-                                                              <Barra className={c % 2 ? "w-1/2" : "w-3/4"} />
-                                                          </td>
-                                                      ))}
-                                                  </tr>
-                                              ))
-                                            : linhas.map((linha) => {
+                                        {linhas.map((linha) => {
                                                   const id = linhaId(linha);
                                                   const accao = accoesDe(linha);
 

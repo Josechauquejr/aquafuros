@@ -5,6 +5,7 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
+import SeletorMes from "@/Components/SeletorMes";
 import { itemVariants, listVariants } from "@/lib/motion";
 
 const meses = [
@@ -12,10 +13,10 @@ const meses = [
     "Jul", "Ago", "Set", "Out", "Nov", "Dez",
 ];
 
-export default function Dashboard({ contadores, leiturasPorConfirmar, clientesSemLeitura }) {
+export default function Dashboard({ mesReferencia, contadores, leiturasPorConfirmar, clientesSemLeitura }) {
     const metrics = [
         {
-            label: "Leituras registadas por si este mês",
+            label: `Leituras registadas por si — ${mesReferencia.rotulo}`,
             value: contadores.leiturasRegistadasEsteMes,
             icon: Waves,
             tone: "cyan",
@@ -28,7 +29,7 @@ export default function Dashboard({ contadores, leiturasPorConfirmar, clientesSe
             tone: "amber",
         },
         {
-            label: "Clientes sem leitura este mês",
+            label: `Clientes sem leitura — ${mesReferencia.rotulo}`,
             value: contadores.clientesSemLeituraEsteMes,
             detail: "ainda por visitar",
             icon: MapPin,
@@ -48,13 +49,16 @@ export default function Dashboard({ contadores, leiturasPorConfirmar, clientesSe
                             Painel do Técnico
                         </h2>
                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Leituras por confirmar e clientes ainda por visitar este mês.
+                            Leituras por confirmar e clientes ainda por visitar no mês escolhido (as leituras por confirmar são as de agora).
                         </p>
                     </div>
-                    <AnimatedButton as={Link} href="/leituras" variant="primary">
-                        <Plus className="h-4 w-4" aria-hidden="true" />
-                        Nova leitura
-                    </AnimatedButton>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <SeletorMes rota="/tecnico/dashboard" mesReferencia={mesReferencia} />
+                        <AnimatedButton as={Link} href="/leituras" variant="primary">
+                            <Plus className="h-4 w-4" aria-hidden="true" />
+                            Nova leitura
+                        </AnimatedButton>
+                    </div>
                 </div>
             }
         >

@@ -13,6 +13,8 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import InlineNotice from "@/Components/InlineNotice";
 import KpiCard from "@/Components/KpiCard";
+import SeletorMes from "@/Components/SeletorMes";
+import DevedoresChart from "@/Components/charts/DevedoresChart";
 import { formatCurrency } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
@@ -35,23 +37,25 @@ const toneClasses = {
     rose: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
 };
 
-export default function Dashboard({ resumoMes, contadores, dividaTotal, maioresDevedores }) {
+export default function Dashboard({ mesReferencia, resumoMes, contadores, dividaTotal, maioresDevedores }) {
+    const nomeMes = meses[resumoMes.mes - 1];
+
     const metrics = [
         {
-            label: "Facturado este mês",
+            label: `Facturado — ${nomeMes}`,
             value: formatCurrency(resumoMes.totalFacturado),
             detail: `${resumoMes.numeroFacturas} factura(s)`,
             icon: FileText,
             tone: "cyan",
         },
         {
-            label: "Recebido este mês",
+            label: `Recebido — ${nomeMes}`,
             value: formatCurrency(resumoMes.totalRecebido),
             icon: Banknote,
             tone: "emerald",
         },
         {
-            label: "Taxa de cobrança",
+            label: `Taxa de cobrança — ${nomeMes}`,
             value: resumoMes.taxaCobranca === null ? "—" : `${resumoMes.taxaCobranca}%`,
             icon: TrendingUp,
             tone: "amber",
@@ -72,7 +76,8 @@ export default function Dashboard({ resumoMes, contadores, dividaTotal, maioresD
     return (
         <AdminLayout
             header={
-                <div>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
                     <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
                         Gestão operacional
                     </p>
@@ -80,8 +85,11 @@ export default function Dashboard({ resumoMes, contadores, dividaTotal, maioresD
                         Painel do Gestor
                     </h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        {meses[resumoMes.mes - 1]} de {resumoMes.ano} — visão geral de facturação, cobrança e leituras.
+                        {nomeMes} de {resumoMes.ano} — visão geral de facturação, cobrança e leituras. A dívida e as
+                        pendências são sempre as de agora.
                     </p>
+                  </div>
+                  <SeletorMes rota="/gestor/dashboard" mesReferencia={mesReferencia} />
                 </div>
             }
         >
@@ -124,51 +132,12 @@ export default function Dashboard({ resumoMes, contadores, dividaTotal, maioresD
                         </div>
                     </AnimatedPanel>
 
-                    <section className="grid gap-6 lg:grid-cols-2">
-                        <AnimatedPanel delay={0.3} className="overflow-hidden">
-                            <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                                    <UserX className="h-5 w-5 text-rose-600 dark:text-rose-400" aria-hidden="true" />
-                                    Maiores devedores
-                                </h3>
-                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                    Dívida total acumulada: {formatCurrency(dividaTotal)}
-                                </p>
-                            </div>
-                            <motion.div
-                                variants={listVariants}
-                                initial="hidden"
-                                animate="show"
-                                className="divide-y divide-slate-100 dark:divide-slate-800"
-                            >
-                                {maioresDevedores.length === 0 ? (
-                                    <p className="px-6 py-6 text-sm text-slate-500 dark:text-slate-400">
-                                        Nenhum cliente em dívida no momento.
-                                    </p>
-                                ) : (
-                                    maioresDevedores.map((divida, index) => (
-                                        <motion.div key={divida.id} variants={itemVariants}>
-                                            <Link
-                                                href="/clientes"
-                                                className="flex items-center justify-between gap-3 px-6 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                                        {index + 1}
-                                                    </span>
-                                                    <p className="font-medium text-slate-900 dark:text-white">
-                                                        {divida.cliente?.nome ?? "Cliente removido"}
-                                                    </p>
-                                                </div>
-                                                <span className="font-semibold text-rose-600 dark:text-rose-400">
-                                                    {formatCurrency(divida.valor_divida)}
-                                                </span>
-                                            </Link>
-                                        </motion.div>
-                                    ))
-                                )}
-                            </motion.div>
-                        </AnimatedPanel>
+                    <section className="space-y-6">
+                        <DevedoresChart
+                            devedores={maioresDevedores}
+                            delay={0.3}
+                            descricao={`Dívida total acumulada: ${formatCurrency(dividaTotal)}`}
+                        />
 
                         <AnimatedPanel delay={0.36} className="p-6">
                             <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">

@@ -20,7 +20,7 @@ export function formatNumero(value, casas = 2) {
 }
 
 export function formatMoney(value) {
-    return `MZN${NBSP}${formatNumero(value, 2)}`;
+    return `MZN ${formatNumero(value, 2)}`;
 }
 
 export function formatVolume(value) {

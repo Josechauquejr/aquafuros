@@ -37,7 +37,7 @@ export default function SortableHeader({ coluna, sort, dir, onOrdenar, className
                     type="button"
                     onClick={() => onOrdenar(coluna.chave)}
                     className={cn(
-                        "inline-flex items-center gap-1 uppercase tracking-wide transition hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:hover:text-white",
+                        "inline-flex items-center gap-1 whitespace-nowrap uppercase tracking-wide transition hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:hover:text-white",
                         activo && "text-slate-900 dark:text-white",
                     )}
                     title={`Ordenar por ${coluna.titulo}`}

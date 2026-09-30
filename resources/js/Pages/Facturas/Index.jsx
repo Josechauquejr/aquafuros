@@ -78,7 +78,7 @@ function FacturaLink({ factura }) {
             href={`/facturas/${factura.id}/imprimir`}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
+            className="whitespace-nowrap font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
         >
             {factura.numero_factura}
         </a>

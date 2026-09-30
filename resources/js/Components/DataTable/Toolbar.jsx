@@ -96,7 +96,7 @@ function PainelPeriodo({ filtros, navegar, fechar }) {
 function PainelFiltros({ filtrosConfig, filtros, navegar, colunasOrdenaveis }) {
     return (
         <div className="space-y-4">
-            {filtrosConfig.map((filtro) =>
+            {filtrosConfig.filter((filtro) => filtro.tipo !== "oculto").map((filtro) =>
                 filtro.tipo === "checkbox" ? (
                     <label key={filtro.chave} className="flex min-h-10 items-center gap-3 text-sm text-slate-700 dark:text-slate-200">
                         <input
@@ -207,7 +207,7 @@ export default function Toolbar({
     const chips = chipsActivos({ filtrosConfig, filtros, padroes, periodo });
     const nFiltros = chips.filter((chip) => chip.chave !== "periodo").length;
     const temAlgo = chips.length > 0 || Boolean(search);
-    const mostrarFiltros = filtrosConfig.length > 0 || colunasOrdenaveis.length > 0;
+    const mostrarFiltros = filtrosConfig.some((filtro) => filtro.tipo !== "oculto") || colunasOrdenaveis.length > 0;
 
     const limparTudo = () => {
         const alteracoes = { search: "" };

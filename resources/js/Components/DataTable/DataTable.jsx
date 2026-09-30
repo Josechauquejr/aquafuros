@@ -28,7 +28,8 @@ function Barra({ className }) {
  * - accoes(linha): { principal?, menu? } — ver RowActions
  * - selecao: { acoes: [{ rotulo, icone, href?(ids), target?, onClick?(ids, limpar) }] }
  * - vazio: { mensagem, mensagemFiltrada?, accao?: { rotulo, icone, onClick, disabled } }
- * - filtrosConfig: [{ chave, rotulo, tipo: "select"|"checkbox", opcoes?, padrao }]
+ * - filtrosConfig: [{ chave, rotulo, tipo: "select"|"checkbox"|"oculto", opcoes?, padrao }]
+ *   ("oculto": só aparece como chip, sem controlo no painel — ex.: drill-down)
  * - padroes: valores assumidos pelo servidor quando o parâmetro não vem
  */
 export default function DataTable({

@@ -172,4 +172,49 @@ class ListasTest extends TestCase
         $this->assertTrue((bool) $a->fresh()->confirmado);
         $this->assertFalse((bool) $b->fresh()->confirmado);
     }
+
+    private function factura(Cliente $c, string $numero, string $estado, string $vence = '2099-01-01', float $total = 100): Factura
+    {
+        return Factura::create([
+            'numero_factura' => $numero, 'cliente_id' => $c->id, 'mes' => 9, 'ano' => 2026,
+            'total_pagar' => $total, 'estado' => $estado, 'data_vencimento' => $vence,
+        ]);
+    }
+
+    public function test_facturas_estado_vencida_e_anuladas_escondidas_por_defeito(): void
+    {
+        $ana = $this->cliente('Ana');
+        $this->factura($ana, 'F-1', 'pendente', '2000-01-01');
+        $this->factura($ana, 'F-2', 'pendente', '2099-01-01');
+        $this->factura($ana, 'F-3', 'anulada');
+
+        $this->actingAs($this->admin)->get('/facturas')
+            ->assertInertia(fn (Assert $page) => $page->has('facturas.data', 2));
+
+        $this->actingAs($this->admin)->get('/facturas?estado=vencida')
+            ->assertInertia(fn (Assert $page) => $page->has('facturas.data', 1)->where('facturas.data.0.numero_factura', 'F-1'));
+
+        $this->actingAs($this->admin)->get('/facturas?estado=anulada')
+            ->assertInertia(fn (Assert $page) => $page->has('facturas.data', 1)->where('facturas.data.0.numero_factura', 'F-3'));
+    }
+
+    public function test_facturas_anulada_so_para_administrador(): void
+    {
+        $gestor = User::factory()->create();
+        $gestor->assignRole('gestor');
+        $this->factura($this->cliente('Ana'), 'F-3', 'anulada');
+
+        $this->actingAs($gestor)->get('/facturas?estado=anulada')
+            ->assertInertia(fn (Assert $page) => $page->has('facturas.data', 0)->where('filtros.estado', 'todos'));
+    }
+
+    public function test_facturas_ordena_por_total(): void
+    {
+        $ana = $this->cliente('Ana');
+        $this->factura($ana, 'F-1', 'pendente', total: 300);
+        $this->factura($ana, 'F-2', 'pendente', total: 100);
+
+        $this->actingAs($this->admin)->get('/facturas?sort=total&dir=asc')
+            ->assertInertia(fn (Assert $page) => $page->where('facturas.data.0.numero_factura', 'F-2'));
+    }
 }

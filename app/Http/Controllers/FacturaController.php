@@ -6,6 +6,8 @@ use App\Models\Factura;
 use App\Models\Leitura;
 use App\Services\BillingService;
 use App\Support\NumeracaoDocumentos;
+use App\Support\ListaQuery;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
@@ -20,11 +22,6 @@ class FacturaController extends Controller
      */
     public function index(Request $request)
     {
-        $search = $request->query('search');
-        $estado = $request->query('estado');
-        $periodo = $request->query('periodo'); // "mes/ano"
-        $ordenar = $request->query('ordenar', 'recente');
-
         $query = Factura::with([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'leitura' => fn ($q) => $q->withTrashed(),
@@ -33,29 +30,19 @@ class FacturaController extends Controller
             'pagamentos',
         ]);
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('numero_factura', 'like', "%{$search}%")
-                    ->orWhereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"));
-            });
-        }
+        $filtros = $this->aplicarFiltros($query, $request);
 
-        if ($estado && $estado !== 'todos') {
-            $query->where('estado', $estado);
-        } else {
-            // Anuladas ficam escondidas por defeito (e de "Todos os
-            // estados") — só aparecem escolhendo "Anulada" explicitamente
-            // no filtro. Nunca são apagadas, só deixam de poluir a lista
-            // normal.
-            $query->where('estado', '!=', 'anulada');
-        }
-
-        if ($periodo && $periodo !== 'todos' && str_contains($periodo, '/')) {
-            [$mes, $ano] = explode('/', $periodo);
-            $query->where('mes', (int) $mes)->where('ano', (int) $ano);
-        }
-
-        $this->ordenarFacturas($query, $ordenar);
+        [$sort, $dir] = ListaQuery::ordenar($query, $request, [
+            'factura' => fn ($q, $d) => $q->orderBy('facturas.created_at', $d)->orderBy('facturas.id', $d),
+            'cliente' => fn ($q, $d) => $q->join('clientes', 'clientes.id', '=', 'facturas.cliente_id')
+                ->select('facturas.*')->orderBy('clientes.nome', $d),
+            'periodo' => fn ($q, $d) => $q->orderBy('facturas.ano', $d)->orderBy('facturas.mes', $d)->orderBy('facturas.id', $d),
+            'total' => fn ($q, $d) => $q->orderBy('facturas.total_pagar', $d),
+            // Por pagar → parcial → paga → anulada
+            'estado' => fn ($q, $d) => $q->orderByRaw(
+                "CASE facturas.estado WHEN 'pendente' THEN 0 WHEN 'parcial' THEN 1 WHEN 'paga' THEN 2 ELSE 3 END {$d}",
+            )->orderByDesc('facturas.created_at'),
+        ], 'factura', 'desc');
 
         $facturas = $query->paginate(15)->withQueryString();
 
@@ -78,34 +65,56 @@ class FacturaController extends Controller
                 ->with(['cliente' => fn ($q) => $q->withTrashed()])
                 ->orderByDesc('ano')->orderByDesc('mes')->get(),
             'resumoMensal' => $this->resumoMensal(),
-            'periodosDisponiveis' => Factura::selectRaw('DISTINCT mes, ano')
-                ->orderByDesc('ano')->orderByDesc('mes')->get(),
             'totais' => $this->totaisGerais(),
-            'filtros' => [
-                'search' => $search ?? '',
-                'estado' => $estado ?? 'todos',
-                'periodo' => $periodo ?? 'todos',
-                'ordenar' => $ordenar,
-            ],
+            'filtros' => [...$filtros, 'sort' => $sort, 'dir' => $dir],
         ]);
     }
 
     /**
-     * Aplicar a ordenação escolhida na lista — por omissão, mais recente
-     * primeiro; ou alfabética (cliente) / numérica (nº de factura), para
-     * organizar as facturas dentro de um mês seleccionado.
+     * Pesquisa, estado, período (data de emissão) e mês de facturação — o
+     * mesmo conjunto de filtros para a lista e para "imprimir filtradas".
+     * As anuladas ficam excluídas por defeito e só o administrador as pode
+     * ver, escolhendo "Anulada". "Vencida" não é um estado guardado: é
+     * pendente/parcial com a data de vencimento já passada.
+     *
+     * @return array<string, mixed> os filtros efectivos (para o frontend)
      */
-    private function ordenarFacturas($query, string $ordenar): void
+    private function aplicarFiltros(Builder $query, Request $request): array
     {
-        match ($ordenar) {
-            'cliente_asc' => $query->join('clientes', 'clientes.id', '=', 'facturas.cliente_id')
-                ->select('facturas.*')->orderBy('clientes.nome'),
-            'cliente_desc' => $query->join('clientes', 'clientes.id', '=', 'facturas.cliente_id')
-                ->select('facturas.*')->orderByDesc('clientes.nome'),
-            'numero_asc' => $query->orderBy('numero_factura'),
-            'numero_desc' => $query->orderByDesc('numero_factura'),
-            default => $query->orderByDesc('ano')->orderByDesc('mes'),
-        };
+        $search = $request->query('search');
+        $estado = $request->query('estado');
+        $mesAno = $request->query('mes_ano'); // "mes/ano", vindo do resumo mensal
+
+        $estadosPermitidos = ['pendente', 'parcial', 'paga', 'vencida'];
+        if ($request->user()?->hasRole('administrador')) {
+            $estadosPermitidos[] = 'anulada';
+        }
+        $estado = in_array($estado, $estadosPermitidos, true) ? $estado : 'todos';
+
+        $periodo = ListaQuery::periodo($query, $request, 'facturas.created_at');
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('numero_factura', 'like', "%{$search}%")
+                    ->orWhereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($estado === 'vencida') {
+            $query->whereIn('facturas.estado', ['pendente', 'parcial'])->where('facturas.data_vencimento', '<', now());
+        } elseif ($estado !== 'todos') {
+            $query->where('facturas.estado', $estado);
+        } else {
+            $query->where('facturas.estado', '!=', 'anulada');
+        }
+
+        if (is_string($mesAno) && preg_match('#^(\d{1,2})/(\d{4})$#', $mesAno, $m)) {
+            $query->where('facturas.mes', (int) $m[1])->where('facturas.ano', (int) $m[2]);
+        } else {
+            $mesAno = null;
+        }
+
+        return [...$periodo, 'search' => $search ?? '', 'estado' => $estado, 'mes_ano' => $mesAno];
     }
 
     /**
@@ -288,7 +297,6 @@ class FacturaController extends Controller
             'ids' => 'nullable|string',
             'mes' => 'nullable|integer|min:1|max:12',
             'ano' => 'nullable|integer|min:2000|max:2100',
-            'estado' => 'nullable|in:pendente,paga,parcial,anulada',
         ]);
 
         $query = Factura::with([
@@ -307,9 +315,8 @@ class FacturaController extends Controller
             if (! empty($data['ano'])) {
                 $query->where('ano', $data['ano']);
             }
-            if (! empty($data['estado'])) {
-                $query->where('estado', $data['estado']);
-            }
+            // Filtros da lista (pesquisa, estado, período...) — "imprimir filtradas".
+            $this->aplicarFiltros($query, $request);
         }
 
         $facturas = $query->orderBy('numero_factura')->get();

@@ -1,6 +1,7 @@
 import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
     Banknote,
+    Eye,
     Landmark,
     Lock,
     Pencil,
@@ -17,6 +18,7 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import DataTable from "@/Components/DataTable/DataTable";
+import { Campo, Campos } from "@/Components/DataTable/Detalhe";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
@@ -102,7 +104,6 @@ const colunas = [
         ordenavel: true,
         render: (pagamento) => pagamento.cliente?.nome ?? "Cliente removido",
     },
-    { chave: "factura", titulo: "Factura", render: (pagamento) => <FacturaLink factura={pagamento.factura} /> },
     {
         chave: "valor",
         titulo: "Valor",
@@ -113,7 +114,6 @@ const colunas = [
         ),
     },
     { chave: "metodo", titulo: "Método", render: (pagamento) => <MetodoBadge metodo={pagamento.metodo_pagamento} /> },
-    { chave: "recebido_por", titulo: "Recebido por", render: (pagamento) => pagamento.recebido_por?.name ?? "—" },
 ];
 
 const cartaoPagamento = (pagamento) => (
@@ -125,15 +125,30 @@ const cartaoPagamento = (pagamento) => (
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(pagamento.created_at)}</p>
         </div>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-            Factura <FacturaLink factura={pagamento.factura} />
-        </p>
         <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-slate-900 dark:text-white">{formatMoney(pagamento.valor_pago)}</span>
             <MetodoBadge metodo={pagamento.metodo_pagamento} />
         </div>
     </div>
 );
+
+// Cartão expandido: todos os dados do pagamento.
+const detalhePagamento = {
+    titulo: (pagamento) => pagamento.numero_recibo,
+    descricao: (pagamento) => pagamento.cliente?.nome ?? "Cliente removido",
+    conteudo: (pagamento) => (
+        <Campos>
+            <Campo rotulo="Valor pago">{formatMoney(pagamento.valor_pago)}</Campo>
+            <Campo rotulo="Método">
+                <MetodoBadge metodo={pagamento.metodo_pagamento} />
+            </Campo>
+            <Campo rotulo="Factura">{pagamento.factura && <FacturaLink factura={pagamento.factura} />}</Campo>
+            <Campo rotulo="Referência">{pagamento.referencia_pagamento}</Campo>
+            <Campo rotulo="Data e hora">{formatDateTime(pagamento.created_at)}</Campo>
+            <Campo rotulo="Recebido por">{pagamento.recebido_por?.name}</Campo>
+        </Campos>
+    ),
+};
 
 export default function Index({ pagamentos, facturasEmAberto, metricas, filtros }) {
     const { auth, flash } = usePage().props;
@@ -221,6 +236,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
             target: "_blank",
         },
         menu: [
+            { icone: Eye, rotulo: "Ver detalhe", expandir: true },
             { icone: Pencil, rotulo: "Editar", onClick: () => abrirEdicao(pagamento) },
             {
                 icone: RotateCcw,
@@ -299,6 +315,7 @@ export default function Index({ pagamentos, facturasEmAberto, metricas, filtros 
                         paginador={pagamentos}
                         colunas={colunas}
                         cartao={cartaoPagamento}
+                        detalhe={detalhePagamento}
                         placeholder="Pesquisar cliente, recibo ou factura"
                         periodo
                         filtrosConfig={filtrosConfig}

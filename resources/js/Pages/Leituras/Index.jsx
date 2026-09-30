@@ -15,6 +15,7 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import DataTable from "@/Components/DataTable/DataTable";
+import { Campo, Campos } from "@/Components/DataTable/Detalhe";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
@@ -105,14 +106,6 @@ const colunas = [
         render: (leitura) => `${meses[leitura.mes - 1]}/${leitura.ano}`,
     },
     {
-        chave: "anterior",
-        titulo: "Anterior",
-        direita: true,
-        className: "text-slate-500 dark:text-slate-400",
-        render: (leitura) => formatNumero(leitura.leitura_anterior),
-    },
-    { chave: "actual", titulo: "Actual", direita: true, render: (leitura) => formatNumero(leitura.leitura_actual) },
-    {
         chave: "consumo",
         titulo: "Consumo",
         ordenavel: true,
@@ -146,16 +139,33 @@ const cartaoLeitura = (leitura) => (
                 {formatDate(leitura.created_at)} · {meses[leitura.mes - 1]}/{leitura.ano}
             </p>
         </div>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-            {formatNumero(leitura.leitura_anterior)} → {formatNumero(leitura.leitura_actual)}{" "}
-            <span className="font-semibold text-cyan-700 dark:text-cyan-300">{formatVolume(consumoDe(leitura))}</span>
-        </p>
+        <p className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">{formatVolume(consumoDe(leitura))}</p>
         <div className="flex flex-wrap items-center gap-2">
             <EstadoLeitura leitura={leitura} />
-            {leitura.factura && <FacturaLink factura={leitura.factura} />}
         </div>
     </div>
 );
+
+// Cartão expandido: todos os dados da leitura.
+const detalheLeitura = {
+    titulo: (leitura) => leitura.cliente?.nome ?? "Cliente removido",
+    descricao: (leitura) => `Leitura de ${meses[leitura.mes - 1]}/${leitura.ano}`,
+    conteudo: (leitura) => (
+        <Campos>
+            <Campo rotulo="Leitura anterior">{formatNumero(leitura.leitura_anterior)}</Campo>
+            <Campo rotulo="Leitura actual">{formatNumero(leitura.leitura_actual)}</Campo>
+            <Campo rotulo="Consumo">
+                <span className="text-primary">{formatVolume(consumoDe(leitura))}</span>
+            </Campo>
+            <Campo rotulo="Estado">
+                <EstadoLeitura leitura={leitura} />
+            </Campo>
+            <Campo rotulo="Factura">{leitura.factura && <FacturaLink factura={leitura.factura} />}</Campo>
+            <Campo rotulo="Registada em">{formatDateTime(leitura.created_at)}</Campo>
+            <Campo rotulo="Registada por">{leitura.registado_por?.name}</Campo>
+        </Campos>
+    ),
+};
 
 export default function Index({ leituras, clientes, totais, filtros }) {
     const { flash, auth } = usePage().props;
@@ -166,7 +176,6 @@ export default function Index({ leituras, clientes, totais, filtros }) {
     const [leituraParaFacturar, setLeituraParaFacturar] = useState(null);
     const [confirmarTodasAberto, setConfirmarTodasAberto] = useState(false);
     const [confirmandoTodas, setConfirmandoTodas] = useState(false);
-    const [detalhe, setDetalhe] = useState(null);
     const [avisoLeitura, setAvisoLeitura] = useState(null);
     const [confirmarSeleccao, setConfirmarSeleccao] = useState(null);
 
@@ -305,7 +314,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                 ? undefined
                 : { icone: CheckCircle2, rotulo: `Confirmar leitura de ${nome}`, tone: "success", onClick: () => confirmarLeitura(leitura) },
             menu: [
-                { icone: Eye, rotulo: "Ver detalhe", onClick: () => setDetalhe(leitura) },
+                { icone: Eye, rotulo: "Ver detalhe", expandir: true },
                 {
                     icone: Pencil,
                     rotulo: "Editar",
@@ -394,6 +403,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                         paginador={leituras}
                         colunas={colunas}
                         cartao={cartaoLeitura}
+                        detalhe={detalheLeitura}
                         placeholder="Pesquisar cliente"
                         periodo
                         filtrosConfig={filtrosConfig}
@@ -569,34 +579,6 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                 description={`Confirmar ${confirmarSeleccao?.ids.length ?? 0} leitura(s) pendente(s)? Depois de confirmadas, ficam bloqueadas para edição. As que já estiverem confirmadas são ignoradas.`}
             />
 
-            <Modal show={Boolean(detalhe)} onClose={() => setDetalhe(null)} title="Detalhe da leitura" maxWidth="md">
-                {detalhe && (
-                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                        <dt className="text-slate-500 dark:text-slate-400">Cliente</dt>
-                        <dd className="font-medium text-slate-900 dark:text-white">{detalhe.cliente?.nome ?? "Cliente removido"}</dd>
-                        <dt className="text-slate-500 dark:text-slate-400">Período</dt>
-                        <dd className="text-slate-900 dark:text-white">{meses[detalhe.mes - 1]}/{detalhe.ano}</dd>
-                        <dt className="text-slate-500 dark:text-slate-400">Registada em</dt>
-                        <dd className="text-slate-900 dark:text-white">{formatDateTime(detalhe.created_at)}</dd>
-                        <dt className="text-slate-500 dark:text-slate-400">Registada por</dt>
-                        <dd className="text-slate-900 dark:text-white">{detalhe.registado_por?.name ?? "—"}</dd>
-                        <dt className="text-slate-500 dark:text-slate-400">Leitura anterior</dt>
-                        <dd className="text-slate-900 dark:text-white">{formatNumero(detalhe.leitura_anterior)}</dd>
-                        <dt className="text-slate-500 dark:text-slate-400">Leitura actual</dt>
-                        <dd className="text-slate-900 dark:text-white">{formatNumero(detalhe.leitura_actual)}</dd>
-                        <dt className="text-slate-500 dark:text-slate-400">Consumo</dt>
-                        <dd className="font-semibold text-cyan-700 dark:text-cyan-300">{formatVolume(consumoDe(detalhe))}</dd>
-                        <dt className="text-slate-500 dark:text-slate-400">Estado</dt>
-                        <dd><EstadoLeitura leitura={detalhe} /></dd>
-                        {detalhe.factura && (
-                            <>
-                                <dt className="text-slate-500 dark:text-slate-400">Factura</dt>
-                                <dd><FacturaLink factura={detalhe.factura} /></dd>
-                            </>
-                        )}
-                    </dl>
-                )}
-            </Modal>
         </AdminLayout>
     );
 }

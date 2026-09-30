@@ -8,6 +8,7 @@ import {
     ChevronDown,
     CreditCard,
     Download,
+    Eye,
     FileStack,
     FileText,
     GitCompare,
@@ -26,6 +27,7 @@ import AnimatedPanel from "@/Components/AnimatedPanel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import DangerButton from "@/Components/DangerButton";
 import DataTable from "@/Components/DataTable/DataTable";
+import { Campo, Campos, SeccaoDetalhe } from "@/Components/DataTable/Detalhe";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
@@ -133,12 +135,6 @@ const colunas = [
         render: (factura) => `${meses[factura.mes - 1]}/${factura.ano}`,
     },
     {
-        chave: "consumo",
-        titulo: "Consumo",
-        direita: true,
-        render: (factura) => (consumoDe(factura) !== null ? formatVolume(consumoDe(factura)) : "—"),
-    },
-    {
         chave: "total",
         titulo: "Total",
         ordenavel: true,
@@ -160,16 +156,77 @@ const cartaoFactura = (factura) => (
             <p className="truncate text-sm text-slate-600 dark:text-slate-300">
                 {factura.cliente?.nome ?? "Cliente removido"}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(factura.created_at)}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+                {meses[factura.mes - 1]}/{factura.ano}
+            </p>
         </div>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-            {meses[factura.mes - 1]}/{factura.ano}
-            {consumoDe(factura) !== null && <> · {formatVolume(consumoDe(factura))}</>}
-        </p>
         <p className="font-semibold text-slate-900 dark:text-white">{formatMoney(factura.total_pagar)}</p>
         <EstadoFactura factura={factura} />
     </div>
 );
+
+// Cartão expandido: todos os dados da factura.
+const detalheFactura = {
+    titulo: (factura) => factura.numero_factura,
+    descricao: (factura) => factura.cliente?.nome ?? "Cliente removido",
+    conteudo: (factura) => {
+        const consumo = consumoDe(factura);
+
+        return (
+            <>
+                <Campos>
+                    <Campo rotulo="Período">
+                        {meses[factura.mes - 1]}/{factura.ano}
+                    </Campo>
+                    <Campo rotulo="Estado">
+                        <EstadoFactura factura={factura} />
+                    </Campo>
+                    <Campo rotulo="Tipo">{tipoConfig[factura.tipo]?.label ?? tipoConfig.consumo.label}</Campo>
+                    <Campo rotulo="Consumo">{consumo !== null ? formatVolume(consumo) : null}</Campo>
+                    <Campo rotulo="Valor do consumo">{formatMoney(factura.valor_consumo)}</Campo>
+                    <Campo rotulo="Dívida anterior">{formatMoney(factura.divida_anterior)}</Campo>
+                    <Campo rotulo="Multa">{formatMoney(factura.multa)}</Campo>
+                    <Campo rotulo="Total a pagar">
+                        <span className="text-base font-semibold">{formatMoney(factura.total_pagar)}</span>
+                    </Campo>
+                    <Campo rotulo="Emitida em">{formatDateTime(factura.created_at)}</Campo>
+                    <Campo rotulo="Vencimento">{formatDate(factura.data_vencimento)}</Campo>
+                    <Campo rotulo="Emitida por">{factura.gerada_por?.name}</Campo>
+                    {factura.estado === "anulada" && (
+                        <>
+                            <Campo rotulo="Anulada por">
+                                {factura.anulada_por?.name ?? "—"} &middot; {formatDate(factura.anulada_em)}
+                            </Campo>
+                            <Campo rotulo="Motivo da anulação" largo>
+                                {factura.motivo_anulacao}
+                            </Campo>
+                        </>
+                    )}
+                </Campos>
+
+                <SeccaoDetalhe titulo="Pagamentos desta factura" icone={Banknote}>
+                    {factura.pagamentos?.length > 0 ? (
+                        <ul className="divide-y divide-border rounded-md border border-border">
+                            {factura.pagamentos.map((pagamento) => (
+                                <li key={pagamento.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                    <span>
+                                        <span className="font-medium text-foreground">{pagamento.numero_recibo}</span>
+                                        <span className="block text-xs text-muted-foreground">
+                                            {formatDateTime(pagamento.created_at)}
+                                        </span>
+                                    </span>
+                                    <span className="font-semibold text-foreground">{formatMoney(pagamento.valor_pago)}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-muted-foreground">Ainda sem pagamentos registados.</p>
+                    )}
+                </SeccaoDetalhe>
+            </>
+        );
+    },
+};
 
 export default function Index({
     facturas,
@@ -437,6 +494,7 @@ export default function Index({
                   ? { ...imprimir, rotulo: `Imprimir factura ${numero}` }
                   : undefined,
             menu: [
+                { icone: Eye, rotulo: "Ver detalhe", expandir: true },
                 ...(factura.estado === "paga" ? [] : [imprimir]),
                 {
                     icone: aDescarregar ? Loader2 : Download,
@@ -666,6 +724,7 @@ export default function Index({
                         paginador={facturas}
                         colunas={colunas}
                         cartao={cartaoFactura}
+                        detalhe={detalheFactura}
                         placeholder="Pesquisar cliente ou nº de factura"
                         periodo
                         filtrosConfig={filtrosConfig}

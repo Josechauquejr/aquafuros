@@ -32,7 +32,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
-import { cn, formatDate, formatDateTime, formatMoney, formatPhone, formatVolume, phoneDigits } from "@/lib/utils";
+import { cn, formatNumero, formatDate, formatDateTime, formatMoney, formatPhone, formatVolume, phoneDigits } from "@/lib/utils";
 
 const estadoConfig = {
     ativo: { label: "Activo", tone: "emerald" },
@@ -92,6 +92,207 @@ function Divida({ cliente }) {
     );
 }
 
+// Cartão expandido: todos os dados do cliente, com o histórico.
+const detalheCliente = {
+    titulo: (cliente) => cliente.nome,
+    descricao: (cliente) => cliente.numero_cliente,
+    conteudo: (cliente) => (
+        <div className="space-y-6">
+            <div className="flex justify-end">
+                <IconLink
+                    href={`/clientes/${cliente.id}/imprimir`}
+                    target="_blank"
+                    title="Imprimir dados do cliente"
+                >
+                    <Printer className="h-4 w-4" aria-hidden="true" />
+                </IconLink>
+            </div>
+            <div className="grid gap-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950 sm:grid-cols-2">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Número
+                    </p>
+                    <p className="font-medium text-slate-900 dark:text-white">
+                        {cliente.numero_cliente}
+                    </p>
+                </div>
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Estado
+                    </p>
+                    <StatusBadge tone={estadoConfig[cliente.estado].tone}>
+                        {estadoConfig[cliente.estado].label}
+                    </StatusBadge>
+                </div>
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Tarifa
+                    </p>
+                    <p className="font-medium text-slate-900 dark:text-white">
+                        {cliente.tarifa?.nome ?? "—"}
+                    </p>
+                </div>
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Contacto
+                    </p>
+                    <p className="font-medium text-slate-900 dark:text-white">
+                        {cliente.telefone ? (
+                            <a
+                                href={`tel:${phoneDigits(cliente.telefone)}`}
+                                className="hover:text-cyan-700 dark:hover:text-cyan-300"
+                            >
+                                {formatPhone(cliente.telefone)}
+                            </a>
+                        ) : (
+                            "—"
+                        )}{" "}
+                        &middot; {cliente.bairro || "—"}
+                    </p>
+                </div>
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Saldo em aberto
+                    </p>
+                    <p
+                        className={cn(
+                            "font-semibold",
+                            Number(cliente.saldo_em_aberto ?? 0) > 0
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-slate-900 dark:text-white",
+                        )}
+                    >
+                        {formatMoney(cliente.saldo_em_aberto ?? 0)}
+                    </p>
+                    {Number(cliente.divida_em_atraso ?? 0) > 0 && (
+                        <p className="mt-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+                            {formatMoney(cliente.divida_em_atraso)} vencido
+                        </p>
+                    )}
+                </div>
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Cliente registado em
+                    </p>
+                    <p className="font-medium text-slate-900 dark:text-white">
+                        {cliente.created_at
+                            ? formatDateTime(cliente.created_at)
+                            : formatDate(cliente.data_adesao)}
+                    </p>
+                </div>
+            </div>
+    
+            <div>
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
+                    <FileText className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
+                    Histórico de facturas
+                </h4>
+                <div className="mt-2 overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
+                    <table className="w-full min-w-[560px] text-left text-sm">
+                        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950/60 dark:text-slate-400">
+                            <tr>
+                                <th className="px-4 py-2">Factura</th>
+                                <th className="px-4 py-2">Período</th>
+                                <th className="px-4 py-2 text-right">Total</th>
+                                <th className="px-4 py-2">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {cliente.facturas.map((f) => (
+                                <tr key={f.id}>
+                                    <td className="px-4 py-2 font-medium">
+                                        <a
+                                            href={`/facturas/${f.id}/imprimir`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-cyan-700 hover:underline dark:text-cyan-300"
+                                        >
+                                            {f.numero_factura}
+                                        </a>
+                                    </td>
+                                    <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
+                                        {meses[f.mes - 1]}/{f.ano}
+                                    </td>
+                                    <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
+                                        {formatMoney(f.total_pagar)}
+                                    </td>
+                                    <td className="px-4 py-2">
+                                        <StatusBadge tone={estadoFacturaConfig[f.estado].tone}>
+                                            {estadoFacturaConfig[f.estado].label}
+                                        </StatusBadge>
+                                    </td>
+                                </tr>
+                            ))}
+                            {cliente.facturas.length === 0 && (
+                                <tr>
+                                    <td
+                                        colSpan={4}
+                                        className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
+                                    >
+                                        Sem facturas registadas para este cliente.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+    
+            <div>
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
+                    <Receipt className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
+                    Histórico de pagamentos
+                </h4>
+                <div className="mt-2 overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
+                    <table className="w-full min-w-[560px] text-left text-sm">
+                        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950/60 dark:text-slate-400">
+                            <tr>
+                                <th className="px-4 py-2">Recibo</th>
+                                <th className="px-4 py-2">Registado em</th>
+                                <th className="px-4 py-2 text-right">Valor</th>
+                                <th className="px-4 py-2">Método</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {cliente.pagamentos.map((p) => (
+                                <tr key={p.id}>
+                                    <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">
+                                        {p.numero_recibo}
+                                    </td>
+                                    <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
+                                        {formatDateTime(p.created_at)}
+                                    </td>
+                                    <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
+                                        {formatMoney(p.valor_pago)}
+                                    </td>
+                                    <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
+                                        {metodoLabels[p.metodo_pagamento] ?? p.metodo_pagamento}
+                                    </td>
+                                </tr>
+                            ))}
+                            {cliente.pagamentos.length === 0 && (
+                                <tr>
+                                    <td
+                                        colSpan={4}
+                                        className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
+                                    >
+                                        Sem pagamentos registados para este cliente.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+    
+            <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+                <Banknote className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                Histórico carregado directamente da base de dados.
+            </div>
+        </div>
+    ),
+};
+
 const colunas = [
     {
         chave: "nome",
@@ -104,9 +305,6 @@ const colunas = [
             </>
         ),
     },
-    { chave: "telefone", titulo: "Telefone", render: (cliente) => <TelefoneLink telefone={cliente.telefone} /> },
-    { chave: "bairro", titulo: "Bairro", render: (cliente) => cliente.bairro || "—" },
-    { chave: "tarifa", titulo: "Tarifa", render: (cliente) => cliente.tarifa?.nome ?? "—" },
     { chave: "divida", titulo: "Dívida", ordenavel: true, direita: true, render: (cliente) => <Divida cliente={cliente} /> },
     {
         chave: "estado",
@@ -121,13 +319,6 @@ const cartaoCliente = (cliente) => (
         <div>
             <p className="font-semibold text-slate-900 dark:text-white">{cliente.nome}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">{cliente.numero_cliente}</p>
-        </div>
-        <div className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
-            {cliente.telefone && <TelefoneLink telefone={cliente.telefone} />}
-            <p className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                {cliente.bairro || "—"} &middot; {cliente.tarifa?.nome ?? "—"}
-            </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
             <Divida cliente={cliente} />
@@ -144,7 +335,6 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, totais
     const [etapaNovo, setEtapaNovo] = useState(null); // null | "escolha" | "formulario"
     const [novoContrato, setNovoContrato] = useState(false);
     const [editando, setEditando] = useState(null);
-    const [detalhe, setDetalhe] = useState(null);
     const [paraEliminar, setParaEliminar] = useState(null);
     const [facturaParaPagar, setFacturaParaPagar] = useState(null);
     const ultimaFacturaTratadaRef = useRef(null);
@@ -259,7 +449,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, totais
     };
 
     const accoesCliente = (cliente) => ({
-        principal: { icone: Eye, rotulo: `Ver histórico de ${cliente.nome}`, onClick: () => setDetalhe(cliente) },
+        principal: { icone: Eye, rotulo: `Ver dados de ${cliente.nome}`, expandir: true },
         menu: [
             { icone: Pencil, rotulo: "Editar", onClick: () => abrirEdicao(cliente) },
             {
@@ -341,6 +531,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, totais
                         paginador={clientes}
                         colunas={colunas}
                         cartao={cartaoCliente}
+                        detalhe={detalheCliente}
                         placeholder="Pesquisar nome, nº ou bairro"
                         filtrosConfig={filtrosConfig}
                         accoes={accoesCliente}
@@ -553,208 +744,6 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, totais
                 }
             />
 
-            <Modal
-                show={Boolean(detalhe)}
-                onClose={() => setDetalhe(null)}
-                title={detalhe ? detalhe.nome : ""}
-                maxWidth="2xl"
-            >
-                {detalhe && (
-                    <div className="space-y-6">
-                        <div className="flex justify-end">
-                            <IconLink
-                                href={`/clientes/${detalhe.id}/imprimir`}
-                                target="_blank"
-                                title="Imprimir dados do cliente"
-                            >
-                                <Printer className="h-4 w-4" aria-hidden="true" />
-                            </IconLink>
-                        </div>
-                        <div className="grid gap-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950 sm:grid-cols-2">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Número
-                                </p>
-                                <p className="font-medium text-slate-900 dark:text-white">
-                                    {detalhe.numero_cliente}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Estado
-                                </p>
-                                <StatusBadge tone={estadoConfig[detalhe.estado].tone}>
-                                    {estadoConfig[detalhe.estado].label}
-                                </StatusBadge>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Tarifa
-                                </p>
-                                <p className="font-medium text-slate-900 dark:text-white">
-                                    {detalhe.tarifa?.nome ?? "—"}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Contacto
-                                </p>
-                                <p className="font-medium text-slate-900 dark:text-white">
-                                    {detalhe.telefone ? (
-                                        <a
-                                            href={`tel:${phoneDigits(detalhe.telefone)}`}
-                                            className="hover:text-cyan-700 dark:hover:text-cyan-300"
-                                        >
-                                            {formatPhone(detalhe.telefone)}
-                                        </a>
-                                    ) : (
-                                        "—"
-                                    )}{" "}
-                                    &middot; {detalhe.bairro || "—"}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Saldo em aberto
-                                </p>
-                                <p
-                                    className={cn(
-                                        "font-semibold",
-                                        Number(detalhe.saldo_em_aberto ?? 0) > 0
-                                            ? "text-amber-600 dark:text-amber-400"
-                                            : "text-slate-900 dark:text-white",
-                                    )}
-                                >
-                                    {formatMoney(detalhe.saldo_em_aberto ?? 0)}
-                                </p>
-                                {Number(detalhe.divida_em_atraso ?? 0) > 0 && (
-                                    <p className="mt-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                                        {formatMoney(detalhe.divida_em_atraso)} vencido
-                                    </p>
-                                )}
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    Cliente registado em
-                                </p>
-                                <p className="font-medium text-slate-900 dark:text-white">
-                                    {detalhe.created_at
-                                        ? formatDateTime(detalhe.created_at)
-                                        : formatDate(detalhe.data_adesao)}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
-                                <FileText className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                Histórico de facturas
-                            </h4>
-                            <div className="mt-2 overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
-                                <table className="w-full min-w-[560px] text-left text-sm">
-                                    <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950/60 dark:text-slate-400">
-                                        <tr>
-                                            <th className="px-4 py-2">Factura</th>
-                                            <th className="px-4 py-2">Período</th>
-                                            <th className="px-4 py-2 text-right">Total</th>
-                                            <th className="px-4 py-2">Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {detalhe.facturas.map((f) => (
-                                            <tr key={f.id}>
-                                                <td className="px-4 py-2 font-medium">
-                                                    <a
-                                                        href={`/facturas/${f.id}/imprimir`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-cyan-700 hover:underline dark:text-cyan-300"
-                                                    >
-                                                        {f.numero_factura}
-                                                    </a>
-                                                </td>
-                                                <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
-                                                    {meses[f.mes - 1]}/{f.ano}
-                                                </td>
-                                                <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
-                                                    {formatMoney(f.total_pagar)}
-                                                </td>
-                                                <td className="px-4 py-2">
-                                                    <StatusBadge tone={estadoFacturaConfig[f.estado].tone}>
-                                                        {estadoFacturaConfig[f.estado].label}
-                                                    </StatusBadge>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {detalhe.facturas.length === 0 && (
-                                            <tr>
-                                                <td
-                                                    colSpan={4}
-                                                    className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
-                                                >
-                                                    Sem facturas registadas para este cliente.
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
-                                <Receipt className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                                Histórico de pagamentos
-                            </h4>
-                            <div className="mt-2 overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
-                                <table className="w-full min-w-[560px] text-left text-sm">
-                                    <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950/60 dark:text-slate-400">
-                                        <tr>
-                                            <th className="px-4 py-2">Recibo</th>
-                                            <th className="px-4 py-2">Registado em</th>
-                                            <th className="px-4 py-2 text-right">Valor</th>
-                                            <th className="px-4 py-2">Método</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {detalhe.pagamentos.map((p) => (
-                                            <tr key={p.id}>
-                                                <td className="px-4 py-2 font-medium text-slate-900 dark:text-white">
-                                                    {p.numero_recibo}
-                                                </td>
-                                                <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
-                                                    {formatDateTime(p.created_at)}
-                                                </td>
-                                                <td className="px-4 py-2 text-right font-medium text-slate-900 dark:text-white">
-                                                    {formatMoney(p.valor_pago)}
-                                                </td>
-                                                <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
-                                                    {metodoLabels[p.metodo_pagamento] ?? p.metodo_pagamento}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {detalhe.pagamentos.length === 0 && (
-                                            <tr>
-                                                <td
-                                                    colSpan={4}
-                                                    className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
-                                                >
-                                                    Sem pagamentos registados para este cliente.
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
-                            <Banknote className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                            Histórico carregado directamente da base de dados.
-                        </div>
-                    </div>
-                )}
-            </Modal>
         </AdminLayout>
     );
 }

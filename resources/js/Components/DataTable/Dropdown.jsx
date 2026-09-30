@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
-function useEcraGrande() {
+export function useEcraGrande() {
     const consulta = "(min-width: 768px)";
     const [grande, setGrande] = useState(() =>
         typeof window === "undefined" ? true : window.matchMedia(consulta).matches,

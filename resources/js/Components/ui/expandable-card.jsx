@@ -1,207 +1,150 @@
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "motion/react"
+import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Expandable Card (badtzUI), adaptado para mostrar os dados completos de uma
+ * linha (cliente, factura, pagamento, leitura):
+ *  - sem imagem obrigatória;
+ *  - `trigger` opcional: se existir, o cartão morfa para o cartão expandido
+ *    (layoutId partilhado); se não, abre com um fade/escala (linhas de tabela);
+ *  - modo controlado (`open`/`onOpenChange`) ou não controlado;
+ *  - renderizado num portal (o conteúdo da página tem transform, o que
+ *    quebraria o `position: fixed`).
+ */
 export function ExpandableCard({
   title,
-  src,
   description,
   children,
+  footer,
+  trigger,
+  open: openProp,
+  onOpenChange,
   className,
   classNameExpanded,
-  ...props
 }) {
-  const [active, setActive] = React.useState(false)
-  const cardRef = React.useRef(null)
+  const [openInterno, setOpenInterno] = React.useState(false)
+  const controlado = openProp !== undefined
+  const active = controlado ? openProp : openInterno
   const id = React.useId()
+  const cardRef = React.useRef(null)
+
+  const setActive = React.useCallback(
+    (valor) => {
+      if (!controlado) setOpenInterno(valor)
+      onOpenChange?.(valor)
+    },
+    [controlado, onOpenChange]
+  )
 
   React.useEffect(() => {
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setActive(false)
-      }
-    }
+    if (!active) return
 
-    const handleClickOutside = (event) => {
-      if (cardRef.current && !cardRef.current.contains(event.target)) {
-        setActive(false)
-      }
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setActive(false)
     }
 
     window.addEventListener("keydown", onKeyDown)
-    document.addEventListener("mousedown", handleClickOutside)
-    document.addEventListener("touchstart", handleClickOutside)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [active, setActive])
 
-    return () => {
-      window.removeEventListener("keydown", onKeyDown)
-      document.removeEventListener("mousedown", handleClickOutside)
-      document.removeEventListener("touchstart", handleClickOutside)
-    }
-  }, [])
+  const layoutId = trigger ? `card-${id}` : undefined
 
   return (
     <>
-      <AnimatePresence>
-        {active && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-10 h-full w-full bg-white/50 backdrop-blur-md dark:bg-black/50"
-          />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {active && (
-          <div
-            className={cn(
-              "fixed inset-0 z-[100] grid place-items-center before:pointer-events-none sm:mt-16"
-            )}
-          >
-            <motion.div
-              layoutId={`card-${title}-${id}`}
-              ref={cardRef}
-              className={cn(
-                "relative flex h-full w-full max-w-[850px] flex-col overflow-auto bg-zinc-50 shadow-sm [-ms-overflow-style:none] [-webkit-overflow-scrolling:touch] [scrollbar-width:none] sm:rounded-t-3xl dark:bg-zinc-950 dark:shadow-none",
-                classNameExpanded
-              )}
-              {...props}
-            >
-              <motion.div layoutId={`image-${title}-${id}`}>
-                <div className="relative before:absolute before:inset-x-0 before:bottom-[-1px] before:z-50 before:h-[70px] before:bg-gradient-to-t before:from-zinc-50 dark:before:from-zinc-950">
-                  <img
-                    src={src}
-                    alt={title}
-                    className="h-80 w-full object-cover object-center"
-                  />
-                </div>
-              </motion.div>
-              <div className="relative h-full before:fixed before:inset-x-0 before:bottom-0 before:z-50 before:h-[70px] before:bg-gradient-to-t before:from-zinc-50 dark:before:from-zinc-950">
-                <div className="flex h-auto items-start justify-between p-8">
-                  <div>
-                    <motion.p
-                      layoutId={`description-${description}-${id}`}
-                      className="text-lg text-zinc-500 dark:text-zinc-400"
-                    >
-                      {description}
-                    </motion.p>
-                    <motion.h3
-                      layoutId={`title-${title}-${id}`}
-                      className="mt-0.5 text-4xl font-semibold text-black sm:text-4xl dark:text-white"
-                    >
-                      {title}
-                    </motion.h3>
-                  </div>
-                  <motion.button
-                    aria-label="Close card"
-                    layoutId={`button-${title}-${id}`}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200/90 bg-zinc-50 text-neutral-700 transition-colors duration-300 hover:border-gray-300/90 hover:bg-neutral-50 hover:text-black focus:outline-none dark:border-zinc-900 dark:bg-zinc-950 dark:text-white/70 dark:hover:border-zinc-800 dark:hover:bg-neutral-950 dark:hover:text-white"
-                    onClick={() => setActive(false)}
-                  >
-                    <motion.div
-                      animate={{ rotate: active ? 45 : 0 }}
-                      transition={{ duration: 0.4 }}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+      {trigger && (
+        <motion.div
+          layoutId={layoutId}
+          role="button"
+          tabIndex={0}
+          aria-label={`Ver detalhes: ${title}`}
+          aria-expanded={active}
+          onClick={(event) => {
+            // Cliques em links/botões dentro do cartão não o expandem.
+            if (event.target.closest("a, button, input, label, [data-no-expand]")) return
+            setActive(true)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && event.target === event.currentTarget) setActive(true)
+          }}
+          className={cn("cursor-pointer", className)}
+        >
+          {trigger}
+        </motion.div>
+      )}
+
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {active && (
+              <div className="fixed inset-0 z-[60] grid place-items-center p-3 sm:p-6">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-white/50 backdrop-blur-md dark:bg-black/60"
+                  onClick={() => setActive(false)}
+                  aria-hidden="true"
+                />
+                <motion.div
+                  layoutId={layoutId}
+                  ref={cardRef}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby={`titulo-${id}`}
+                  initial={trigger ? undefined : { opacity: 0, scale: 0.96, y: 12 }}
+                  animate={trigger ? undefined : { opacity: 1, scale: 1, y: 0 }}
+                  exit={trigger ? undefined : { opacity: 0, scale: 0.97, y: 8 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 34 }}
+                  className={cn(
+                    "relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl",
+                    classNameExpanded
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-4 border-b border-border p-5 sm:p-6">
+                    <div className="min-w-0">
+                      {description && (
+                        <p className="text-sm font-medium text-muted-foreground">{description}</p>
+                      )}
+                      <h3
+                        id={`titulo-${id}`}
+                        className="mt-0.5 break-words text-xl font-semibold text-foreground sm:text-2xl"
                       >
-                        <path d="M5 12h14" />
-                        <path d="M12 5v14" />
-                      </svg>
-                    </motion.div>
-                  </motion.button>
-                </div>
-                <div className="relative px-6 sm:px-8">
+                        {title}
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Fechar"
+                      title="Fechar"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => setActive(false)}
+                    >
+                      <X className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </div>
+
                   <motion.div
-                    layout
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="flex flex-col items-start gap-4 overflow-auto pb-10 text-base text-zinc-500 dark:text-zinc-400"
+                    className="min-h-0 flex-1 overflow-y-auto p-5 text-sm sm:p-6"
                   >
                     {children}
                   </motion.div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
-      <motion.div
-        role="dialog"
-        aria-labelledby={`card-title-${id}`}
-        aria-modal="true"
-        layoutId={`card-${title}-${id}`}
-        onClick={() => setActive(true)}
-        className={cn(
-          "flex cursor-pointer flex-col items-center justify-between rounded-2xl border border-gray-200/70 bg-zinc-50 p-3 shadow-sm dark:border-zinc-900 dark:bg-zinc-950 dark:shadow-none",
-          className
+                  {footer && (
+                    <div className="border-t border-border bg-muted/40 p-4 sm:px-6">{footer}</div>
+                  )}
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
         )}
-      >
-        <div className="flex flex-col gap-4">
-          <motion.div layoutId={`image-${title}-${id}`}>
-            <img
-              src={src}
-              alt={title}
-              className="h-56 w-64 rounded-lg object-cover object-center"
-            />
-          </motion.div>
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <motion.p
-                layoutId={`description-${description}-${id}`}
-                className="text-sm font-medium text-zinc-500 md:text-left dark:text-zinc-400"
-              >
-                {description}
-              </motion.p>
-              <motion.h3
-                layoutId={`title-${title}-${id}`}
-                className="font-semibold text-black md:text-left dark:text-white"
-              >
-                {title}
-              </motion.h3>
-            </div>
-            <motion.button
-              aria-label="Open card"
-              layoutId={`button-${title}-${id}`}
-              className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200/90 bg-zinc-50 text-neutral-700 transition-colors duration-300 hover:border-gray-300/90 hover:bg-neutral-50 hover:text-black focus:outline-none dark:border-zinc-900 dark:bg-zinc-950 dark:text-white/70 dark:hover:border-zinc-800 dark:hover:bg-neutral-950 dark:hover:text-white",
-                className
-              )}
-            >
-              <motion.div
-                animate={{ rotate: active ? 45 : 0 }}
-                transition={{ duration: 0.4 }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M5 12h14" />
-                  <path d="M12 5v14" />
-                </svg>
-              </motion.div>
-            </motion.button>
-          </div>
-        </div>
-      </motion.div>
     </>
   )
 }

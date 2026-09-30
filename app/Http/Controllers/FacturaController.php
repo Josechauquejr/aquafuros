@@ -6,6 +6,8 @@ use App\Models\Factura;
 use App\Models\Leitura;
 use App\Services\BillingService;
 use App\Support\NumeracaoDocumentos;
+use App\Models\Cliente;
+use App\Support\BuscaDifusa;
 use App\Support\ListaQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -93,11 +95,15 @@ class FacturaController extends Controller
 
         $periodo = ListaQuery::periodo($query, $request, 'facturas.created_at');
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('numero_factura', 'like', "%{$search}%")
-                    ->orWhereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"));
-            });
+        // Pesquisa difusa: nº da factura e nome do cliente.
+        $nomes = Cliente::withTrashed()->pluck('nome', 'id');
+        $idsPesquisa = BuscaDifusa::ids(
+            Factura::get(['id', 'numero_factura', 'cliente_id']),
+            $search,
+            fn ($f) => $f->numero_factura.' '.($nomes[$f->cliente_id] ?? ''),
+        );
+        if ($idsPesquisa !== null) {
+            $query->whereIn('facturas.id', $idsPesquisa);
         }
 
         if ($estado === 'vencida') {

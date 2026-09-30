@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import TextInput from "@/Components/TextInput";
+import { filtrarDifuso } from "@/lib/busca";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,10 +31,9 @@ export default function ListaPesquisavel({
     const [busca, setBusca] = useState("");
 
     const grupos = useMemo(() => {
-        const termo = busca.trim().toLowerCase();
-        const filtrados = termo
-            ? itens.filter((item) => obterTexto(item).toLowerCase().includes(termo))
-            : itens;
+        // Pesquisa difusa (sem acentos, palavras parciais, pequenos erros);
+        // a lista continua ordenada/agrupada por letra.
+        const filtrados = filtrarDifuso(itens, busca, obterTexto);
 
         const ordenados = [...filtrados].sort((a, b) =>
             obterOrdenacao(a).localeCompare(obterOrdenacao(b), "pt", { sensitivity: "base" }),

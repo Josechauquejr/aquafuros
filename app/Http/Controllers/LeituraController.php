@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\Leitura;
+use App\Support\BuscaDifusa;
 use App\Support\ListaQuery;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -30,8 +31,8 @@ class LeituraController extends Controller
 
         $periodo = ListaQuery::periodo($query, $request, 'leituras.created_at');
 
-        if ($search) {
-            $query->whereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"));
+        if (($idsClientes = BuscaDifusa::idsClientes($search)) !== null) {
+            $query->whereIn('leituras.cliente_id', $idsClientes);
         }
 
         // Pendente → confirmada (sem factura) → facturada: a mesma ordem
@@ -178,8 +179,8 @@ class LeituraController extends Controller
             $query->whereIn('id', $ids);
         }
 
-        if ($search) {
-            $query->whereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"));
+        if (($idsClientes = BuscaDifusa::idsClientes($search)) !== null) {
+            $query->whereIn('cliente_id', $idsClientes);
         }
 
         $total = $query->count();

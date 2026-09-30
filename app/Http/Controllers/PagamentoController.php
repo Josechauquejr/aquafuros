@@ -6,6 +6,8 @@ use App\Models\Factura;
 use App\Models\FechoCaixa;
 use App\Models\Pagamento;
 use App\Models\User;
+use App\Models\Cliente;
+use App\Support\BuscaDifusa;
 use App\Support\ListaQuery;
 use App\Support\NumeracaoDocumentos;
 use Illuminate\Http\Request;
@@ -33,12 +35,16 @@ class PagamentoController extends Controller
 
         $periodo = ListaQuery::periodo($query, $request, 'pagamentos.created_at', 'mes');
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('numero_recibo', 'like', "%{$search}%")
-                    ->orWhereHas('cliente', fn ($c) => $c->withTrashed()->where('nome', 'like', "%{$search}%"))
-                    ->orWhereHas('factura', fn ($f) => $f->where('numero_factura', 'like', "%{$search}%"));
-            });
+        // Pesquisa difusa: nº do recibo, nº da factura e nome do cliente.
+        $nomes = Cliente::withTrashed()->pluck('nome', 'id');
+        $numerosFactura = Factura::withTrashed()->pluck('numero_factura', 'id');
+        $idsPesquisa = BuscaDifusa::ids(
+            Pagamento::get(['id', 'numero_recibo', 'factura_id', 'cliente_id']),
+            $search,
+            fn ($p) => "{$p->numero_recibo} ".($numerosFactura[$p->factura_id] ?? '').' '.($nomes[$p->cliente_id] ?? ''),
+        );
+        if ($idsPesquisa !== null) {
+            $query->whereIn('pagamentos.id', $idsPesquisa);
         }
 
         if ($metodo && $metodo !== 'todos') {

@@ -8,6 +8,7 @@ use App\Models\Divida;
 use App\Models\Factura;
 use App\Models\Tarifa;
 use App\Rules\TelefoneMocambicano;
+use App\Support\BuscaDifusa;
 use App\Support\ListaQuery;
 use App\Support\Telefone;
 use App\Support\NumeracaoDocumentos;
@@ -37,12 +38,14 @@ class ClienteController extends Controller
             'pagamentos' => fn ($q) => $q->orderByDesc('created_at'),
         ]);
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('nome', 'like', "%{$search}%")
-                    ->orWhere('numero_cliente', 'like', "%{$search}%")
-                    ->orWhere('bairro', 'like', "%{$search}%");
-            });
+        // Pesquisa difusa: nome, nº, bairro e telefone.
+        $idsPesquisa = BuscaDifusa::ids(
+            Cliente::get(['id', 'nome', 'numero_cliente', 'bairro', 'telefone']),
+            $search,
+            fn ($c) => "{$c->nome} {$c->numero_cliente} {$c->bairro} {$c->telefone}",
+        );
+        if ($idsPesquisa !== null) {
+            $query->whereIn('clientes.id', $idsPesquisa);
         }
 
         if ($estado && $estado !== 'todos') {

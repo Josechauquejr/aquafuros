@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Rules\TelefoneMocambicano;
+use App\Support\BuscaDifusa;
 use App\Support\Telefone;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -33,12 +34,13 @@ class UserController extends Controller
 
         $query = User::with('roles')->orderBy('name');
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('username', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            });
+        $idsPesquisa = BuscaDifusa::ids(
+            User::get(['id', 'name', 'username', 'email']),
+            $search,
+            fn ($u) => "{$u->name} {$u->username} {$u->email}",
+        );
+        if ($idsPesquisa !== null) {
+            $query->whereIn('users.id', $idsPesquisa);
         }
 
         if ($papel && $papel !== 'todos') {

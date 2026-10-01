@@ -3,13 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\Factura;
 use App\Models\Leitura;
+use App\Models\LeituraCorreccao;
+use App\Services\BillingService;
 use App\Support\BuscaDifusa;
 use App\Support\Facturacao;
 use App\Support\ListaQuery;
 use App\Support\MesReferencia;
 use App\Support\ResumoMensal;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class LeituraController extends Controller
@@ -32,6 +36,7 @@ class LeituraController extends Controller
             'cliente' => fn ($q) => $q->withTrashed(),
             'registadoPor' => fn ($q) => $q->withTrashed(),
             'factura',
+            'correccaoActiva.user:id,name',
         ]);
 
         $periodo = ListaQuery::periodoOuMes($query, $request, 'leituras.created_at', 'todos', ['leituras.mes', 'leituras.ano']);
@@ -136,7 +141,7 @@ class LeituraController extends Controller
             ])->withInput();
         }
 
-        Leitura::create([
+        $nova = Leitura::create([
             'cliente_id' => $data['cliente_id'],
             'mes' => $data['mes'],
             'ano' => $data['ano'],
@@ -145,6 +150,14 @@ class LeituraController extends Controller
             'confirmado' => false,
             'registado_por' => $request->user()->id,
         ]);
+
+        // O administrador é logo perguntado se confirma a leitura (ver Leituras/Index).
+        if ($request->user()->hasRole('administrador')) {
+            $request->session()->flash('leituraRegistada', [
+                ...$nova->only(['id', 'cliente_id', 'mes', 'ano', 'leitura_anterior', 'leitura_actual']),
+                'cliente' => ['nome' => Cliente::find($nova->cliente_id)?->nome],
+            ]);
+        }
 
         return back()->with('status', 'Leitura registada com sucesso.');
     }
@@ -267,5 +280,117 @@ class LeituraController extends Controller
         return back()->with('status', $factura
             ? 'Leitura anulada com sucesso. A factura associada também foi anulada.'
             : 'Leitura anulada com sucesso.');
+    }
+
+    /**
+     * Corrigir uma leitura JÁ CONFIRMADA — só o administrador. Exige motivo e
+     * fica registado (e pode ser desfeito). Se a leitura tem factura, o valor
+     * do consumo e o total são recalculados; a leitura seguinte do cliente, se
+     * ainda pendente, passa a partir do novo valor. Não se corrige quando já
+     * há pagamentos ou uma leitura posterior confirmada.
+     */
+    public function corrigir(Request $request, Leitura $leitura)
+    {
+        if (! $leitura->confirmado) {
+            return back()->with('error', 'Esta leitura ainda não foi confirmada: edite-a normalmente.');
+        }
+
+        $data = $request->validate([
+            'leitura_actual' => "required|numeric|min:{$leitura->leitura_anterior}",
+            'motivo' => 'required|string|min:5|max:1000',
+        ]);
+
+        if (round((float) $data['leitura_actual'], 2) === round((float) $leitura->leitura_actual, 2)) {
+            return back()->withErrors(['leitura_actual' => 'O valor é igual ao actual: não há nada a corrigir.']);
+        }
+
+        $seguinte = Leitura::where('cliente_id', $leitura->cliente_id)
+            ->where(fn ($q) => $q->where('ano', '>', $leitura->ano)
+                ->orWhere(fn ($q) => $q->where('ano', $leitura->ano)->where('mes', '>', $leitura->mes)))
+            ->orderBy('ano')->orderBy('mes')->first();
+
+        if ($seguinte?->confirmado) {
+            return back()->with('error', "Já existe uma leitura mais recente confirmada ({$seguinte->mes}/{$seguinte->ano}). Corrija primeiro essa, ou anule-a.");
+        }
+        if ($seguinte && (float) $data['leitura_actual'] > (float) $seguinte->leitura_actual) {
+            return back()->withErrors(['leitura_actual' => "Não pode ser maior que a leitura seguinte ({$seguinte->leitura_actual})."]);
+        }
+
+        $factura = $leitura->factura;
+        if ($factura?->pagamentos()->exists()) {
+            return back()->with('error', 'A factura desta leitura já tem pagamentos. Estorne-os primeiro e só depois corrija a leitura.');
+        }
+        if ($factura && $factura->estado !== 'anulada' && ! $leitura->cliente?->tarifa) {
+            return back()->with('error', 'O cliente não tem tarifa: não é possível recalcular a factura.');
+        }
+
+        $afectaFactura = $factura && $factura->estado !== 'anulada';
+        $antes = (float) $leitura->leitura_actual;
+        $facturaAntes = $afectaFactura ? $factura->only(['valor_consumo', 'total_pagar']) : null;
+
+        DB::transaction(function () use ($request, $data, $leitura, $seguinte, $factura, $afectaFactura, $antes, $facturaAntes) {
+            $leitura->update(['leitura_actual' => $data['leitura_actual']]);
+
+            if ($seguinte) {
+                $seguinte->update(['leitura_anterior' => $data['leitura_actual']]);
+            }
+
+            if ($afectaFactura) {
+                $valor = app(BillingService::class)->valorConsumo($leitura, $leitura->cliente);
+                $factura->update([
+                    'valor_consumo' => $valor,
+                    'total_pagar' => round($valor + (float) $factura->multa + ($factura->divida_anterior_incluida ? (float) $factura->divida_anterior : 0), 2),
+                ]);
+            }
+
+            LeituraCorreccao::create([
+                'leitura_id' => $leitura->id,
+                'user_id' => $request->user()->id,
+                'leitura_antes' => $antes,
+                'leitura_depois' => $data['leitura_actual'],
+                'motivo' => $data['motivo'],
+                'factura_id' => $afectaFactura ? $factura->id : null,
+                'factura_antes' => $facturaAntes,
+                'leitura_seguinte_id' => $seguinte?->id,
+                'leitura_seguinte_anterior_antes' => $seguinte ? $antes : null,
+            ]);
+        });
+
+        return back()->with('status', $afectaFactura
+            ? "Leitura corrigida. A factura {$factura->numero_factura} foi recalculada: novo total ".number_format((float) $factura->fresh()->total_pagar, 2, ',', ' ').' MZN.'
+            : 'Leitura corrigida.');
+    }
+
+    /** Desfaz a última correcção de uma leitura: repõe a leitura, a leitura seguinte e a factura. */
+    public function desfazerCorreccao(Request $request, LeituraCorreccao $correccao)
+    {
+        $leitura = $correccao->leitura;
+
+        if ($correccao->desfeita_em) {
+            return back()->with('error', 'Esta correcção já foi desfeita.');
+        }
+        if ($leitura->trashed() || (float) $leitura->leitura_actual !== (float) $correccao->leitura_depois) {
+            return back()->with('error', 'A leitura mudou depois desta correcção: já não é possível desfazê-la.');
+        }
+
+        $factura = $correccao->factura_id ? Factura::find($correccao->factura_id) : null;
+        if ($factura?->pagamentos()->exists()) {
+            return back()->with('error', 'A factura já tem pagamentos: estorne-os antes de desfazer a correcção.');
+        }
+
+        DB::transaction(function () use ($request, $correccao, $leitura, $factura) {
+            $leitura->update(['leitura_actual' => $correccao->leitura_antes]);
+
+            if ($correccao->leitura_seguinte_id) {
+                Leitura::whereKey($correccao->leitura_seguinte_id)->update(['leitura_anterior' => $correccao->leitura_seguinte_anterior_antes]);
+            }
+            if ($factura && $correccao->factura_antes) {
+                $factura->update($correccao->factura_antes);
+            }
+
+            $correccao->update(['desfeita_em' => now(), 'desfeita_por' => $request->user()->id]);
+        });
+
+        return back()->with('status', 'Correcção desfeita: a leitura'.($factura ? ' e a factura voltaram' : ' voltou').' aos valores anteriores.');
     }
 }

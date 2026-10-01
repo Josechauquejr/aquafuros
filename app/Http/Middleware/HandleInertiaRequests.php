@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\EmpresaPerfil;
+use App\Support\Novidades;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -48,6 +49,8 @@ class HandleInertiaRequests extends Middleware
             // como padrão do sistema (ex.: cabeçalho de facturas/recibos),
             // partilhada globalmente para não ter de passar por cada página.
             'empresa' => fn () => EmpresaPerfil::atual()->toArray(),
+            // Novidade do sistema por ver (aparece uma só vez a cada utilizador).
+            'novidade' => fn () => Novidades::pendente($user),
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
                 'error' => fn () => $request->session()->get('error'),
@@ -57,6 +60,7 @@ class HandleInertiaRequests extends Middleware
                 // Senha temporária gerada ao criar um utilizador ou repor a
                 // senha — mostrada uma única vez, nunca persistida em claro.
                 'novaSenha' => fn () => $request->session()->get('novaSenha'),
+                'leituraRegistada' => fn () => $request->session()->get('leituraRegistada'),
                 'zonaCriada' => fn () => $request->session()->get('zonaCriada'),
             ],
         ];

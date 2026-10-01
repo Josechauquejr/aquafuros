@@ -7,11 +7,12 @@ import {
     Eye,
     FileText,
     Pencil,
+    Undo2,
     Plus,
     Trash2,
     Waves,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import ConfirmDialog from "@/Components/ConfirmDialog";
@@ -169,6 +170,12 @@ const detalheLeitura = {
                     {formatNumero(leitura.leitura_anterior)} → {formatNumero(leitura.leitura_actual)}
                 </Campo>
                 <Campo rotulo="Factura">{leitura.factura && <FacturaLink factura={leitura.factura} />}</Campo>
+                {leitura.correccao_activa && (
+                    <Campo rotulo="Corrigida">
+                        {formatNumero(leitura.correccao_activa.leitura_antes)} → {formatNumero(leitura.correccao_activa.leitura_depois)} por{" "}
+                        {leitura.correccao_activa.user?.name} em {formatDateTime(leitura.correccao_activa.created_at)} ({leitura.correccao_activa.motivo})
+                    </Campo>
+                )}
             </Campos>
             <MaisDetalhes>
                 <Campos>
@@ -191,9 +198,18 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
     const [confirmandoTodas, setConfirmandoTodas] = useState(false);
     const [avisoLeitura, setAvisoLeitura] = useState(null);
     const [confirmarSeleccao, setConfirmarSeleccao] = useState(null);
+    const [recemRegistada, setRecemRegistada] = useState(null);
+    const [corrigindo, setCorrigindo] = useState(null);
+    const [paraDesfazer, setParaDesfazer] = useState(null);
+
+    // O administrador que acaba de registar uma leitura decide logo se a confirma.
+    useEffect(() => {
+        if (ehAdministrador && flash?.leituraRegistada) setRecemRegistada(flash.leituraRegistada);
+    }, [flash?.leituraRegistada]);
 
     const form = useForm(formVazio);
     const anularForm = useForm({ motivo_anulacao: "" });
+    const corrigirForm = useForm({ leitura_actual: "", motivo: "" });
 
     const metrics = [
         { label: "Leituras do mês", value: totais.total, icon: Waves, tone: "cyan" },
@@ -279,9 +295,33 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
         comAviso(avisosDaLeitura(leitura.cliente_id, leitura.leitura_anterior, leitura.leitura_actual), confirmar);
     };
 
+    const confirmarRecemRegistada = () => {
+        const leitura = recemRegistada;
+        setRecemRegistada(null);
+        confirmarLeitura(leitura);
+    };
+
     const irParaEmitirFactura = () => {
         if (!leituraParaFacturar) return;
         router.visit(`/facturas?leitura_id=${leituraParaFacturar.id}`);
+    };
+
+    // Só o administrador corrige uma leitura confirmada; a factura (se houver) é recalculada.
+    const abrirCorreccao = (leitura) => {
+        corrigirForm.setData({ leitura_actual: leitura.leitura_actual, motivo: "" });
+        corrigirForm.clearErrors();
+        setCorrigindo(leitura);
+    };
+
+    const submeterCorreccao = (event) => {
+        event.preventDefault();
+        corrigirForm.put(`/leituras/${corrigindo.id}/corrigir`, { preserveScroll: true, onSuccess: () => setCorrigindo(null) });
+    };
+
+    const desfazerCorreccao = () => {
+        const correccao = paraDesfazer.correccao_activa;
+        setParaDesfazer(null);
+        router.post(`/leituras/correccoes/${correccao.id}/desfazer`, {}, { preserveScroll: true });
     };
 
     const abrirAnulacao = (leitura) => {
@@ -340,13 +380,18 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
                 : { icone: CheckCircle2, rotulo: `Confirmar leitura de ${nome}`, curto: "Confirmar", destaque: true, onClick: () => confirmarLeitura(leitura) },
             menu: [
                 { icone: Eye, rotulo: "Ver detalhe", expandir: true },
-                {
-                    icone: Pencil,
-                    rotulo: "Editar",
-                    disabled: leitura.confirmado,
-                    motivo: "Leitura já confirmada — não pode ser editada.",
-                    onClick: () => abrirEdicao(leitura),
-                },
+                leitura.confirmado
+                    ? {
+                          icone: Pencil,
+                          rotulo: "Corrigir leitura",
+                          disabled: !ehAdministrador,
+                          motivo: "Só o administrador pode corrigir uma leitura confirmada.",
+                          onClick: () => abrirCorreccao(leitura),
+                      }
+                    : { icone: Pencil, rotulo: "Editar", onClick: () => abrirEdicao(leitura) },
+                ...(ehAdministrador && leitura.correccao_activa
+                    ? [{ icone: Undo2, rotulo: "Desfazer correcção", onClick: () => setParaDesfazer(leitura) }]
+                    : []),
                 {
                     icone: Ban,
                     rotulo: "Anular",
@@ -535,6 +580,82 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
                     </div>
                 </form>
             </Modal>
+
+            <Modal show={Boolean(corrigindo)} onClose={() => setCorrigindo(null)} title="Corrigir leitura confirmada" maxWidth="md">
+                {corrigindo && (
+                    <form onSubmit={submeterCorreccao} className="space-y-4">
+                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                            Leitura de <strong>{corrigindo.cliente?.nome ?? "cliente removido"}</strong> ({meses[corrigindo.mes - 1]}/{corrigindo.ano}).
+                            Leitura anterior: {formatNumero(corrigindo.leitura_anterior)}.
+                        </p>
+                        {corrigindo.factura && corrigindo.factura.estado !== "anulada" && (
+                            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                                A factura <strong>{corrigindo.factura.numero_factura}</strong> será recalculada com o novo consumo. Se já foi enviada ao cliente, reenvie-a depois.
+                            </div>
+                        )}
+                        <div>
+                            <InputLabel htmlFor="correccao_leitura" value="Leitura actual correcta" />
+                            <TextInput
+                                id="correccao_leitura"
+                                type="number"
+                                min={corrigindo.leitura_anterior}
+                                step="0.01"
+                                required
+                                value={corrigirForm.data.leitura_actual}
+                                onChange={(event) => corrigirForm.setData("leitura_actual", event.target.value)}
+                                className="mt-1 block w-full"
+                            />
+                            <InputError message={corrigirForm.errors.leitura_actual} className="mt-1" />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="correccao_motivo" value="Motivo da correcção" />
+                            <Textarea
+                                id="correccao_motivo"
+                                required
+                                rows={3}
+                                value={corrigirForm.data.motivo}
+                                onChange={(event) => corrigirForm.setData("motivo", event.target.value)}
+                                className="mt-1 block w-full"
+                                placeholder="Ex.: número lido mal no contador"
+                            />
+                            <InputError message={corrigirForm.errors.motivo} className="mt-1" />
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Fica registado quem corrigiu e porquê. Pode desfazer a correcção depois.</p>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <SecondaryButton type="button" onClick={() => setCorrigindo(null)}>Cancelar</SecondaryButton>
+                            <PrimaryButton type="submit" disabled={corrigirForm.processing || !corrigirForm.data.motivo.trim()}>Guardar correcção</PrimaryButton>
+                        </div>
+                    </form>
+                )}
+            </Modal>
+
+            <ConfirmDialog
+                show={Boolean(recemRegistada)}
+                onClose={() => setRecemRegistada(null)}
+                onConfirm={confirmarRecemRegistada}
+                title="Leitura registada"
+                tone="primary"
+                confirmLabel="Confirmar leitura"
+                cancelLabel="Deixar pendente"
+                description={
+                    recemRegistada
+                        ? `Leitura de ${recemRegistada.cliente?.nome ?? "cliente"} (${meses[recemRegistada.mes - 1]}/${recemRegistada.ano}): ${formatNumero(recemRegistada.leitura_anterior)} → ${formatNumero(recemRegistada.leitura_actual)}, consumo de ${formatVolume(consumoDe(recemRegistada))}. Deseja confirmá-la agora? ${facturarAoConfirmar ? "A factura será emitida e enviada ao cliente." : "Depois de confirmada, fica bloqueada para edição."}`
+                        : ""
+                }
+            />
+
+            <ConfirmDialog
+                show={Boolean(paraDesfazer)}
+                onClose={() => setParaDesfazer(null)}
+                onConfirm={desfazerCorreccao}
+                title="Desfazer correcção"
+                confirmLabel="Desfazer"
+                description={
+                    paraDesfazer
+                        ? `A leitura volta a ${formatNumero(paraDesfazer.correccao_activa.leitura_antes)}${paraDesfazer.factura ? " e a factura " + paraDesfazer.factura.numero_factura + " volta ao valor anterior" : ""}.`
+                        : ""
+                }
+            />
 
             <Modal show={Boolean(paraAnular)} onClose={() => setParaAnular(null)} title="Anular leitura" maxWidth="md">
                 {paraAnular && (

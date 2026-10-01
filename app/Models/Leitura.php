@@ -64,6 +64,12 @@ class Leitura extends Model
         return $this->hasOne(Factura::class);
     }
 
+    // A correcção mais recente ainda por desfazer (só o administrador corrige leituras confirmadas).
+    public function correccaoActiva()
+    {
+        return $this->hasOne(LeituraCorreccao::class)->whereNull('desfeita_em')->latestOfMany();
+    }
+
     /**
      * Indica se esta é a primeira leitura já registada para o cliente —
      * usado nos recibos/facturas impressas para não tratar a leitura

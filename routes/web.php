@@ -21,6 +21,7 @@ use App\Http\Controllers\VerificacaoController;
 use App\Http\Controllers\CobrancaController;
 use App\Http\Controllers\CreditoController;
 use App\Http\Controllers\NotificacaoController;
+use App\Http\Controllers\NovidadeController;
 use App\Http\Controllers\OcorrenciaController;
 use App\Http\Controllers\ProducaoController;
 use App\Http\Controllers\ZonaController;
@@ -52,6 +53,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/dashboard', fn () => Inertia::render('Dashboard'))->name('dashboard');
     });
 
+    Route::post('/novidades/vista', [NovidadeController::class, 'vista'])->name('novidades.vista');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -68,6 +71,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Antes do resource: evita que "taxa-ligacao" seja capturado pelo
         // wildcard {tarifa} de PUT tarifas/{tarifa}.
         Route::put('tarifas/taxa-ligacao', [TarifaController::class, 'actualizarTaxaLigacao'])->name('tarifas.taxa-ligacao');
+        // Correcção de leituras já confirmadas (e desfazer) — só o administrador.
+        Route::put('leituras/{leitura}/corrigir', [LeituraController::class, 'corrigir'])->name('leituras.corrigir');
+        Route::post('leituras/correccoes/{correccao}/desfazer', [LeituraController::class, 'desfazerCorreccao'])->name('leituras.correccoes.desfazer');
         Route::put('tarifas/regras', [TarifaController::class, 'actualizarRegras'])->name('tarifas.regras');
         Route::resource('tarifas', TarifaController::class)->only(['index', 'store', 'update', 'destroy']);
 

@@ -26,6 +26,12 @@ class BillingService
         ];
     }
 
+    /** Só o valor do consumo da leitura, sem dívida anterior nem multa (para corrigir uma factura já emitida). */
+    public function valorConsumo(Leitura $leitura, Cliente $cliente): float
+    {
+        return round($this->calcularValorConsumo($this->calcularConsumo($leitura), $cliente), 2);
+    }
+
     private function calcularConsumo(Leitura $leitura): float
     {
         // max(0) protege contra leitura_actual menor que leitura_anterior por erro de registo

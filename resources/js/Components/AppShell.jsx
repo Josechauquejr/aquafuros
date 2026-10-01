@@ -24,6 +24,7 @@ import ApplicationLogo from "@/Components/ApplicationLogo";
 import BranchedMenu from "@/Components/BranchedMenu";
 import Breadcrumbs from "@/Components/Breadcrumbs";
 import FlashToasts from "@/Components/FlashToasts";
+import NovidadesModal from "@/Components/NovidadesModal";
 import ThemeToggle from "@/Components/ThemeToggle";
 
 function activo(url, href) {
@@ -209,6 +210,7 @@ export default function AppShell({ groups, casa, chaveRecolhido, header, childre
     return (
         <SidebarProvider open={aberta} onOpenChange={alterar}>
             <FlashToasts />
+            <NovidadesModal />
             <MenuLateral groups={groups} casa={casa} empresa={empresa} />
 
             <SidebarInset className="min-w-0 bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100">

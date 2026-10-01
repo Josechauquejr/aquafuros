@@ -2,8 +2,11 @@ import { Head, Link, router, usePage } from "@inertiajs/react";
 import { ArrowLeft, CheckCircle2, Droplets, Lock, Printer } from "lucide-react";
 import { useState } from "react";
 import AnimatedButton from "@/Components/AnimatedButton";
-import ConfirmDialog from "@/Components/ConfirmDialog";
-import InlineNotice from "@/Components/InlineNotice";
+import InputError from "@/Components/InputError";
+import InputLabel from "@/Components/InputLabel";
+import Modal from "@/Components/Modal";
+import PrimaryButton from "@/Components/PrimaryButton";
+import TextInput from "@/Components/TextInput";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
@@ -21,6 +24,8 @@ export default function FechoCaixa({
     data,
     totalGeral,
     totalPorMetodo,
+    esperadoDinheiro = 0,
+    adiantamentos = [],
     caixas,
     fecho,
     ultimoFecho,
@@ -31,6 +36,9 @@ export default function FechoCaixa({
     const [caixaFiltro, setCaixaFiltro] = useState(utilizador.id);
     const [confirmarAberto, setConfirmarAberto] = useState(false);
     const [aConfirmar, setAConfirmar] = useState(false);
+    const [valorContado, setValorContado] = useState("");
+    const [erroContado, setErroContado] = useState(null);
+    const diferencaPrevista = valorContado === "" ? null : Math.round((Number(valorContado) - esperadoDinheiro) * 100) / 100;
 
     const aplicarFiltro = () => {
         router.get("/pagamentos/fecho-caixa", { data: dataFiltro, utilizador_id: caixaFiltro });
@@ -40,8 +48,12 @@ export default function FechoCaixa({
         setAConfirmar(true);
         router.post(
             "/pagamentos/fecho-caixa/confirmar",
-            {},
-            { onFinish: () => { setAConfirmar(false); setConfirmarAberto(false); } },
+            { valor_contado: valorContado },
+            {
+                onError: (erros) => setErroContado(erros.valor_contado ?? null),
+                onFinish: () => { setAConfirmar(false); },
+                onSuccess: () => setConfirmarAberto(false),
+            },
         );
     };
 
@@ -95,8 +107,6 @@ export default function FechoCaixa({
             </div>
 
             <div className="mx-auto mb-4 max-w-3xl px-4 print:hidden">
-                <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
-                <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
             </div>
 
             <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm print:border-0 print:shadow-none">
@@ -178,6 +188,25 @@ export default function FechoCaixa({
                                 <td className="py-3 text-base font-bold">Total recebido</td>
                                 <td className="py-3 text-right text-base font-bold">{formatCurrency(totalGeral)}</td>
                             </tr>
+                            {fecho?.valor_contado !== null && fecho?.valor_contado !== undefined && (
+                                <>
+                                    <tr className="border-t border-slate-200">
+                                        <td className="py-2 text-slate-600">Dinheiro registado</td>
+                                        <td className="py-2 text-right">{formatCurrency(esperadoDinheiro)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="py-2 text-slate-600">Dinheiro contado na gaveta</td>
+                                        <td className="py-2 text-right">{formatCurrency(fecho.valor_contado)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="py-2 font-semibold">Diferença</td>
+                                        <td className={`py-2 text-right font-semibold ${Number(fecho.diferenca) === 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                                            {Number(fecho.diferenca) > 0 ? "+" : ""}{formatCurrency(fecho.diferenca)}
+                                            {Number(fecho.diferenca) === 0 ? " (certo)" : Number(fecho.diferenca) > 0 ? " (a mais)" : " (em falta)"}
+                                        </td>
+                                    </tr>
+                                </>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -212,6 +241,27 @@ export default function FechoCaixa({
                     </div>
                 )}
 
+                {adiantamentos.length > 0 && (
+                    <div className="mt-8">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Adiantamentos e excessos recebidos ({adiantamentos.length})
+                        </p>
+                        <table className="mt-2 w-full border-collapse text-sm">
+                            <tbody>
+                                {adiantamentos.map((a) => (
+                                    <tr key={a.id} className="border-b border-slate-100">
+                                        <td className="py-2">{a.numero_recibo ?? "excesso de pagamento"}</td>
+                                        <td className="py-2">{a.cliente?.nome ?? "Cliente removido"}</td>
+                                        <td className="py-2">{metodoLabels[a.metodo_pagamento] ?? a.metodo_pagamento}</td>
+                                        <td className="py-2 text-right">{formatCurrency(a.valor)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <p className="mt-1 text-xs text-slate-500">Dinheiro que ficou como crédito dos clientes — conta na gaveta, mas só é receita quando for usado.</p>
+                    </div>
+                )}
+
                 <div className="mt-10 border-t border-slate-300 pt-4 text-center text-xs text-slate-400">
                     Documento gerado electronicamente pelo sistema Aquafuros — sem necessidade de assinatura.
                     <br />
@@ -219,14 +269,44 @@ export default function FechoCaixa({
                 </div>
             </div>
 
-            <ConfirmDialog
-                show={confirmarAberto}
-                onClose={() => setConfirmarAberto(false)}
-                onConfirm={confirmarFecho}
-                title="Confirmar fecho de caixa"
-                confirmLabel={aConfirmar ? "A fechar..." : "Confirmar fecho"}
-                description={`Fechar a caixa de hoje com ${pagamentos.length} recibo(s) e um total de ${formatCurrency(totalGeral)}? Depois de fechada, não poderá registar mais pagamentos hoje. Esta acção não pode ser desfeita.`}
-            />
+            <Modal show={confirmarAberto} onClose={() => setConfirmarAberto(false)} title="Confirmar fecho de caixa" maxWidth="md">
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                        {pagamentos.length} recibo(s), total {formatCurrency(totalGeral)}. Conte o dinheiro em numerário que tem na
+                        gaveta e indique o valor: o sistema regista a diferença para o que está registado
+                        ({formatCurrency(esperadoDinheiro)} em dinheiro). Depois de fechada, não poderá registar mais pagamentos hoje.
+                    </p>
+                    <div>
+                        <InputLabel htmlFor="valor_contado" value="Dinheiro contado (MZN)" />
+                        <TextInput
+                            id="valor_contado"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={valorContado}
+                            onChange={(evento) => { setValorContado(evento.target.value); setErroContado(null); }}
+                            className="mt-1 block w-full"
+                            autoFocus
+                        />
+                        <InputError message={erroContado} className="mt-1" />
+                        {diferencaPrevista !== null && (
+                            <p className={`mt-2 text-sm font-medium ${diferencaPrevista === 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                                {diferencaPrevista === 0
+                                    ? "Bate certo."
+                                    : `Diferença de ${diferencaPrevista > 0 ? "+" : ""}${formatCurrency(diferencaPrevista)} (${diferencaPrevista > 0 ? "a mais" : "em falta"}).`}
+                            </p>
+                        )}
+                    </div>
+                    <div className="flex justify-end gap-3 pt-2">
+                        <SecondaryButton type="button" onClick={() => setConfirmarAberto(false)}>
+                            Cancelar
+                        </SecondaryButton>
+                        <PrimaryButton type="button" disabled={valorContado === "" || aConfirmar} onClick={confirmarFecho}>
+                            {aConfirmar ? "A fechar..." : "Confirmar fecho"}
+                        </PrimaryButton>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

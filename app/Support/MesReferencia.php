@@ -36,6 +36,16 @@ class MesReferencia
         return $mes;
     }
 
+    /** O utilizador escolheu um mês no URL (válido), em vez de ficar no actual por omissão. */
+    public static function foiPedido(Request $request): bool
+    {
+        $pedido = $request->query('mes');
+
+        return is_string($pedido)
+            && preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $pedido)
+            && self::resolver($request)->format('Y-m') === $pedido;
+    }
+
     /**
      * O que o frontend precisa para o selector de mês.
      *

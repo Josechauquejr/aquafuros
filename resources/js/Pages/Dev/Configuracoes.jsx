@@ -94,7 +94,6 @@ export default function Configuracoes({ funcionalidades, horario, empresa }) {
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
 
                     <AnimatedPanel delay={0.05} className="p-6">
                         <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">

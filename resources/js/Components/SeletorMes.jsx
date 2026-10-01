@@ -6,14 +6,22 @@ import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
  * seguinte, ou qualquer um dos últimos 24 na lista. O mês vai no URL
  * (?mes=AAAA-MM), por isso recarregar ou partilhar mantém a vista.
  */
-export default function SeletorMes({ rota, mesReferencia }) {
+export default function SeletorMes({ rota, mesReferencia, extra = {} }) {
     const { valor, opcoes, eActual } = mesReferencia;
     const indice = opcoes.findIndex((opcao) => opcao.valor === valor);
     const maisAntigo = opcoes[indice + 1];
     const maisRecente = opcoes[indice - 1];
 
+    // `extra`: outros parâmetros da página (pesquisa, filtros) que a troca de
+    // mês não deve perder — só valores com conteúdo vão para o URL.
+    const preservados = Object.fromEntries(
+        Object.entries(extra).filter(
+            ([chave, v]) => chave !== "mes" && chave !== "page" && v !== "" && v !== null && v !== undefined && v !== false,
+        ),
+    );
+
     const ir = (mes) =>
-        router.get(rota, mes === opcoes[0].valor ? {} : { mes }, {
+        router.get(rota, mes === opcoes[0].valor ? preservados : { ...preservados, mes }, {
             preserveScroll: true,
             preserveState: true,
             replace: true,

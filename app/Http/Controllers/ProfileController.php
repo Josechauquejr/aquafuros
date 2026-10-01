@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +29,7 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $request->user()->fill($request->safe()->except('current_password'));
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;
@@ -46,9 +47,22 @@ class ProfileController extends Controller
     {
         $request->validateWithBag('userDeletion', [
             'password' => ['required', 'current_password'],
+            // Confirmação reforçada: escrever a palavra, não só a palavra-passe.
+            'confirmacao' => ['required', 'in:ELIMINAR'],
+        ], [
+            'confirmacao.in' => 'Escreva ELIMINAR (em maiúsculas) para confirmar.',
+            'confirmacao.required' => 'Escreva ELIMINAR (em maiúsculas) para confirmar.',
         ]);
 
         $user = $request->user();
+
+        // Sem administrador ninguém consegue gerir o sistema.
+        if ($user->hasRole('administrador') && User::role('administrador')->count() <= 1) {
+            return back()->withErrors(
+                ['password' => 'Esta é a única conta de administrador — crie outra antes de eliminar esta.'],
+                'userDeletion',
+            );
+        }
 
         Auth::logout();
 

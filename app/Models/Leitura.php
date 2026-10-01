@@ -32,6 +32,8 @@ class Leitura extends Model
         'leitura_anterior',
         'leitura_actual',
         'confirmado',
+        'confirmado_por',
+        'confirmado_em',
         'registado_por'
     ];
 

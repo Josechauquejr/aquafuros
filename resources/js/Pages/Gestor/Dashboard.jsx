@@ -13,6 +13,7 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import InlineNotice from "@/Components/InlineNotice";
 import KpiCard from "@/Components/KpiCard";
+import PainelAlertas from "@/Components/PainelAlertas";
 import SeletorMes from "@/Components/SeletorMes";
 import DevedoresChart from "@/Components/charts/DevedoresChart";
 import { formatCurrency } from "@/lib/utils";
@@ -37,7 +38,7 @@ const toneClasses = {
     rose: "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
 };
 
-export default function Dashboard({ mesReferencia, resumoMes, contadores, dividaTotal, maioresDevedores }) {
+export default function Dashboard({ mesReferencia, resumoMes, alertas, contadores, dividaTotal, maioresDevedores }) {
     const nomeMes = meses[resumoMes.mes - 1];
 
     const metrics = [
@@ -104,6 +105,8 @@ export default function Dashboard({ mesReferencia, resumoMes, contadores, divida
                         </Link>
                         .
                     </InlineNotice>
+
+                    <PainelAlertas alertas={alertas} />
 
                     <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                         {metrics.map((metric, index) => (

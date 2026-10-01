@@ -16,7 +16,7 @@ class Factura extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['divida_anterior', 'multa', 'total_pagar', 'estado', 'motivo_anulacao'])
+            ->logOnly(['divida_anterior', 'divida_anterior_incluida', 'multa', 'total_pagar', 'estado', 'motivo_anulacao'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('factura')
@@ -35,6 +35,7 @@ class Factura extends Model
         'data_vencimento',
         'valor_consumo',
         'divida_anterior',
+        'divida_anterior_incluida',
         'multa',
         'total_pagar',
         'estado',
@@ -47,7 +48,21 @@ class Factura extends Model
     protected $casts = [
         'data_vencimento' => 'date',
         'anulada_em' => 'datetime',
+        'divida_anterior_incluida' => 'boolean',
     ];
+
+    /**
+     * O que esta factura factura DE FACTO (consumo + multa, ou a taxa de
+     * ligação), sem a dívida anterior de facturas antigas. Nas facturas
+     * antigas o total_pagar incluía essa dívida (a dobrar); nas novas não.
+     * Versão SQL para somas na base de dados.
+     */
+    public const SQL_VALOR_PROPRIO = '(CASE WHEN divida_anterior_incluida THEN total_pagar - divida_anterior ELSE total_pagar END)';
+
+    public function valorProprio(): float
+    {
+        return round((float) $this->total_pagar - ($this->divida_anterior_incluida ? (float) $this->divida_anterior : 0.0), 2);
+    }
 
     protected $appends = ['esta_vencida'];
 
@@ -111,6 +126,16 @@ class Factura extends Model
     }
 
     // Uma factura pode ter muitos pagamentos
+    public function envios()
+    {
+        return $this->hasMany(EnvioEmail::class);
+    }
+
+    public function ultimoEnvio()
+    {
+        return $this->hasOne(EnvioEmail::class)->latestOfMany();
+    }
+
     public function pagamentos(){
         return $this->hasMany(Pagamento::class);
     }

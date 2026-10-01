@@ -6,6 +6,7 @@ use App\Models\Cliente;
 use App\Models\Factura;
 use App\Models\Leitura;
 use App\Models\Pagamento;
+use App\Support\Alertas;
 use App\Support\MesReferencia;
 use App\Support\ResumoMensal;
 use Illuminate\Http\Request;
@@ -35,6 +36,7 @@ class GestorDashboardController extends Controller
                 'leiturasPendentes' => Leitura::where('confirmado', false)->count(),
                 'leiturasSemFactura' => Leitura::where('confirmado', true)->whereDoesntHave('factura')->count(),
             ],
+            'alertas' => Alertas::para(false),
             'dividaTotal' => Cliente::dividaTotalEmAtraso(),
             'maioresDevedores' => Cliente::maioresDevedores(5),
         ]);

@@ -183,6 +183,7 @@ const detalheCliente = {
                         ) : null}
                     </Campo>
                     <Campo rotulo="Bairro">{cliente.bairro}</Campo>
+                    <Campo rotulo="Email">{cliente.email}</Campo>
                     <Campo rotulo="Tarifa">{cliente.tarifa?.nome}</Campo>
                     <Campo rotulo="Endereço">{cliente.endereco}</Campo>
                 </Campos>
@@ -327,9 +328,9 @@ const cartaoCliente = (cliente) => (
     </div>
 );
 
-const formVazio = { nome: "", endereco: "", bairro: "", telefone: "", tarifa_id: "", estado: "ativo", novo_contrato: false, leitura_inicial: "" };
+const formVazio = { nome: "", endereco: "", email: "", zona_id: "", telefone: "", tarifa_id: "", estado: "ativo", novo_contrato: false, leitura_inicial: "" };
 
-export default function Index({ clientes, tarifas, todasTarifas, bairros, totais, filtros, taxaLigacao }) {
+export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas = [], totais, filtros, taxaLigacao }) {
     const { flash, auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador");
     const [etapaNovo, setEtapaNovo] = useState(null); // null | "escolha" | "formulario"
@@ -419,7 +420,8 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, totais
         form.setData({
             nome: cliente.nome,
             endereco: cliente.endereco ?? "",
-            bairro: cliente.bairro ?? "",
+            zona_id: cliente.zona_id ?? "",
+            email: cliente.email ?? "",
             telefone: cliente.telefone ?? "",
             tarifa_id: cliente.tarifa_id,
             estado: cliente.estado,
@@ -501,8 +503,6 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, totais
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
-                    <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
                     <InlineNotice show={tarifas.length === 0} tone="info">
                         Ainda não há nenhuma tarifa configurada, por isso não é possível adicionar clientes.{" "}
                         {ehAdministrador ? (
@@ -620,13 +620,21 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, totais
 
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <InputLabel htmlFor="bairro" value="Bairro" />
-                            <TextInput
-                                id="bairro"
-                                value={form.data.bairro}
-                                onChange={(event) => form.setData("bairro", event.target.value)}
-                                className="mt-1 block w-full"
-                            />
+                            <InputLabel htmlFor="zona_id" value="Zona / bairro" />
+                            <select
+                                id="zona_id"
+                                value={form.data.zona_id}
+                                onChange={(event) => form.setData("zona_id", event.target.value)}
+                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            >
+                                <option value="">{zonas.length === 0 ? "Sem zonas — crie em Zonas" : "Sem zona"}</option>
+                                {zonas.map((zona) => (
+                                    <option key={zona.id} value={zona.id}>
+                                        {zona.nome}
+                                    </option>
+                                ))}
+                            </select>
+                            <InputError message={form.errors.zona_id} className="mt-1" />
                         </div>
                         <div>
                             <InputLabel htmlFor="telefone" value="Telefone" />
@@ -638,6 +646,20 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, totais
                                 placeholder="84 562 6156"
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <InputLabel htmlFor="email" value="Email (para receber as facturas)" />
+                        <TextInput
+                            id="email"
+                            type="email"
+                            value={form.data.email}
+                            onChange={(event) => form.setData("email", event.target.value)}
+                            className="mt-1 block w-full"
+                            placeholder="cliente@exemplo.co.mz"
+                            autoComplete="off"
+                        />
+                        <InputError message={form.errors.email} className="mt-1" />
                     </div>
 
                     <div>

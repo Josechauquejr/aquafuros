@@ -165,10 +165,12 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                                 </td>
                             </tr>
                         )}
-                        <tr className="border-b border-slate-200">
-                            <td className="py-2 text-slate-600">Dívida anterior</td>
-                            <td className="py-2 text-right">{formatCurrency(factura.divida_anterior)}</td>
-                        </tr>
+                        {factura.divida_anterior_incluida && (
+                            <tr className="border-b border-slate-200">
+                                <td className="py-2 text-slate-600">Dívida anterior</td>
+                                <td className="py-2 text-right">{formatCurrency(factura.divida_anterior)}</td>
+                            </tr>
+                        )}
                         <tr className="border-b border-slate-200">
                             <td className="py-2 text-slate-600">Multa</td>
                             <td className="py-2 text-right">{formatCurrency(factura.multa)}</td>
@@ -179,6 +181,23 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                                 {formatCurrency(factura.total_pagar)}
                             </td>
                         </tr>
+                        {!factura.divida_anterior_incluida && Number(factura.divida_anterior) > 0 && (
+                            <>
+                                <tr className="border-t border-slate-200">
+                                    <td className="py-2 text-slate-600">
+                                        Dívida de facturas anteriores
+                                        <span className="block text-[10px]">(já constam nessas facturas; não se soma a esta)</span>
+                                    </td>
+                                    <td className="py-2 text-right">{formatCurrency(factura.divida_anterior)}</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-2 font-semibold">Total em dívida do cliente</td>
+                                    <td className="py-2 text-right font-semibold">
+                                        {formatCurrency(Number(factura.total_pagar) + Number(factura.divida_anterior))}
+                                    </td>
+                                </tr>
+                            </>
+                        )}
                     </tbody>
                 </table>
             </div>

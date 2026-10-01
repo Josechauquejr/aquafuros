@@ -363,9 +363,9 @@ class ListasTest extends TestCase
 
         // Facturas: facturado, recebido (incl. parciais) e o que FALTA pagar
         $this->assertEquals($painel['totalFacturado'], $facturas['totalFacturado']);
-        $this->assertEquals($painel['totalRecebido'], $facturas['totalPago']);
-        $this->assertEquals(600, $facturas['totalEmAberto']);
-        $this->assertEquals($facturas['totalFacturado'], $facturas['totalPago'] + $facturas['totalEmAberto']);
+        $this->assertEquals($painel['totalRecebido'], $facturas['recebidoNoMes']);
+        $this->assertEquals(600, $facturas['emAberto']);
+        $this->assertEquals($facturas['totalFacturado'], $facturas['recebidoNoMes'] + $facturas['emAberto']);
 
         // Pagamentos: o mesmo dinheiro recebido no mês
         $this->assertEquals($painel['totalRecebido'], $pagamentos['totalRecebido']);

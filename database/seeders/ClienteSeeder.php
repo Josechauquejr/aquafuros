@@ -43,10 +43,6 @@ class ClienteSeeder extends Seeder
                 ],
             );
 
-            Divida::firstOrCreate(
-                ['cliente_id' => $cliente->id],
-                ['valor_divida' => 0, 'meses_atraso' => 0, 'em_corte' => $dados['estado'] === 'cortado'],
-            );
         }
     }
 }

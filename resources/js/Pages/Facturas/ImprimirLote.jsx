@@ -127,7 +127,7 @@ function FacturaCompacta({ factura, primeiraLeitura, consumoAnterior, facturaAnt
                         {primeiraLeitura ? " (inicial)" : ""}
                     </span>
                     <span>
-                        Consumo {formatCurrency(factura.valor_consumo)} · Dívida {formatCurrency(factura.divida_anterior)} · Multa {formatCurrency(factura.multa)}
+                        Consumo {formatCurrency(factura.valor_consumo)} {factura.divida_anterior_incluida ? ` · Dívida ${formatCurrency(factura.divida_anterior)}` : ""} · Multa {formatCurrency(factura.multa)}
                     </span>
                 </p>
             </div>

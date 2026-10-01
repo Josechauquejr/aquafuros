@@ -20,7 +20,7 @@ class FechoCaixa extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['utilizador_id', 'data', 'total_geral', 'numero_pagamentos'])
+            ->logOnly(['utilizador_id', 'data', 'total_geral', 'valor_contado', 'diferenca', 'numero_pagamentos'])
             ->useLogName('fecho_caixa')
             ->setDescriptionForEvent(
                 fn () => "Fecho de caixa de {$this->data->format('d/m/Y')} confirmado",
@@ -32,6 +32,8 @@ class FechoCaixa extends Model
         'data',
         'total_geral',
         'total_por_metodo',
+        'valor_contado',
+        'diferenca',
         'numero_pagamentos',
         'fechado_por',
     ];

@@ -1,15 +1,14 @@
 import { Head, Link } from "@inertiajs/react";
 import {
     AlertTriangle,
-    BarChart3,
     Banknote,
     Clock,
-    Download,
     Droplets,
     FileStack,
     FileText,
     Gauge,
     Receipt,
+    ArrowRight,
     TrendingUp,
     UserPlus,
     Wallet,
@@ -17,10 +16,9 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import KpiCard from "@/Components/KpiCard";
+import PainelAlertas from "@/Components/PainelAlertas";
 import SeletorMes from "@/Components/SeletorMes";
-import DevedoresChart from "@/Components/charts/DevedoresChart";
-import DistribuicaoMetodoChart from "@/Components/charts/DistribuicaoMetodoChart";
-import GraficoSerie, { FILTROS_MESES, formatarCompacto, rotuloMensal } from "@/Components/charts/GraficoSerie";
+import { rotuloMensal } from "@/Components/charts/GraficoSerie";
 import { formatMoney, formatVolume } from "@/lib/utils";
 
 const meses = [
@@ -30,11 +28,10 @@ const meses = [
 
 export default function Dashboard({
     mesReferencia,
+    alertas,
     contadores,
     mesActual,
     evolucaoMensal,
-    distribuicaoPorMetodo,
-    maioresDevedores,
     dividaTotal,
     consumoTotalMes,
     facturasVencidas,
@@ -157,19 +154,11 @@ export default function Dashboard({
                         <Link
                             href="/admin/kpis"
                             className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                            title="Ver painel de KPIs dedicado, com filtros de período"
+                            title="Análise completa do mês: cobrança, consumo, clientes e tendências"
                         >
                             <Gauge className="h-4 w-4" aria-hidden="true" />
                             KPIs
                         </Link>
-                        <a
-                            href={`/admin/dashboard/exportar${mesReferencia.eActual ? "" : `?mes=${mesReferencia.valor}`}`}
-                            className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                            title="Exportar KPIs e estatísticas em CSV"
-                        >
-                            <Download className="h-4 w-4" aria-hidden="true" />
-                            Exportar
-                        </a>
                     </div>
                 </div>
             }
@@ -195,6 +184,8 @@ export default function Dashboard({
                             </Link>
                         ))}
                     </section>
+
+                    <PainelAlertas alertas={alertas} />
 
                     <section>
                         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -222,28 +213,18 @@ export default function Dashboard({
                         </div>
                     </section>
 
-                    <GraficoSerie
-                        titulo="Evolução mensal"
-                        descricao={`Facturado vs. recebido, até ${nomeMes}`}
-                        icone={BarChart3}
-                        dados={evolucaoMensal}
-                        series={[
-                            { chave: "facturado", label: "Facturado", cor: "#2a78d6" },
-                            { chave: "recebido", label: "Recebido", cor: "#1baf7a" },
-                        ]}
-                        tipo="bar"
-                        filtros={FILTROS_MESES}
-                        formatar={formatMoney}
-                        formatarEixo={formatarCompacto}
-                    />
-
-                    <section className="grid gap-6 lg:grid-cols-2">
-                        <DistribuicaoMetodoChart
-                            dados={distribuicaoPorMetodo}
-                            descricao={`Valor recebido em ${nomeMes} de ${mesActual.ano}, por método`}
-                        />
-                        <DevedoresChart devedores={maioresDevedores} />
-                    </section>
+                    <Link
+                        href={`/admin/kpis${mesReferencia.eActual ? "" : `?mes=${mesReferencia.valor}`}`}
+                        className="flex items-center justify-between gap-4 rounded-lg border border-cyan-200 bg-cyan-50 px-5 py-4 text-cyan-900 transition hover:bg-cyan-100 dark:border-cyan-900 dark:bg-cyan-950/30 dark:text-cyan-100 dark:hover:bg-cyan-950/50"
+                    >
+                        <span>
+                            <span className="block font-semibold">Quer perceber porquê?</span>
+                            <span className="block text-sm opacity-80">
+                                Os KPIs têm a análise de {nomeMes}: cobrança, consumo, clientes, facturação e comparação com meses anteriores.
+                            </span>
+                        </span>
+                        <ArrowRight className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    </Link>
                 </div>
             </div>
         </AdminLayout>

@@ -19,6 +19,7 @@ class TarifaController extends Controller
         return Inertia::render('Tarifas/Index', [
             'tarifas' => Tarifa::orderBy('nome')->get(),
             'taxaLigacao' => Configuracao::valor('taxa_ligacao_nova', 3250.00),
+            'regrasConfig' => Configuracao::regrasDeCobranca(),
         ]);
     }
 
@@ -35,6 +36,26 @@ class TarifaController extends Controller
         Configuracao::definir('taxa_ligacao_nova', $data['valor']);
 
         return redirect()->route('tarifas.index')->with('status', 'Taxa de ligação actualizada com sucesso.');
+    }
+
+    /**
+     * Prazos e limites da cobrança: dias até a factura vencer, dia do mês até
+     * ao qual as leituras devem estar feitas e quantos dias para trás se pode
+     * datar um pagamento.
+     */
+    public function actualizarRegras(Request $request)
+    {
+        $data = $request->validate([
+            'dias_vencimento' => 'required|integer|min:1|max:90',
+            'leituras_dia_limite' => 'required|integer|min:1|max:28',
+            'pagamento_dias_retroactivos' => 'required|integer|min:0|max:60',
+        ]);
+
+        foreach ($data as $chave => $valor) {
+            Configuracao::definir($chave, $valor);
+        }
+
+        return redirect()->route('tarifas.index')->with('status', 'Regras de cobrança actualizadas com sucesso.');
     }
 
     /**

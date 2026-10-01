@@ -36,12 +36,12 @@ import { itemVariants, listVariants } from "@/lib/motion";
 const regras = [
     {
         titulo: "Prazo de pagamento",
-        descricao: "15 dias corridos após a emissão da factura. Passado o prazo, a factura fica \"Vencida\" (a multa tem a sua própria regra, abaixo).",
+        descricao: "Em dias corridos após a emissão da factura (ver \"Prazos e limites\", acima). Passado o prazo, a factura fica \"Vencida\" (a multa tem a sua própria regra, abaixo).",
         icon: Clock,
     },
     {
         titulo: "Multa por atraso",
-        descricao: "Só é cobrada quando se emite a factura seguinte de um cliente cuja dívida em aberto já atingiu o limiar de corte da sua tarifa: essa factura inclui a percentagem de multa da tarifa sobre a dívida. Não depende dos 15 dias.",
+        descricao: "Só é cobrada quando se emite a factura seguinte de um cliente cuja dívida em aberto já atingiu o limiar de corte da sua tarifa: essa factura inclui a percentagem de multa da tarifa sobre a dívida. Não depende do prazo de pagamento.",
         icon: Percent,
     },
     {
@@ -78,7 +78,7 @@ const formVazio = {
     is_active: true,
 };
 
-export default function Index({ tarifas, taxaLigacao }) {
+export default function Index({ tarifas, taxaLigacao, regrasConfig }) {
     const { flash } = usePage().props;
     const [editandoId, setEditandoId] = useState(null);
     const [showModal, setShowModal] = useState(false);
@@ -87,6 +87,11 @@ export default function Index({ tarifas, taxaLigacao }) {
     const [precoEditado, setPrecoEditado] = useState("");
     const [editandoTaxaLigacao, setEditandoTaxaLigacao] = useState(false);
     const [taxaLigacaoEditada, setTaxaLigacaoEditada] = useState(String(taxaLigacao));
+    const regrasForm = useForm({
+        dias_vencimento: regrasConfig.dias_vencimento,
+        leituras_dia_limite: regrasConfig.leituras_dia_limite,
+        pagamento_dias_retroactivos: regrasConfig.pagamento_dias_retroactivos,
+    });
 
     const form = useForm(formVazio);
 
@@ -192,8 +197,6 @@ export default function Index({ tarifas, taxaLigacao }) {
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
-                    <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
 
                     <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                         {metrics.map((metric, index) => (
@@ -462,6 +465,46 @@ export default function Index({ tarifas, taxaLigacao }) {
                                 )}
                             </div>
                         </div>
+                    </AnimatedPanel>
+
+                    <AnimatedPanel delay={0.26}>
+                        <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+                            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Prazos e limites</h3>
+                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                Valem para todo o sistema; as facturas já emitidas mantêm o prazo com que foram emitidas.
+                            </p>
+                        </div>
+                        <form
+                            onSubmit={(evento) => {
+                                evento.preventDefault();
+                                regrasForm.put("/tarifas/regras", { preserveScroll: true });
+                            }}
+                            className="grid gap-4 p-6 sm:grid-cols-3"
+                        >
+                            {[
+                                ["dias_vencimento", "Prazo de pagamento (dias)", "Dias após a emissão até a factura ficar vencida", 1, 90],
+                                ["leituras_dia_limite", "Dia limite das leituras", "Dia do mês até ao qual as leituras devem estar feitas", 1, 28],
+                                ["pagamento_dias_retroactivos", "Pagamento com data anterior (dias)", "Até quantos dias atrás se pode datar um pagamento", 0, 60],
+                            ].map(([chave, rotulo, ajuda, min, max]) => (
+                                <div key={chave}>
+                                    <InputLabel htmlFor={chave} value={rotulo} />
+                                    <TextInput
+                                        id={chave}
+                                        type="number"
+                                        min={min}
+                                        max={max}
+                                        value={regrasForm.data[chave]}
+                                        onChange={(evento) => regrasForm.setData(chave, evento.target.value)}
+                                        className="mt-1 block w-full"
+                                    />
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{ajuda}</p>
+                                    <InputError message={regrasForm.errors[chave]} className="mt-1" />
+                                </div>
+                            ))}
+                            <div className="flex justify-end sm:col-span-3">
+                                <PrimaryButton disabled={regrasForm.processing || !regrasForm.isDirty}>Guardar prazos</PrimaryButton>
+                            </div>
+                        </form>
                     </AnimatedPanel>
 
                     <AnimatedPanel delay={0.28}>

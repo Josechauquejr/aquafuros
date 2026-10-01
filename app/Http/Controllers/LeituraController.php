@@ -6,6 +6,8 @@ use App\Models\Cliente;
 use App\Models\Leitura;
 use App\Support\BuscaDifusa;
 use App\Support\ListaQuery;
+use App\Support\MesReferencia;
+use App\Support\ResumoMensal;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -18,6 +20,8 @@ class LeituraController extends Controller
      */
     public function index(Request $request)
     {
+        $mesRef = MesReferencia::resolver($request);
+
         $search = $request->query('search');
         $estado = $request->query('estado');
 
@@ -29,7 +33,7 @@ class LeituraController extends Controller
             'factura',
         ]);
 
-        $periodo = ListaQuery::periodo($query, $request, 'leituras.created_at');
+        $periodo = ListaQuery::periodoOuMes($query, $request, 'leituras.created_at', 'todos', ['leituras.mes', 'leituras.ano']);
 
         if (($idsClientes = BuscaDifusa::idsClientes($search)) !== null) {
             $query->whereIn('leituras.cliente_id', $idsClientes);
@@ -59,14 +63,13 @@ class LeituraController extends Controller
         return Inertia::render('Leituras/Index', [
             'leituras' => $query->paginate(15)->withQueryString(),
             'clientes' => $this->clientesParaLeitura(),
-            'totais' => [
-                'total' => Leitura::count(),
-                'confirmadas' => Leitura::where('confirmado', true)->count(),
-                'pendentes' => Leitura::where('confirmado', false)->count(),
-                'semFactura' => Leitura::where('confirmado', true)->whereDoesntHave('factura')->count(),
-            ],
+            'totais' => ResumoMensal::leituras($mesRef->month, $mesRef->year),
+            'resumoMes' => ResumoMensal::facturas($mesRef->month, $mesRef->year),
+            'pendentesTotal' => Leitura::where('confirmado', false)->count(),
+            'mesReferencia' => MesReferencia::paraSeletor($mesRef),
             'filtros' => [
                 ...$periodo,
+                'mes' => MesReferencia::foiPedido($request) ? $mesRef->format('Y-m') : '',
                 'search' => $search ?? '',
                 'estado' => in_array($estado, ['pendente', 'confirmada', 'facturada'], true) ? $estado : 'todos',
                 'sort' => $sort,
@@ -158,6 +161,11 @@ class LeituraController extends Controller
             'confirmado' => 'boolean',
         ]);
 
+        if (! empty($data['confirmado'])) {
+            $data['confirmado_por'] = $request->user()->id;
+            $data['confirmado_em'] = now();
+        }
+
         $leitura->update($data);
 
         return back()->with('status', 'Leitura actualizada com sucesso.');
@@ -189,7 +197,7 @@ class LeituraController extends Controller
             return back()->with('error', 'Não há leituras pendentes para confirmar.');
         }
 
-        $query->update(['confirmado' => true]);
+        $query->update(['confirmado' => true, 'confirmado_por' => $request->user()->id, 'confirmado_em' => now()]);
 
         return back()->with('status', "{$total} leitura(s) confirmada(s) com sucesso.");
     }

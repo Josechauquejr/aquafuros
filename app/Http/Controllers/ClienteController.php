@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\Configuracao;
-use App\Models\Divida;
+use App\Models\Zona;
 use App\Models\Factura;
 use App\Models\Tarifa;
 use App\Rules\TelefoneMocambicano;
@@ -105,6 +105,7 @@ class ClienteController extends Controller
             'todasTarifas' => Tarifa::orderBy('nome')->get(['id', 'nome']),
             'bairros' => Cliente::whereNotNull('bairro')->where('bairro', '!=', '')
                 ->distinct()->orderBy('bairro')->pluck('bairro'),
+            'zonas' => Zona::orderBy('nome')->get(['id', 'nome']),
             'taxaLigacao' => Configuracao::valor('taxa_ligacao_nova', 3250.00),
             'totais' => [
                 'total' => Cliente::count(),
@@ -168,7 +169,9 @@ class ClienteController extends Controller
             'nome' => 'required|string|max:255',
             'endereco' => 'nullable|string|max:255',
             'telefone' => ['nullable', 'string', 'max:20', new TelefoneMocambicano],
+            'email' => 'nullable|email:rfc|max:255',
             'bairro' => 'nullable|string|max:255',
+            'zona_id' => 'nullable|exists:zonas,id',
             'tarifa_id' => 'required|exists:tarifas,id',
             'estado' => 'required|in:ativo,inativo,cortado',
             'novo_contrato' => 'nullable|boolean',
@@ -176,6 +179,11 @@ class ClienteController extends Controller
             // "anterior" (senão o cliente pagaria todo o consumo desde 0).
             'leitura_inicial' => 'required|numeric|min:0|max:99999999',
         ]);
+
+        // A zona manda: o bairro de texto fica sempre igual ao nome dela (pesquisa e filtros antigos continuam a funcionar).
+        if (! empty($data['zona_id'])) {
+            $data['bairro'] = Zona::find($data['zona_id'])->nome;
+        }
 
         $novoContrato = (bool) ($data['novo_contrato'] ?? false);
         unset($data['novo_contrato']);
@@ -188,7 +196,6 @@ class ClienteController extends Controller
 
         DB::transaction(function () use ($data, $novoContrato, $taxaLigacao, &$facturaLigacao, $request) {
             $cliente = Cliente::create($data);
-            Divida::create(['cliente_id' => $cliente->id]);
 
             if ($novoContrato) {
                 $facturaLigacao = Factura::create([
@@ -200,6 +207,7 @@ class ClienteController extends Controller
                     'ano' => now()->year,
                     'valor_consumo' => 0,
                     'divida_anterior' => 0,
+                    'divida_anterior_incluida' => false,
                     'multa' => 0,
                     'total_pagar' => $taxaLigacao,
                     'estado' => 'pendente',
@@ -236,10 +244,16 @@ class ClienteController extends Controller
             'nome' => 'required|string|max:255',
             'endereco' => 'nullable|string|max:255',
             'telefone' => ['nullable', 'string', 'max:20', new TelefoneMocambicano],
+            'email' => 'nullable|email:rfc|max:255',
             'bairro' => 'nullable|string|max:255',
+            'zona_id' => 'nullable|exists:zonas,id',
             'tarifa_id' => 'required|exists:tarifas,id',
             'estado' => 'required|in:ativo,inativo,cortado',
         ]);
+
+        if (! empty($data['zona_id'])) {
+            $data['bairro'] = Zona::find($data['zona_id'])->nome;
+        }
 
         $cliente->update($data);
 
@@ -258,7 +272,6 @@ class ClienteController extends Controller
         try {
             DB::transaction(function () use ($cliente) {
                 $cliente->facturas()->whereIn('estado', ['pendente', 'parcial'])->update(['estado' => 'anulada']);
-                $cliente->divida?->update(['valor_divida' => 0, 'meses_atraso' => 0, 'em_corte' => false]);
 
                 $cliente->pagamentos()->delete();
                 $cliente->facturas()->delete();
@@ -290,7 +303,7 @@ class ClienteController extends Controller
             'resumo' => [
                 // Facturas anuladas não contam nas estatísticas de valores.
                 'numeroFacturas' => $cliente->facturas()->where('estado', '!=', 'anulada')->count(),
-                'totalFacturado' => (float) $cliente->facturas()->where('estado', '!=', 'anulada')->sum('total_pagar'),
+                'totalFacturado' => (float) $cliente->facturas()->where('estado', '!=', 'anulada')->sum(\Illuminate\Support\Facades\DB::raw(\App\Models\Factura::SQL_VALOR_PROPRIO)),
                 'numeroPagamentos' => $cliente->pagamentos()->count(),
                 'totalPago' => (float) $cliente->pagamentos()->sum('valor_pago'),
             ],

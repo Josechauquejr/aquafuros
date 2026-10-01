@@ -30,12 +30,25 @@ class Cliente extends Model
         'nome',
         'endereco',
         'telefone',
+        'email',
         'bairro',
+        'zona_id',
         'tarifa_id',
         'estado',
         'data_adesao',
         'leitura_inicial',
     ];
+
+    public function zona()
+    {
+        return $this->belongsTo(Zona::class);
+    }
+
+    /** Crédito a favor do cliente (adiantamentos e excessos ainda por usar). */
+    public function saldoCredito(): float
+    {
+        return Credito::saldoDe($this->id);
+    }
 
     // Um cliente pertence a uma tarifa
     public function tarifa()
@@ -58,10 +71,6 @@ class Cliente extends Model
     // Um cliente pode ter muitos pagamentos
     public function pagamentos(){
         return $this->hasMany(Pagamento::class);
-    }
-
-    public function divida(){
-        return $this->hasOne(Divida::class);
     }
 
     /**

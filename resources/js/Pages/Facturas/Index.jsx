@@ -13,6 +13,7 @@ import {
     FileText,
     GitCompare,
     Loader2,
+    Mail,
     Pencil,
     Plus,
     Printer,
@@ -25,13 +26,13 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
-import DangerButton from "@/Components/DangerButton";
+import FuseDanger from "@/Components/FuseDanger";
 import DataTable from "@/Components/DataTable/DataTable";
 import { Campo, Campos, Destaque, Destaques, Explicacao, MaisDetalhes, SeccaoDetalhe } from "@/Components/DataTable/Detalhe";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
-import KpiCard from "@/Components/KpiCard";
+import ResumoMes from "@/Components/ResumoMes";
 import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -296,10 +297,18 @@ const detalheFactura = {
                         <Campo rotulo="Tipo">{tipoConfig[factura.tipo]?.label ?? tipoConfig.consumo.label}</Campo>
                         <Campo rotulo="Consumo">{consumo !== null ? formatVolume(consumo) : null}</Campo>
                         <Campo rotulo="Valor do consumo">{formatMoney(factura.valor_consumo)}</Campo>
-                        <Campo rotulo="Dívida anterior">{formatMoney(factura.divida_anterior)}</Campo>
+                        <Campo rotulo={factura.divida_anterior_incluida ? "Dívida anterior (incluída)" : "Dívida anterior (informativa)"}>{formatMoney(factura.divida_anterior)}</Campo>
                         <Campo rotulo="Multa">{formatMoney(factura.multa)}</Campo>
                         <Campo rotulo="Emitida em">{formatDateTime(factura.created_at)}</Campo>
                         <Campo rotulo="Emitida por">{factura.gerada_por?.name}</Campo>
+                        <Campo rotulo="Email">{factura.cliente?.email}</Campo>
+                        <Campo rotulo="Enviada por email">
+                            {factura.ultimo_envio
+                                ? factura.ultimo_envio.estado === "enviado"
+                                    ? `Sim — ${formatDateTime(factura.ultimo_envio.created_at)}`
+                                    : `Falhou — ${factura.ultimo_envio.erro ?? ""}`
+                                : "Ainda não"}
+                        </Campo>
                     </Campos>
                 </MaisDetalhes>
             </>
@@ -316,6 +325,7 @@ export default function Index({
     qrUrls = {},
     resumoMensal: resumoMensalProp,
     totais,
+    mesReferencia,
     filtros,
     facturaAlvo = null,
     accaoAlvo = null,
@@ -337,7 +347,8 @@ export default function Index({
     const ultimaFacturaTratadaRef = useRef(null);
 
     const form = useForm({ divida_anterior: "", multa: "", estado: "pendente" });
-    const loteForm = useForm({ mes: "", ano: "" });
+    const loteForm = useForm({ mes: "", ano: "", enviar_email: false });
+    const [paraEnviar, setParaEnviar] = useState(null);
     const anularForm = useForm({ motivo_anulacao: "" });
 
     // Filtros do painel. "Anulada" só aparece ao administrador; "mes_ano"
@@ -436,34 +447,12 @@ export default function Index({
         });
     }, [resumoMensalProp]);
 
-    const filtrosActivos =
-        Boolean(filtros.search) || filtros.estado !== "todos" || filtros.periodo !== "todos" || Boolean(filtros.mes_ano);
-
     const pctRecebido = totais.totalFacturado > 0
-        ? Math.min(100, (totais.totalPago / totais.totalFacturado) * 100)
+        ? Math.min(100, (totais.recebidoNoMes / totais.totalFacturado) * 100)
         : 0;
     const pctAberto = totais.totalFacturado > 0
-        ? Math.min(100 - pctRecebido, (totais.totalEmAberto / totais.totalFacturado) * 100)
+        ? Math.min(100 - pctRecebido, (totais.emAberto / totais.totalFacturado) * 100)
         : 0;
-
-    const metrics = [
-        {
-            label: "Total facturado",
-            value: formatMoney(totais.totalFacturado),
-            detail: filtrosActivos ? "Só o que está na lista (filtros activos)" : "Todas as facturas",
-            icon: FileText,
-            tone: "cyan",
-        },
-        { label: "Recebido", value: formatMoney(totais.totalPago), detail: "já pago, incluindo pagamentos parciais", icon: CheckCircle2, tone: "emerald" },
-        { label: "Em aberto", value: formatMoney(totais.totalEmAberto), detail: "o que ainda falta pagar", icon: Banknote, tone: "amber" },
-        {
-            label: "Facturas pendentes",
-            value: totais.pendentesCount,
-            detail: totais.vencidasCount > 0 ? `${totais.vencidasCount} já vencida(s)` : "Nenhuma vencida",
-            icon: AlertTriangle,
-            tone: totais.vencidasCount > 0 ? "rose" : "amber",
-        },
-    ];
 
     const abrirNova = () => {
         setEditando(null);
@@ -505,7 +494,7 @@ export default function Index({
     };
 
     const confirmarAnulacao = (event) => {
-        event.preventDefault();
+        event?.preventDefault();
         if (!paraAnular) return;
         anularForm.delete(`/facturas/${paraAnular.id}`, {
             preserveScroll: true,
@@ -521,7 +510,7 @@ export default function Index({
         const primeiro = periodosParaLote[0];
         const chave = primeiro ? primeiro[0] : "";
         setPeriodoLote(chave);
-        if (primeiro) loteForm.setData({ mes: primeiro[1].mes, ano: primeiro[1].ano });
+        if (primeiro) loteForm.setData((d) => ({ ...d, mes: primeiro[1].mes, ano: primeiro[1].ano }));
         loteForm.clearErrors();
         setShowLoteModal(true);
     };
@@ -529,7 +518,7 @@ export default function Index({
     const selecionarPeriodoLote = (chave) => {
         setPeriodoLote(chave);
         const [mes, ano] = chave.split("/");
-        loteForm.setData({ mes, ano });
+        loteForm.setData((d) => ({ ...d, mes, ano }));
     };
 
     const submitLote = (event) => {
@@ -574,8 +563,18 @@ export default function Index({
     const urlImprimirFiltradas = () => {
         const params = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search);
         ["page", "sort", "dir"].forEach((chave) => params.delete(chave));
+        // O mês do seletor vira o filtro "mes_ano" que a impressão já entende.
+        const mes = params.get("mes");
+        if (mes) {
+            const [ano, m] = mes.split("-");
+            params.set("mes_ano", `${Number(m)}/${ano}`);
+            params.delete("mes");
+            params.delete("periodo");
+        }
         return `/facturas/imprimir-lote?${params.toString()}`;
     };
+
+    const semResultados = facturas.total === 0;
 
     const accoesFactura = (factura) => {
         const numero = factura.numero_factura;
@@ -598,6 +597,13 @@ export default function Index({
                     disabled: aDescarregar,
                     motivo: "Já está a ser gerado um PDF.",
                     onClick: () => iniciarDescarga(factura),
+                },
+                {
+                    icone: Mail,
+                    rotulo: factura.ultimo_envio?.estado === "enviado" ? "Reenviar por email" : "Enviar por email",
+                    disabled: !factura.cliente?.email || factura.estado === "anulada",
+                    motivo: factura.estado === "anulada" ? "Uma factura anulada não se envia." : "O cliente não tem email registado — adicione-o na página de Clientes.",
+                    onClick: () => setParaEnviar(factura),
                 },
                 {
                     icone: GitCompare,
@@ -629,6 +635,11 @@ export default function Index({
     const selecao = {
         acoes: [
             {
+                rotulo: "Enviar por email",
+                icone: Mail,
+                onClick: (ids, limpar) => router.post("/facturas/email-lote", { ids }, { preserveScroll: true, onSuccess: limpar }),
+            },
+            {
                 rotulo: "Imprimir / PDF",
                 icone: Printer,
                 href: (ids) => `/facturas/imprimir-lote?ids=${ids.join(",")}`,
@@ -655,11 +666,12 @@ export default function Index({
                     <div className="flex flex-wrap gap-3">
                         {filtros.estado !== "todos" && (
                             <AnimatedButton
-                                as="a"
-                                href={urlImprimirFiltradas()}
-                                target="_blank"
+                                as={semResultados ? "button" : "a"}
+                                href={semResultados ? undefined : urlImprimirFiltradas()}
+                                target={semResultados ? undefined : "_blank"}
                                 variant="secondary"
-                                title="Imprimir todas as facturas dos filtros actuais"
+                                disabled={semResultados}
+                                title={semResultados ? "Os filtros actuais não têm resultados — nada para imprimir" : "Imprimir todas as facturas dos filtros actuais"}
                             >
                                 <Printer className="h-4 w-4" aria-hidden="true" />
                                 Imprimir filtradas
@@ -691,21 +703,15 @@ export default function Index({
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
-                    <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
 
-                    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        {metrics.map((metric, index) => (
-                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
-                        ))}
-                    </section>
+                    <ResumoMes rota="/facturas" mesReferencia={mesReferencia} resumo={totais} filtros={filtros} />
 
                     {totais.totalFacturado > 0 && (
                         <AnimatedPanel delay={0.14} className="px-5 py-4">
                             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                                <span>Recebido vs. em aberto (todos os períodos)</span>
+                                <span>Recebido vs. em aberto do mês</span>
                                 <span>
-                                    {formatNumero((totais.totalPago / totais.totalFacturado) * 100, 0)}% recebido
+                                    {formatNumero((totais.recebidoNoMes / totais.totalFacturado) * 100, 0)}% recebido
                                 </span>
                             </div>
                             <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
@@ -876,8 +882,8 @@ export default function Index({
                                 />
                             </div>
                             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                                O valor é calculado automaticamente a partir da tarifa do cliente e da sua
-                                dívida anterior.
+                                O valor é calculado automaticamente a partir da tarifa do cliente; a
+                                dívida anterior aparece na factura só como informação (não se soma ao total).
                             </p>
                         </div>
                     ) : (
@@ -912,8 +918,9 @@ export default function Index({
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2">
+                            {editando.divida_anterior_incluida && (
                             <div>
-                                <InputLabel htmlFor="divida_anterior" value="Dívida anterior" />
+                                <InputLabel htmlFor="divida_anterior" value="Dívida anterior (factura antiga)" />
                                 <TextInput
                                     id="divida_anterior"
                                     type="number"
@@ -924,6 +931,7 @@ export default function Index({
                                     className="mt-1 block w-full"
                                 />
                             </div>
+                            )}
                             <div>
                                 <InputLabel htmlFor="multa" value="Multa" />
                                 <TextInput
@@ -957,7 +965,7 @@ export default function Index({
                             Novo total a pagar:{" "}
                             {formatMoney(
                                 Number(editando.valor_consumo) +
-                                    (Number(form.data.divida_anterior) || 0) +
+                                    (editando.divida_anterior_incluida ? Number(form.data.divida_anterior) || 0 : 0) +
                                     (Number(form.data.multa) || 0),
                             )}
                         </div>
@@ -1003,6 +1011,16 @@ export default function Index({
                         </p>
                     )}
 
+                    <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
+                        <input
+                            type="checkbox"
+                            checked={loteForm.data.enviar_email}
+                            onChange={(event) => loteForm.setData("enviar_email", event.target.checked)}
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
+                        />
+                        <span>Enviar logo por email aos clientes que têm email (os outros ficam de fora).</span>
+                    </label>
+
                     <div className="flex justify-end gap-3 pt-2">
                         <SecondaryButton type="button" onClick={() => setShowLoteModal(false)}>
                             Cancelar
@@ -1039,9 +1057,7 @@ export default function Index({
                             <SecondaryButton type="button" onClick={() => setParaAnular(null)}>
                                 Cancelar
                             </SecondaryButton>
-                            <DangerButton type="submit" disabled={anularForm.processing}>
-                                Anular factura
-                            </DangerButton>
+                            <FuseDanger label="Anular factura" doneLabel="A anular…" disabled={anularForm.processing || !anularForm.data.motivo_anulacao.trim()} onCommit={() => confirmarAnulacao()} />
                         </div>
                     </form>
                 )}
@@ -1154,6 +1170,18 @@ export default function Index({
                     </div>
                 )}
             </Modal>
+
+            <ConfirmDialog
+                show={Boolean(paraEnviar)}
+                onClose={() => setParaEnviar(null)}
+                onConfirm={() => {
+                    router.post(`/facturas/${paraEnviar.id}/email`, {}, { preserveScroll: true, onFinish: () => setParaEnviar(null) });
+                }}
+                tone="primary"
+                title="Enviar factura por email"
+                confirmLabel="Enviar"
+                description={paraEnviar ? `Enviar a factura ${paraEnviar.numero_factura} em PDF para ${paraEnviar.cliente?.email}?` : ""}
+            />
 
             <ConfirmDialog
                 show={Boolean(facturaParaPagar)}

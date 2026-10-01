@@ -14,6 +14,13 @@ return [
     |
     */
 
+    // Gmail (envio de facturas por OAuth2) — as credenciais ficam só no .env.
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

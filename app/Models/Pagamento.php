@@ -16,7 +16,7 @@ class Pagamento extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['valor_pago', 'metodo_pagamento', 'referencia_pagamento'])
+            ->logOnly(['valor_pago', 'metodo_pagamento', 'referencia_pagamento', 'pago_em'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('pagamento')
@@ -32,8 +32,24 @@ class Pagamento extends Model
         'valor_pago',
         'metodo_pagamento',
         'referencia_pagamento',
+        'pago_em',
+        'lote',
+        'origem_credito',
         'recebido_por',
     ];
+
+    protected $casts = [
+        'pago_em' => 'datetime',
+        'origem_credito' => 'boolean',
+    ];
+
+    protected static function booted(): void
+    {
+        // Sem data indicada, o pagamento é de agora.
+        static::creating(function (Pagamento $pagamento) {
+            $pagamento->pago_em ??= now();
+        });
+    }
 
     public function factura()
     {

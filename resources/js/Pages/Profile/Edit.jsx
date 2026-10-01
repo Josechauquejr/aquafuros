@@ -1,11 +1,11 @@
 import { Head, useForm, usePage } from "@inertiajs/react";
-import { KeyRound, Save, ShieldAlert, Trash2, UserCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronDown, KeyRound, Pencil, Save, ShieldAlert, Trash2, UserCircle, X } from "lucide-react";
+import { useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import DangerButton from "@/Components/DangerButton";
-import InlineNotice from "@/Components/InlineNotice";
+import FuseButton from "@/Components/FuseButton";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import Modal from "@/Components/Modal";
@@ -13,7 +13,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 const roleConfig = {
     administrador: { label: "Administrador", tone: "cyan" },
@@ -58,25 +58,73 @@ function CartaoCabecalho({ user, papel, delay }) {
     );
 }
 
+// Cada secção do perfil é um bloco à parte, numerado, com a sua própria acção
+// de gravar — assim nunca se grava uma coisa ao mexer noutra.
+function Seccao({ id, numero, icone: Icone, titulo, descricao, tom = "cyan", delay, children, className }) {
+    const perigo = tom === "rose";
+
+    return (
+        <AnimatedPanel delay={delay} className={cn("p-6", className)}>
+            <section id={id} className="scroll-mt-24" aria-labelledby={`${id}-titulo`}>
+                <div className="flex items-center gap-3">
+                    <span
+                        className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold",
+                            perigo
+                                ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                : "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300",
+                        )}
+                        aria-hidden="true"
+                    >
+                        {numero}
+                    </span>
+                    <div>
+                        <h3 id={`${id}-titulo`} className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
+                            <Icone
+                                className={cn("h-4 w-4", perigo ? "text-rose-600 dark:text-rose-400" : "text-cyan-700 dark:text-cyan-300")}
+                                aria-hidden="true"
+                            />
+                            {titulo}
+                        </h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{descricao}</p>
+                    </div>
+                </div>
+                {children}
+            </section>
+        </AnimatedPanel>
+    );
+}
+
 function InformacoesConta({ user, mustVerifyEmail, status, delay }) {
-    const [recentlySaved, setRecentlySaved] = useState(false);
+    // Os campos ficam bloqueados até carregar em "Editar dados" — evita
+    // alterações acidentais só por tocar num campo.
+    const [aEditar, setAEditar] = useState(false);
     const form = useForm({
         name: user.name || "",
         email: user.email || "",
         telefone: user.telefone || "",
+        current_password: "",
     });
     const verification = useForm({});
+    const mudouEmail = form.data.email.trim().toLowerCase() !== (user.email ?? "").toLowerCase();
+    const alterado = form.data.name !== (user.name ?? "") || form.data.telefone !== (user.telefone ?? "") || mudouEmail;
 
-    useEffect(() => {
-        if (status !== "profile-updated") return;
-        setRecentlySaved(true);
-        const timer = window.setTimeout(() => setRecentlySaved(false), 2500);
-        return () => window.clearTimeout(timer);
-    }, [status]);
+    const cancelar = () => {
+        form.reset();
+        form.clearErrors();
+        setAEditar(false);
+    };
 
     const submit = (event) => {
         event.preventDefault();
-        form.patch("/profile", { preserveScroll: true });
+        form.patch("/profile", {
+            preserveScroll: true,
+            onSuccess: () => {
+                form.reset("current_password");
+                setAEditar(false);
+            },
+            onError: () => form.reset("current_password"),
+        });
     };
 
     const resendVerification = (event) => {
@@ -85,26 +133,24 @@ function InformacoesConta({ user, mustVerifyEmail, status, delay }) {
     };
 
     return (
-        <AnimatedPanel delay={delay} className="p-6">
-            <div className="flex items-center gap-2">
-                <UserCircle className="h-5 w-5 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                <h3 className="font-semibold text-slate-950 dark:text-white">Informações da conta</h3>
-            </div>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Nome, contacto e endereço de email associados a esta conta.
-            </p>
-
+        <Seccao
+            id="dados"
+            numero="1"
+            icone={UserCircle}
+            titulo="Dados pessoais"
+            descricao="Nome, contacto e endereço de email associados a esta conta."
+            delay={delay}
+        >
             <form onSubmit={submit} className="mt-6 max-w-xl space-y-4">
-                <InlineNotice show={recentlySaved}>Perfil actualizado com sucesso.</InlineNotice>
-
                 <div>
                     <InputLabel htmlFor="name" value="Nome" />
                     <TextInput
                         id="name"
                         value={form.data.name}
-                        className="mt-1 block w-full"
+                        className="mt-1 block w-full disabled:opacity-70"
                         autoComplete="name"
                         required
+                        disabled={!aEditar}
                         onChange={(event) => form.setData("name", event.target.value)}
                     />
                     <InputError message={form.errors.name} className="mt-1" />
@@ -127,9 +173,10 @@ function InformacoesConta({ user, mustVerifyEmail, status, delay }) {
                             id="email"
                             type="email"
                             value={form.data.email}
-                            className="mt-1 block w-full"
+                            className="mt-1 block w-full disabled:opacity-70"
                             autoComplete="username"
                             required
+                            disabled={!aEditar}
                             onChange={(event) => form.setData("email", event.target.value)}
                         />
                         <InputError message={form.errors.email} className="mt-1" />
@@ -139,13 +186,32 @@ function InformacoesConta({ user, mustVerifyEmail, status, delay }) {
                         <TextInput
                             id="telefone"
                             value={form.data.telefone}
-                            className="mt-1 block w-full"
+                            className="mt-1 block w-full disabled:opacity-70"
                             placeholder="84 000 0000"
+                            disabled={!aEditar}
                             onChange={(event) => form.setData("telefone", event.target.value)}
                         />
                         <InputError message={form.errors.telefone} className="mt-1" />
                     </div>
                 </div>
+
+                {aEditar && mudouEmail && (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+                        <InputLabel htmlFor="confirmar_email_senha" value="Palavra-passe actual (obrigatória para mudar o email)" />
+                        <TextInput
+                            id="confirmar_email_senha"
+                            type="password"
+                            value={form.data.current_password}
+                            className="mt-1 block w-full"
+                            autoComplete="current-password"
+                            onChange={(event) => form.setData("current_password", event.target.value)}
+                        />
+                        <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                            O novo email terá de ser verificado de novo.
+                        </p>
+                        <InputError message={form.errors.current_password} className="mt-1" />
+                    </div>
+                )}
 
                 {mustVerifyEmail && !user.email_verified_at && (
                     <div className="text-sm text-slate-600 dark:text-slate-300">
@@ -165,46 +231,55 @@ function InformacoesConta({ user, mustVerifyEmail, status, delay }) {
                     </div>
                 )}
 
-                <div className="flex justify-end pt-2">
-                    <PrimaryButton disabled={form.processing}>
-                        <Save className="h-4 w-4" aria-hidden="true" />
-                        Guardar alterações
-                    </PrimaryButton>
+                <div className="flex justify-end gap-3 pt-2">
+                    {aEditar ? (
+                        <>
+                            <SecondaryButton type="button" onClick={cancelar}>
+                                <X className="h-4 w-4" aria-hidden="true" />
+                                Cancelar
+                            </SecondaryButton>
+                            <PrimaryButton disabled={form.processing || !alterado || (mudouEmail && !form.data.current_password)}>
+                                <Save className="h-4 w-4" aria-hidden="true" />
+                                Guardar alterações
+                            </PrimaryButton>
+                        </>
+                    ) : (
+                        <SecondaryButton type="button" onClick={() => setAEditar(true)}>
+                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                            Editar dados
+                        </SecondaryButton>
+                    )}
                 </div>
             </form>
-        </AnimatedPanel>
+        </Seccao>
     );
 }
 
-function Seguranca({ status, delay }) {
-    const [recentlySaved, setRecentlySaved] = useState(false);
+function Seguranca({ delay }) {
     const form = useForm({ current_password: "", password: "", password_confirmation: "" });
-
-    useEffect(() => {
-        if (status !== "password-updated") return;
-        setRecentlySaved(true);
-        const timer = window.setTimeout(() => setRecentlySaved(false), 2500);
-        return () => window.clearTimeout(timer);
-    }, [status]);
 
     const submit = (event) => {
         event.preventDefault();
-        form.put("/password", { preserveScroll: true, onSuccess: () => form.reset() });
+        form.put("/password", {
+            errorBag: "updatePassword",
+            preserveScroll: true,
+            onSuccess: () => form.reset(),
+            onError: () => form.reset("current_password"),
+        });
     };
 
+    const pronto = form.data.current_password && form.data.password && form.data.password_confirmation;
+
     return (
-        <AnimatedPanel delay={delay} className="p-6">
-            <div className="flex items-center gap-2">
-                <KeyRound className="h-5 w-5 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                <h3 className="font-semibold text-slate-950 dark:text-white">Segurança</h3>
-            </div>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Actualize a sua palavra-passe periodicamente para manter a conta segura.
-            </p>
-
+        <Seccao
+            id="seguranca"
+            numero="2"
+            icone={KeyRound}
+            titulo="Segurança"
+            descricao="Para mudar a palavra-passe tem de indicar primeiro a actual."
+            delay={delay}
+        >
             <form onSubmit={submit} className="mt-6 max-w-xl space-y-4">
-                <InlineNotice show={recentlySaved}>Palavra-passe actualizada com sucesso.</InlineNotice>
-
                 <div>
                     <InputLabel htmlFor="current_password" value="Palavra-passe actual" />
                     <TextInput
@@ -246,53 +321,94 @@ function Seguranca({ status, delay }) {
                 </div>
 
                 <div className="flex justify-end pt-2">
-                    <PrimaryButton disabled={form.processing}>
+                    <PrimaryButton disabled={form.processing || !pronto}>
                         <Save className="h-4 w-4" aria-hidden="true" />
                         Actualizar palavra-passe
                     </PrimaryButton>
                 </div>
             </form>
-        </AnimatedPanel>
+        </Seccao>
     );
 }
 
-function ZonaPerigo({ delay }) {
+function ZonaPerigo({ user, delay }) {
+    // Escondida por omissão: apagar a conta não deve estar à distância de um clique.
+    const [visivel, setVisivel] = useState(false);
     const [confirmando, setConfirmando] = useState(false);
-    const form = useForm({ password: "" });
+    const form = useForm({ password: "", confirmacao: "" });
+    const pronto = form.data.confirmacao === "ELIMINAR" && form.data.password.length > 0;
 
-    const submit = (event) => {
-        event.preventDefault();
+    const fechar = () => {
+        setConfirmando(false);
+        form.reset();
+        form.clearErrors();
+    };
+
+    const eliminar = () => {
         form.delete("/profile", {
+            errorBag: "userDeletion",
             preserveScroll: true,
-            onSuccess: () => setConfirmando(false),
-            onFinish: () => form.reset(),
+            onSuccess: fechar,
+            onError: () => form.reset("password"),
         });
     };
 
     return (
-        <AnimatedPanel delay={delay} className="border-rose-200 p-6 dark:border-rose-900/60">
-            <div className="flex items-center gap-2">
-                <ShieldAlert className="h-5 w-5 text-rose-600 dark:text-rose-400" aria-hidden="true" />
-                <h3 className="font-semibold text-slate-950 dark:text-white">Zona de perigo</h3>
-            </div>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Ao eliminar a conta, todos os dados associados são permanentemente removidos. Esta acção não
-                pode ser desfeita.
-            </p>
+        <Seccao
+            id="perigo"
+            numero="3"
+            icone={ShieldAlert}
+            titulo="Zona de perigo"
+            descricao="Acções que não podem ser desfeitas."
+            tom="rose"
+            delay={delay}
+            className="border-rose-200 dark:border-rose-900/60"
+        >
+            <button
+                type="button"
+                onClick={() => setVisivel((valor) => !valor)}
+                aria-expanded={visivel}
+                aria-controls="opcoes-perigo"
+                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+            >
+                <ChevronDown className={cn("h-4 w-4 transition-transform", visivel && "rotate-180")} aria-hidden="true" />
+                {visivel ? "Esconder opções avançadas" : "Mostrar opções avançadas"}
+            </button>
 
-            <div className="mt-4">
-                <DangerButton onClick={() => setConfirmando(true)}>
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    Eliminar conta
-                </DangerButton>
-            </div>
-
-            <Modal show={confirmando} onClose={() => setConfirmando(false)} title="Eliminar conta" maxWidth="md">
-                <form onSubmit={submit} className="space-y-4">
-                    <p className="text-sm text-slate-600 dark:text-slate-300">
-                        Introduza a sua palavra-passe para confirmar que deseja eliminar permanentemente a sua
-                        conta.
+            {visivel && (
+                <div id="opcoes-perigo" className="mt-4 rounded-md border border-rose-200 p-4 dark:border-rose-900/60">
+                    <h4 className="font-semibold text-slate-950 dark:text-white">Eliminar a minha conta</h4>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                        A conta deixa de poder entrar no sistema. Os registos que criou (leituras, facturas, recibos)
+                        mantêm-se. Para a recuperar terá de pedir a um administrador.
                     </p>
+                    <div className="mt-4">
+                        <DangerButton onClick={() => setConfirmando(true)}>
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            Eliminar conta…
+                        </DangerButton>
+                    </div>
+                </div>
+            )}
+
+            <Modal show={confirmando} onClose={fechar} title="Eliminar conta" maxWidth="md">
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                        Vai eliminar a conta <strong>{user.name}</strong>. Para confirmar, escreva{" "}
+                        <strong className="font-mono">ELIMINAR</strong>, introduza a palavra-passe e carregue no botão
+                        — o rastilho dá-lhe alguns segundos para desistir.
+                    </p>
+                    <div>
+                        <InputLabel htmlFor="delete_confirmacao" value="Escreva ELIMINAR" />
+                        <TextInput
+                            id="delete_confirmacao"
+                            value={form.data.confirmacao}
+                            className="mt-1 block w-full font-mono"
+                            autoComplete="off"
+                            onChange={(event) => form.setData("confirmacao", event.target.value)}
+                        />
+                        <InputError message={form.errors.confirmacao} className="mt-1" />
+                    </div>
                     <div>
                         <InputLabel htmlFor="delete_password" value="Palavra-passe" />
                         <TextInput
@@ -300,22 +416,32 @@ function ZonaPerigo({ delay }) {
                             type="password"
                             value={form.data.password}
                             className="mt-1 block w-full"
-                            placeholder="Palavra-passe"
+                            autoComplete="current-password"
                             onChange={(event) => form.setData("password", event.target.value)}
                         />
                         <InputError message={form.errors.password} className="mt-1" />
                     </div>
-                    <div className="flex justify-end gap-3 pt-2">
-                        <SecondaryButton type="button" onClick={() => setConfirmando(false)}>
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                        <SecondaryButton type="button" onClick={fechar}>
                             Cancelar
                         </SecondaryButton>
-                        <DangerButton type="submit" disabled={form.processing}>
-                            Eliminar conta
-                        </DangerButton>
+                        <FuseButton
+                            label="Eliminar conta"
+                            undoLabel="Desfazer"
+                            doneLabel="A eliminar…"
+                            icon={<Trash2 size={15} aria-hidden="true" />}
+                            background="#be123c"
+                            color="#fff1f2"
+                            fuseColor="#fbbf24"
+                            commitOn="fuseEnd"
+                            undoWindow={5000}
+                            disabled={!pronto || form.processing}
+                            onCommit={eliminar}
+                        />
                     </div>
-                </form>
+                </div>
             </Modal>
-        </AnimatedPanel>
+        </Seccao>
     );
 }
 
@@ -346,9 +472,24 @@ export default function Edit({ user, mustVerifyEmail }) {
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <CartaoCabecalho user={user} papel={papel} delay={0} />
+                    <nav aria-label="Secções do perfil" className="flex flex-wrap gap-2 text-sm font-medium">
+                        {[
+                            ["#dados", "Dados pessoais"],
+                            ["#seguranca", "Segurança"],
+                            ["#perigo", "Zona de perigo"],
+                        ].map(([href, rotulo]) => (
+                            <a
+                                key={href}
+                                href={href}
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-white"
+                            >
+                                {rotulo}
+                            </a>
+                        ))}
+                    </nav>
                     <InformacoesConta user={user} mustVerifyEmail={mustVerifyEmail} status={flash.status} delay={0.08} />
-                    <Seguranca status={flash.status} delay={0.16} />
-                    <ZonaPerigo delay={0.24} />
+                    <Seguranca delay={0.16} />
+                    <ZonaPerigo user={user} delay={0.24} />
                 </div>
             </div>
         </Layout>

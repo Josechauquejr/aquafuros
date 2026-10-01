@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
-import PeriodoFiltro from "@/Components/PeriodoFiltro";
+import FiltroPeriodo from "@/Components/FiltroPeriodo";
 import GraficoSerie, { FILTROS_MESES } from "@/Components/charts/GraficoSerie";
 import { itemVariants, listVariants } from "@/lib/motion";
 
@@ -33,8 +33,6 @@ export default function Painel({
         router.get("/dev/painel", { ...filtros, ...novosFiltros }, { preserveState: true, preserveScroll: true, replace: true });
     };
 
-    const mudarPeriodo = (periodo) => aplicarFiltros({ periodo, data_inicio: undefined, data_fim: undefined });
-    const mudarIntervalo = (data_inicio, data_fim) => aplicarFiltros({ periodo: "personalizado", data_inicio, data_fim });
 
     const totalDocumentos = documentosGerados.reduce((soma, d) => soma + d.valor, 0);
     const seccaoMaisUsada = usoPorSeccao[0];
@@ -60,14 +58,7 @@ export default function Painel({
                             Uso do sistema, documentos gerados, e quem mais acede.
                         </p>
                     </div>
-                    <PeriodoFiltro
-                        periodo={filtros.periodo}
-                        onChange={mudarPeriodo}
-                        dataInicio={filtros.data_inicio}
-                        dataFim={filtros.data_fim}
-                        onChangeIntervalo={mudarIntervalo}
-                        layoutId="dev-periodo-pill"
-                    />
+                    <FiltroPeriodo filtros={filtros} navegar={aplicarFiltros} />
                 </div>
             }
         >

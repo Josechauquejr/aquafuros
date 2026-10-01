@@ -1,4 +1,4 @@
-import { Link, useForm, usePage } from "@inertiajs/react";
+import { Link, router, useForm, usePage } from "@inertiajs/react";
 import { ChevronDown, LogOut, User } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
@@ -20,7 +20,9 @@ import {
     useSidebar,
 } from "@/Components/animate-ui/components/radix/sidebar";
 import ApplicationLogo from "@/Components/ApplicationLogo";
+import BranchedMenu from "@/Components/BranchedMenu";
 import Breadcrumbs from "@/Components/Breadcrumbs";
+import FlashToasts from "@/Components/FlashToasts";
 import ThemeToggle from "@/Components/ThemeToggle";
 
 function activo(url, href) {
@@ -44,6 +46,37 @@ function ItemMenu({ item, url }) {
     );
 }
 
+// Menu em árvore (BranchedMenu): cada categoria é um ramo, cada página uma folha.
+// O valor de cada folha é o seu href — escolher uma folha navega para lá.
+function MenuArvore({ groups, url }) {
+    const items = groups.map((grupo) => ({
+        label: grupo.categoria,
+        children: grupo.items.map((item) => ({
+            value: item.href,
+            label: item.label,
+            icon: <item.icon aria-hidden="true" className="h-4 w-4" />,
+        })),
+    }));
+    const todos = groups.flatMap((grupo) => grupo.items.map((item) => item.href));
+    // A mais específica ganha (ex.: /dev/logs/acessos antes de /dev).
+    const activa = todos.filter((href) => activo(url, href)).sort((a, b) => b.length - a.length)[0] ?? "";
+    const aberto = groups.map((grupo, indice) => (grupo.items.some((item) => item.href === activa) ? indice : -1)).filter((i) => i >= 0);
+
+    return (
+        <BranchedMenu
+            items={items}
+            defaultOpen={aberto.length ? aberto : groups.map((_, indice) => indice)}
+            defaultActive={activa}
+            onSelect={(valor) => router.visit(valor)}
+            color="hsl(var(--sidebar-foreground))"
+            accentColor="hsl(var(--sidebar-primary))"
+            lineColor="hsl(var(--sidebar-border))"
+            width={220}
+            className="px-1"
+        />
+    );
+}
+
 function MenuLateral({ groups, casa, empresa }) {
     const { url } = usePage();
 
@@ -59,8 +92,13 @@ function MenuLateral({ groups, casa, empresa }) {
             </SidebarHeader>
 
             <SidebarContent>
+                {/* Sidebar aberta: menu em árvore. Recolhida (só ícones): os botões
+                    com tooltip de sempre, que a árvore não consegue mostrar. */}
+                <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
+                    <MenuArvore groups={groups} url={url} />
+                </div>
                 {groups.map((grupo) => (
-                    <SidebarGroup key={grupo.categoria}>
+                    <SidebarGroup key={grupo.categoria} className="hidden group-data-[collapsible=icon]:block">
                         <SidebarGroupLabel>{grupo.categoria}</SidebarGroupLabel>
                         <SidebarGroupContent>
                             <SidebarMenu>
@@ -171,6 +209,7 @@ export default function AppShell({ groups, casa, chaveRecolhido, header, childre
 
     return (
         <SidebarProvider open={aberta} onOpenChange={alterar}>
+            <FlashToasts />
             <MenuLateral groups={groups} casa={casa} empresa={empresa} />
 
             <SidebarInset className="min-w-0 bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100">

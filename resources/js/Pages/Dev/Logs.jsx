@@ -6,7 +6,7 @@ import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import IconButton from "@/Components/IconButton";
 import Pagination from "@/Components/Pagination";
-import PeriodoFiltro from "@/Components/PeriodoFiltro";
+import FiltroPeriodo from "@/Components/FiltroPeriodo";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -73,14 +73,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
                     {aba === "acessos" ? (
                         <>
                             <AnimatedPanel delay={0.1} className="space-y-3 p-4">
-                                <PeriodoFiltro
-                                    periodo={filtros.periodo}
-                                    onChange={(periodo) => aplicarFiltros({ periodo, data_inicio: undefined, data_fim: undefined })}
-                                    dataInicio={filtros.data_inicio}
-                                    dataFim={filtros.data_fim}
-                                    onChangeIntervalo={(data_inicio, data_fim) => aplicarFiltros({ periodo: "personalizado", data_inicio, data_fim })}
-                                    layoutId="dev-logs-periodo-pill"
-                                />
+                                <FiltroPeriodo filtros={filtros} navegar={aplicarFiltros} />
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                                     <div className="relative flex-1">
                                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />

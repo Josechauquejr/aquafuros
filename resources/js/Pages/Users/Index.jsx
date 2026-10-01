@@ -169,8 +169,6 @@ export default function Index({ usuarios, papeis, filtros }) {
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
-                    <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
 
                     <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                         {metrics.map((metric, index) => (

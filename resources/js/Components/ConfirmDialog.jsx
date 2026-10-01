@@ -1,5 +1,5 @@
 import { AlertTriangle, HelpCircle } from "lucide-react";
-import DangerButton from "@/Components/DangerButton";
+import FuseDanger from "@/Components/FuseDanger";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
@@ -9,7 +9,7 @@ const toneConfig = {
     danger: {
         icone: AlertTriangle,
         iconeClasses: "bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400",
-        Botao: DangerButton,
+        Botao: null,
     },
     // Sugestão do próximo passo do fluxo (ex.: "factura emitida — pagar
     // agora?") — não é destrutiva, não deve parecer um aviso de perigo.
@@ -45,9 +45,13 @@ export default function ConfirmDialog({
                 <SecondaryButton type="button" onClick={onClose}>
                     {cancelLabel}
                 </SecondaryButton>
-                <Botao type="button" onClick={onConfirm}>
-                    {confirmLabel}
-                </Botao>
+                {Botao ? (
+                    <Botao type="button" onClick={onConfirm}>
+                        {confirmLabel}
+                    </Botao>
+                ) : (
+                    <FuseDanger label={confirmLabel} onCommit={onConfirm} />
+                )}
             </div>
         </Modal>
     );

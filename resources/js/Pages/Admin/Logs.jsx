@@ -109,8 +109,6 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
-                    <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
 
                     <AnimatedPanel delay={0.1} className="p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

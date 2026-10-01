@@ -86,10 +86,12 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
                     Tarifa mínima até {Number(tarifa.consumo_minimo_m3).toFixed(0)} m³
                 </p>
             )}
-            <div className="flex justify-between">
-                <span>Dívida anterior</span>
-                <span>{formatCurrency(factura.divida_anterior)}</span>
-            </div>
+            {factura.divida_anterior_incluida && (
+                <div className="flex justify-between">
+                    <span>Dívida anterior</span>
+                    <span>{formatCurrency(factura.divida_anterior)}</span>
+                </div>
+            )}
             <div className="flex justify-between">
                 <span>Multa</span>
                 <span>{formatCurrency(factura.multa)}</span>
@@ -98,6 +100,19 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
 
             <p className="text-center font-bold">TOTAL A PAGAR</p>
             <p className="text-center text-sm font-bold">{formatCurrency(factura.total_pagar)}</p>
+            {!factura.divida_anterior_incluida && Number(factura.divida_anterior) > 0 && (
+                <>
+                    <Linha />
+                    <div className="flex justify-between">
+                        <span>Facturas anteriores</span>
+                        <span>{formatCurrency(factura.divida_anterior)}</span>
+                    </div>
+                    <p className="text-center font-bold">TOTAL EM DÍVIDA</p>
+                    <p className="text-center text-sm font-bold">
+                        {formatCurrency(Number(factura.total_pagar) + Number(factura.divida_anterior))}
+                    </p>
+                </>
+            )}
             <Linha />
 
             <p className="text-center">

@@ -245,7 +245,6 @@ class LixeiraController extends Controller
             $cliente->pagamentos()->withTrashed()->forceDelete();
             $cliente->facturas()->withTrashed()->forceDelete();
             $cliente->leituras()->withTrashed()->forceDelete();
-            $cliente->divida()->delete();
             $cliente->forceDelete();
         });
     }

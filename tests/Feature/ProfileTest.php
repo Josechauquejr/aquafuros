@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -30,6 +31,7 @@ class ProfileTest extends TestCase
             ->patch('/profile', [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
+                'current_password' => 'password',
             ]);
 
         $response
@@ -69,6 +71,7 @@ class ProfileTest extends TestCase
             ->actingAs($user)
             ->delete('/profile', [
                 'password' => 'password',
+                'confirmacao' => 'ELIMINAR',
             ]);
 
         $response
@@ -76,7 +79,7 @@ class ProfileTest extends TestCase
             ->assertRedirect('/');
 
         $this->assertGuest();
-        $this->assertNull($user->fresh());
+        $this->assertSoftDeleted($user);
     }
 
     public function test_correct_password_must_be_provided_to_delete_account(): void
@@ -88,6 +91,7 @@ class ProfileTest extends TestCase
             ->from('/profile')
             ->delete('/profile', [
                 'password' => 'wrong-password',
+                'confirmacao' => 'ELIMINAR',
             ]);
 
         $response
@@ -95,5 +99,58 @@ class ProfileTest extends TestCase
             ->assertRedirect('/profile');
 
         $this->assertNotNull($user->fresh());
+    }
+
+    public function test_changing_email_requires_the_current_password(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from('/profile')
+            ->patch('/profile', ['name' => $user->name, 'email' => 'novo@example.com'])
+            ->assertSessionHasErrors('current_password');
+
+        $this->assertNotSame('novo@example.com', $user->fresh()->email);
+
+        $this->actingAs($user)
+            ->patch('/profile', ['name' => $user->name, 'email' => 'novo@example.com', 'current_password' => 'wrong'])
+            ->assertSessionHasErrors('current_password');
+    }
+
+    public function test_changing_only_the_name_does_not_ask_for_the_password(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->patch('/profile', ['name' => 'Outro Nome', 'email' => $user->email])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('Outro Nome', $user->fresh()->name);
+    }
+
+    public function test_deleting_the_account_requires_typing_the_confirmation_word(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from('/profile')
+            ->delete('/profile', ['password' => 'password', 'confirmacao' => 'eliminar'])
+            ->assertSessionHasErrorsIn('userDeletion', 'confirmacao');
+
+        $this->assertNotNull($user->fresh());
+    }
+
+    public function test_the_only_administrator_cannot_delete_their_own_account(): void
+    {
+        $this->seed(RoleSeeder::class);
+        $admin = User::factory()->create();
+        $admin->assignRole('administrador');
+
+        $this->actingAs($admin)
+            ->from('/profile')
+            ->delete('/profile', ['password' => 'password', 'confirmacao' => 'ELIMINAR'])
+            ->assertSessionHasErrorsIn('userDeletion', 'password');
+
+        $this->assertNotNull($admin->fresh());
     }
 }

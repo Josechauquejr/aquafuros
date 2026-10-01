@@ -25,6 +25,14 @@ const ROTULOS = {
     acessos: "Acessos",
     erros: "Erros",
     tarefas: "Checklist",
+    cobranca: "Cobrança",
+    notificacoes: "Mensagens",
+    ocorrencias: "Ocorrências",
+    producao: "Produção de água",
+    zonas: "Zonas",
+    email: "Email",
+    creditos: "Crédito",
+    recibo: "Recibo",
 };
 
 const SEM_LINK = new Set(["admin", "dev"]);

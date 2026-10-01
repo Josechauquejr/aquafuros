@@ -16,16 +16,16 @@ export const opcoesPeriodo = [
 const campoClasses =
     "block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
-function rotuloPeriodo(filtros) {
+export function rotuloPeriodo(filtros, opcoes = opcoesPeriodo) {
     if (filtros.periodo === "personalizado" && (filtros.data_inicio || filtros.data_fim)) {
         return `${filtros.data_inicio ? formatDate(filtros.data_inicio) : "…"} – ${
             filtros.data_fim ? formatDate(filtros.data_fim) : "…"
         }`;
     }
-    return opcoesPeriodo.find((opcao) => opcao.valor === filtros.periodo)?.rotulo ?? "Período";
+    return opcoes.find((opcao) => opcao.valor === filtros.periodo)?.rotulo ?? "Período";
 }
 
-function PainelPeriodo({ filtros, navegar, fechar }) {
+export function PainelPeriodo({ filtros, navegar, fechar, opcoes = opcoesPeriodo }) {
     const [inicio, setInicio] = useState(filtros.data_inicio ?? "");
     const [fim, setFim] = useState(filtros.data_fim ?? "");
     // Escolher "Personalizado" só mostra os campos; o pedido ao servidor
@@ -44,7 +44,7 @@ function PainelPeriodo({ filtros, navegar, fechar }) {
 
     return (
         <div className="space-y-1">
-            {opcoesPeriodo.map((opcao) => (
+            {opcoes.map((opcao) => (
                 <button
                     key={opcao.valor}
                     type="button"

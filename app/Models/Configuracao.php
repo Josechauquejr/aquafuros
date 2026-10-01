@@ -42,6 +42,16 @@ class Configuracao extends Model
         return (float) (static::where('chave', $chave)->value('valor') ?? $omissao);
     }
 
+    /** Prazos e limites editáveis em Tarifas > Regras gerais de cobrança (com os valores de origem). */
+    public static function regrasDeCobranca(): array
+    {
+        return [
+            'dias_vencimento' => (int) static::valor('dias_vencimento', 15),
+            'leituras_dia_limite' => (int) static::valor('leituras_dia_limite', 25),
+            'pagamento_dias_retroactivos' => (int) static::valor('pagamento_dias_retroactivos', 7),
+        ];
+    }
+
     public static function definir(string $chave, float $valor): void
     {
         static::updateOrCreate(['chave' => $chave], ['valor' => $valor]);

@@ -101,18 +101,6 @@ class FacturacaoSeeder extends Seeder
 
                 $factura->update(['estado' => $resultado === 'paga' ? 'paga' : ($resultado === 'parcial' ? 'parcial' : 'pendente')]);
 
-                $saldoRestante = round((float) $factura->total_pagar - $valorPago, 2);
-                $tarifa = $cliente->tarifa;
-
-                Divida::updateOrCreate(
-                    ['cliente_id' => $cliente->id],
-                    [
-                        'valor_divida' => $saldoRestante,
-                        'meses_atraso' => $saldoRestante > 0 ? (($cliente->divida->meses_atraso ?? 0) + 1) : 0,
-                        'em_corte' => $saldoRestante >= (float) $tarifa->limiar_corte,
-                        'data_ultimo_pagamento' => $valorPago > 0 ? now() : $cliente->divida?->data_ultimo_pagamento,
-                    ],
-                );
 
                 $leituraAnterior = $leituraActual;
             }

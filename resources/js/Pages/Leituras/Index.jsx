@@ -20,6 +20,7 @@ import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import KpiCard from "@/Components/KpiCard";
+import ResumoMes from "@/Components/ResumoMes";
 import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -176,7 +177,7 @@ const detalheLeitura = {
     ),
 };
 
-export default function Index({ leituras, clientes, totais, filtros }) {
+export default function Index({ leituras, clientes, totais, resumoMes, mesReferencia, pendentesTotal = 0, filtros }) {
     const { flash, auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador");
     const [showModal, setShowModal] = useState(false);
@@ -191,7 +192,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
     const form = useForm(formVazio);
 
     const metrics = [
-        { label: "Total de leituras", value: totais.total, icon: Waves, tone: "cyan" },
+        { label: "Leituras do mês", value: totais.total, icon: Waves, tone: "cyan" },
         { label: "Confirmadas", value: totais.confirmadas, icon: CheckCircle2, tone: "emerald" },
         { label: "Pendentes de confirmação", value: totais.pendentes, icon: Clock, tone: "amber" },
         { label: "Confirmadas sem factura", value: totais.semFactura, icon: FileText, tone: "rose" },
@@ -372,7 +373,7 @@ export default function Index({ leituras, clientes, totais, filtros }) {
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        {totais.pendentes > 0 && (
+                        {pendentesTotal > 0 && (
                             <AnimatedButton variant="secondary" onClick={() => setConfirmarTodasAberto(true)}>
                                 <CheckCheck className="h-4 w-4" aria-hidden="true" />
                                 Confirmar todas
@@ -396,8 +397,8 @@ export default function Index({ leituras, clientes, totais, filtros }) {
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <InlineNotice show={Boolean(flash.status)}>{flash.status}</InlineNotice>
-                    <InlineNotice show={Boolean(flash.error)} tone="error">{flash.error}</InlineNotice>
+
+                    <ResumoMes rota="/leituras" mesReferencia={mesReferencia} resumo={resumoMes} filtros={filtros} />
 
                     <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                         {metrics.map((metric, index) => (

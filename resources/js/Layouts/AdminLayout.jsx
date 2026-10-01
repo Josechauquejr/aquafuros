@@ -1,5 +1,5 @@
 import { usePage } from "@inertiajs/react";
-import { Banknote, FileText, Gauge, PieChart, QrCode, SlidersHorizontal, Trash2, Users, Waves } from "lucide-react";
+import { Banknote, BellRing, Droplets, FileText, Gauge, Hammer, HandCoins, Mail, MapPin, PieChart, QrCode, SlidersHorizontal, Trash2, Users, Waves } from "lucide-react";
 import AppShell from "@/Components/AppShell";
 
 // Layout partilhado por administrador, gestor, caixa e técnico — o
@@ -23,9 +23,20 @@ const navGroups = [
         ],
     },
     {
+        categoria: "Cobrança e operação",
+        items: [
+            { label: "Cobrança", href: "/cobranca", icon: HandCoins, roles: ["administrador", "gestor"] },
+            { label: "Mensagens", href: "/notificacoes", icon: BellRing, roles: ["administrador", "gestor"] },
+            { label: "Ocorrências", href: "/ocorrencias", icon: Hammer, roles: ["administrador", "gestor", "tecnico"] },
+            { label: "Produção de água", href: "/producao", icon: Droplets, roles: ["administrador", "gestor", "tecnico"] },
+        ],
+    },
+    {
         categoria: "Administração",
         items: [
-            { label: "KPIs", href: "/admin/kpis", icon: PieChart, roles: ["administrador"] },
+            { label: "KPIs", href: "/admin/kpis", icon: PieChart, roles: ["administrador", "gestor"] },
+            { label: "Zonas", href: "/zonas", icon: MapPin, roles: ["administrador"] },
+            { label: "Email", href: "/admin/email", icon: Mail, roles: ["administrador"] },
             { label: "Valores e Regras", href: "/tarifas", icon: SlidersHorizontal, roles: ["administrador"] },
             { label: "Lixeira", href: "/lixeira", icon: Trash2, roles: ["administrador"] },
         ],

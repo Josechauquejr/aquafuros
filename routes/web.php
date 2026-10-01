@@ -18,6 +18,13 @@ use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\PagamentoController;
 use App\Http\Controllers\LeituraController;
 use App\Http\Controllers\VerificacaoController;
+use App\Http\Controllers\CobrancaController;
+use App\Http\Controllers\CreditoController;
+use App\Http\Controllers\NotificacaoController;
+use App\Http\Controllers\OcorrenciaController;
+use App\Http\Controllers\ProducaoController;
+use App\Http\Controllers\ZonaController;
+use App\Http\Controllers\EmailConfigController;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
 
@@ -59,6 +66,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Antes do resource: evita que "taxa-ligacao" seja capturado pelo
         // wildcard {tarifa} de PUT tarifas/{tarifa}.
         Route::put('tarifas/taxa-ligacao', [TarifaController::class, 'actualizarTaxaLigacao'])->name('tarifas.taxa-ligacao');
+        Route::put('tarifas/regras', [TarifaController::class, 'actualizarRegras'])->name('tarifas.regras');
         Route::resource('tarifas', TarifaController::class)->only(['index', 'store', 'update', 'destroy']);
 
         // Lixeiras (30 dias para restaurar/apagar definitivamente) — só o
@@ -84,11 +92,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Rotas de segmento fixo (emitir-lote, imprimir-lote) têm de vir ANTES do
         // resource, senão o {factura} do resource captura-as como se fossem um ID.
         Route::post('facturas/emitir-lote', [FacturaController::class, 'emitirLote'])->name('facturas.emitir-lote');
+        Route::post('facturas/email-lote', [FacturaController::class, 'enviarEmailLote'])->name('facturas.email-lote');
         Route::get('facturas/imprimir-lote', [FacturaController::class, 'imprimirLote'])->name('facturas.imprimir-lote');
         Route::get('clientes/{cliente}/imprimir', [ClienteController::class, 'imprimir'])->name('clientes.imprimir');
         Route::resource('clientes', ClienteController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('facturas', FacturaController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::get('facturas/{factura}/imprimir', [FacturaController::class, 'imprimir'])->name('facturas.imprimir');
+        Route::get('facturas/{factura}/pdf', [FacturaController::class, 'pdf'])->name('facturas.pdf');
+        Route::post('facturas/{factura}/email', [FacturaController::class, 'enviarEmail'])->name('facturas.email');
+
+        // Cobrança: quem está em atraso, contactos feitos e promessas de pagamento.
+        Route::get('cobranca', [CobrancaController::class, 'index'])->name('cobranca.index');
+        Route::post('cobranca/contactos', [CobrancaController::class, 'storeContacto'])->name('cobranca.contactos.store');
+        Route::put('cobranca/promessas/{promessa}/cancelar', [CobrancaController::class, 'cancelarPromessa'])->name('cobranca.promessas.cancelar');
+
+        // Mensagens aos clientes (lembretes e avisos de atraso).
+        Route::get('notificacoes', [NotificacaoController::class, 'index'])->name('notificacoes.index');
+        Route::post('notificacoes/gerar', [NotificacaoController::class, 'gerar'])->name('notificacoes.gerar');
+        Route::post('notificacoes/{notificacao}/enviada', [NotificacaoController::class, 'marcarEnviada'])->name('notificacoes.enviada');
+        Route::delete('notificacoes/{notificacao}', [NotificacaoController::class, 'destroy'])->name('notificacoes.destroy');
     });
 
     // Caixa recebe pagamentos
@@ -96,6 +118,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('pagamentos/imprimir-lote', [PagamentoController::class, 'imprimirLote'])->name('pagamentos.imprimir-lote');
         Route::get('pagamentos/fecho-caixa', [PagamentoController::class, 'fechoCaixa'])->name('pagamentos.fecho-caixa');
         Route::post('pagamentos/fecho-caixa/confirmar', [PagamentoController::class, 'confirmarFecho'])->name('pagamentos.fecho-caixa.confirmar');
+        Route::post('creditos', [CreditoController::class, 'store'])->name('creditos.store');
+        Route::get('creditos/{credito}/recibo', [CreditoController::class, 'recibo'])->name('creditos.recibo');
+        Route::post('pagamentos/multiplo', [PagamentoController::class, 'storeMultiplo'])->name('pagamentos.multiplo');
+        Route::get('pagamentos/lote/{lote}/recibo', [PagamentoController::class, 'reciboLote'])->name('pagamentos.recibo-lote');
+        Route::delete('pagamentos/lote/{lote}', [PagamentoController::class, 'destroyLote'])->name('pagamentos.lote.destruir');
         Route::resource('pagamentos', PagamentoController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::get('pagamentos/{pagamento}/imprimir', [PagamentoController::class, 'imprimir'])->name('pagamentos.imprimir');
     });
@@ -104,14 +131,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['role:administrador|gestor|tecnico'])->group(function () {
         Route::put('leituras/confirmar-todas', [LeituraController::class, 'confirmarTodas'])->name('leituras.confirmar-todas');
         Route::resource('leituras', LeituraController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        // Avarias e reclamações; produção de água (para as perdas).
+        Route::resource('ocorrencias', OcorrenciaController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::get('producao', [ProducaoController::class, 'index'])->name('producao.index');
+        Route::post('producao', [ProducaoController::class, 'store'])->name('producao.store');
+        Route::delete('producao/{producao}', [ProducaoController::class, 'destroy'])->name('producao.destroy');
     });
 
     // Página principal e KPIs do administrador — exclusivo dele, o
     // desenvolvedor não acede a esta área.
     Route::middleware(['role:administrador'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
-        Route::get('dashboard/exportar', [AdminDashboardController::class, 'exportar'])->name('dashboard.exportar');
+    });
+
+    // KPIs: o gestor vê a análise; os de controlo (anulações, estornos, caixa) ficam só para o administrador.
+    Route::middleware(['role:administrador|gestor'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('kpis', [AdminDashboardController::class, 'kpis'])->name('kpis');
+        Route::get('kpis/exportar', [AdminDashboardController::class, 'exportarKpis'])->name('kpis.exportar');
+    });
+
+    Route::middleware(['role:administrador'])->group(function () {
+        Route::resource('zonas', ZonaController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        // Ligação do Gmail para enviar as facturas por email.
+        Route::get('admin/email', [EmailConfigController::class, 'index'])->name('email.index');
+        Route::get('admin/email/google', [EmailConfigController::class, 'ligar'])->name('email.ligar');
+        Route::get('admin/email/google/callback', [EmailConfigController::class, 'callback'])->name('email.callback');
+        Route::delete('admin/email/google', [EmailConfigController::class, 'desligar'])->name('email.desligar');
+        Route::post('admin/email/teste', [EmailConfigController::class, 'testar'])->name('email.testar');
     });
 
     Route::middleware(['role:gestor'])->prefix('gestor')->name('gestor.')->group(function () {

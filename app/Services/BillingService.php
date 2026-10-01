@@ -13,7 +13,9 @@ class BillingService
         $valorConsumo    = $this->calcularValorConsumo($consumo, $cliente);
         $dividaAnterior  = $this->calcularDividaAnterior($cliente);
         $multa           = $this->calcularMulta($dividaAnterior, $cliente);
-        $totalPagar      = $valorConsumo + $dividaAnterior + $multa;
+        // A dívida anterior é só informativa: as facturas antigas continuam em
+        // aberto por si, por isso não entra no total (senão contava a dobrar).
+        $totalPagar      = $valorConsumo + $multa;
 
         return [
             'consumo_m3'      => round($consumo, 2),

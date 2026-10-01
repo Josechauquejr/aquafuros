@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Credito;
 use App\Models\Factura;
 use App\Models\Pagamento;
 use Illuminate\Support\Carbon;
@@ -19,14 +20,17 @@ class CaixaDashboardController extends Controller
         $utilizador = request()->user();
         $hoje = Carbon::now()->toDateString();
 
+        // Só dinheiro que entrou: sem os pagamentos feitos com crédito, com os adiantamentos recebidos.
         $pagamentosHoje = Pagamento::where('recebido_por', $utilizador->id)
+            ->where('origem_credito', false)
             ->whereDate('created_at', $hoje)
             ->get();
+        $adiantamentosHoje = Credito::where('tipo', 'entrada')->where('recebido_por', $utilizador->id)->whereDate('created_at', $hoje)->get();
 
         return Inertia::render('Caixa/Dashboard', [
             'resumoHoje' => [
-                'totalRecebido' => (float) $pagamentosHoje->sum('valor_pago'),
-                'quantidade' => $pagamentosHoje->count(),
+                'totalRecebido' => (float) $pagamentosHoje->sum('valor_pago') + (float) $adiantamentosHoje->sum('valor'),
+                'quantidade' => $pagamentosHoje->count() + $adiantamentosHoje->count(),
             ],
             'ultimosPagamentos' => Pagamento::where('recebido_por', $utilizador->id)
                 ->with(['cliente' => fn ($q) => $q->withTrashed()])

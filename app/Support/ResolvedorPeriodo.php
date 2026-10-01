@@ -5,7 +5,7 @@ namespace App\Support;
 use Illuminate\Support\Carbon;
 
 /**
- * Resolve um período nomeado (hoje/semana/mes/personalizado/todos) num
+ * Resolve (relativamente a hoje, ou a uma data de referência) um período nomeado (hoje/semana/mes/ano/personalizado/todos) num
  * intervalo de datas concreto, e também o intervalo equivalente
  * imediatamente anterior — para permitir comparações período-a-período
  * (KPIs) sem duplicar esta lógica em cada controller.
@@ -15,12 +15,14 @@ class ResolvedorPeriodo
     /**
      * @return array{inicio: Carbon, fim: Carbon, anteriorInicio: Carbon, anteriorFim: Carbon}
      */
-    public static function resolver(string $periodo, ?string $dataInicio = null, ?string $dataFim = null): array
+    public static function resolver(string $periodo, ?string $dataInicio = null, ?string $dataFim = null, ?Carbon $referencia = null): array
     {
-        $hoje = Carbon::now();
+        // `referencia`: o "hoje" do período (um mês passado escolhido nos KPIs).
+        $hoje = $referencia?->copy() ?? Carbon::now();
 
         [$inicio, $fim] = match ($periodo) {
             'hoje' => [$hoje->copy()->startOfDay(), $hoje->copy()->endOfDay()],
+            'ano' => [$hoje->copy()->startOfYear(), $hoje->copy()->endOfYear()],
             'semana' => [$hoje->copy()->startOfWeek(), $hoje->copy()->endOfWeek()],
             'personalizado' => [
                 $dataInicio ? Carbon::parse($dataInicio)->startOfDay() : $hoje->copy()->startOfMonth(),

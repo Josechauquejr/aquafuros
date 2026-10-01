@@ -42,6 +42,29 @@ class ListaQuery
     }
 
     /**
+     * Como periodo(), mas se o utilizador escolheu um mês no seletor (?mes=AAAA-MM)
+     * a lista mostra só esse mês e o filtro de período deixa de se aplicar —
+     * senão "este mês" por omissão esconderia tudo o que não fosse do mês actual.
+     * `$colunaMes`/`$colunaAno` são para listas com mês/ano próprios (leituras).
+     */
+    public static function periodoOuMes(Builder $query, Request $request, string $coluna, string $padrao = 'todos', ?array $colunaMesAno = null): array
+    {
+        if (! MesReferencia::foiPedido($request)) {
+            return self::periodo($query, $request, $coluna, $padrao);
+        }
+
+        $mes = MesReferencia::resolver($request);
+
+        if ($colunaMesAno) {
+            $query->where($colunaMesAno[0], $mes->month)->where($colunaMesAno[1], $mes->year);
+        } else {
+            $query->whereBetween($coluna, [$mes->copy()->startOfMonth(), $mes->copy()->endOfMonth()]);
+        }
+
+        return ['periodo' => 'todos', 'data_inicio' => null, 'data_fim' => null];
+    }
+
+    /**
      * Aplica `?periodo=...&data_inicio=...&data_fim=...` sobre uma coluna de data.
      *
      * @return array{periodo: string, data_inicio: ?string, data_fim: ?string}

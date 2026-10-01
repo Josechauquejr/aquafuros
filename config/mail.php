@@ -37,6 +37,11 @@ return [
 
     'mailers' => [
 
+        // Gmail pela API (OAuth2) — ver Administração > Email.
+        'gmail' => [
+            'transport' => 'gmail',
+        ],
+
         'smtp' => [
             'transport' => 'smtp',
             'scheme' => env('MAIL_SCHEME'),

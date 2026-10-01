@@ -185,6 +185,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                                         const Icon = evento.icon;
                                         const aberto = expandido === registo.id;
                                         const temAlteracoes = Object.keys(registo.properties?.attributes ?? {}).length > 0;
+                                        const podeReverter = registo.log_name === "cliente" && registo.event === "updated" && Object.keys(registo.properties?.old ?? {}).length > 0;
 
                                         return (
                                             <motion.div key={registo.id} variants={itemVariants} className="p-4 sm:px-6">
@@ -223,7 +224,16 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                                                         )}
                                                     </div>
                                                 </button>
-                                                {aberto && <Alteracoes propriedades={registo.properties} />}
+                                                {aberto && (
+                                                    <>
+                                                        <Alteracoes propriedades={registo.properties} />
+                                                        {podeReverter && (
+                                                            <button type="button" onClick={() => router.post(`/clientes/historico/${registo.id}/reverter`, {}, { preserveScroll: true })} className="mt-3 text-xs font-semibold text-amber-700 underline-offset-2 hover:underline dark:text-amber-300">
+                                                                Repor valores anteriores
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                )}
                                             </motion.div>
                                         );
                                     })}

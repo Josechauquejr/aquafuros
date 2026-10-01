@@ -23,9 +23,10 @@ class ZonaController extends Controller
     {
         $data = $request->validate(['nome' => 'required|string|max:100|unique:zonas,nome']);
 
-        Zona::create($data);
+        $zona = Zona::create($data);
 
-        return back()->with('status', 'Zona criada com sucesso.');
+        return back()->with('status', 'Zona criada com sucesso.')
+            ->with('zonaCriada', ['id' => $zona->id, 'nome' => $zona->nome]);
     }
 
     public function update(Request $request, Zona $zona)

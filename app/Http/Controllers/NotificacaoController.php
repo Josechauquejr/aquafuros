@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\CobrancaMail;
 use App\Models\Notificacao;
-use App\Support\Mensagens;
 use App\Support\Notificacoes;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
-/** Fila de mensagens aos clientes: ver, gerar, abrir no WhatsApp e marcar como enviadas. */
+/** Emails de cobrança aos clientes: ver a fila, gerar, enviar ou reenviar e descartar. */
 class NotificacaoController extends Controller
 {
     public function index(Request $request)
@@ -22,7 +22,9 @@ class NotificacaoController extends Controller
         }
 
         $pagina = $query->paginate(20)->withQueryString();
-        $pagina->getCollection()->each(fn (Notificacao $n) => $n->whatsapp = Mensagens::whatsappUrl($n->telefone, $n->mensagem));
+        $pagina->getCollection()->each(function (Notificacao $n) {
+            $n->dias_atraso = $n->factura ? CobrancaMail::diasDeAtraso($n->factura) : null;
+        });
 
         return Inertia::render('Notificacoes/Index', [
             'notificacoes' => $pagina,
@@ -31,32 +33,36 @@ class NotificacaoController extends Controller
                 'enviada' => Notificacao::where('estado', 'enviada')->count(),
                 'falhou' => Notificacao::where('estado', 'falhou')->count(),
             ],
-            'driver' => config('notificacoes.driver'),
+            'automatico' => Notificacoes::automaticas(),
             'filtros' => ['estado' => $estado],
         ]);
     }
 
-    public function gerar()
+    /** Gera os emails devidos hoje e envia-os já. */
+    public function gerar(Request $request)
     {
         $criadas = Notificacoes::gerar();
-        $enviadas = Notificacoes::enviarPendentes();
+        $enviadas = Notificacoes::enviarPendentes('manual', $request->user()->id);
 
-        return back()->with('status', $criadas === 0
-            ? 'Não há mensagens novas para gerar hoje.'
-            : "{$criadas} mensagem(ns) gerada(s)".($enviadas ? " e {$enviadas} enviada(s)." : '.'));
+        return back()->with('status', $criadas === 0 && $enviadas === 0
+            ? 'Não há emails de cobrança para enviar hoje.'
+            : "{$criadas} email(s) gerado(s), {$enviadas} enviado(s).");
     }
 
-    public function marcarEnviada(Notificacao $notificacao)
+    /** Envia (ou reenvia, se tinha falhado) um email da fila. */
+    public function enviar(Request $request, Notificacao $notificacao)
     {
-        $notificacao->update(['estado' => 'enviada', 'enviada_em' => now(), 'erro' => null]);
-
-        return back();
+        return Notificacoes::enviar($notificacao, 'manual', $request->user()->id)
+            ? back()->with('status', "Email enviado para {$notificacao->email}.")
+            : back()->with('error', $notificacao->exists
+                ? 'Não foi possível enviar: '.($notificacao->fresh()?->erro ?? 'erro desconhecido')
+                : 'A factura já foi paga — o aviso foi retirado.');
     }
 
     public function destroy(Notificacao $notificacao)
     {
         $notificacao->delete();
 
-        return back()->with('status', 'Mensagem descartada.');
+        return back()->with('status', 'Email descartado.');
     }
 }

@@ -16,7 +16,7 @@ class Leitura extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['leitura_actual', 'confirmado'])
+            ->logOnly(['leitura_actual', 'confirmado', 'motivo_anulacao'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('leitura')
@@ -34,7 +34,16 @@ class Leitura extends Model
         'confirmado',
         'confirmado_por',
         'confirmado_em',
-        'registado_por'
+        'registado_por',
+        'motivo_anulacao',
+        'anulada_por',
+        'anulada_em',
+    ];
+
+    protected $casts = [
+        'confirmado' => 'boolean',
+        'confirmado_em' => 'datetime',
+        'anulada_em' => 'datetime',
     ];
 
     // Uma leitura pertence a um cliente

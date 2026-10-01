@@ -26,11 +26,12 @@ const ROTULOS = {
     erros: "Erros",
     tarefas: "Checklist",
     cobranca: "Cobrança",
-    notificacoes: "Mensagens",
+    notificacoes: "Emails de cobrança",
     ocorrencias: "Ocorrências",
     producao: "Produção de água",
     zonas: "Zonas",
     email: "Email",
+    emails: "Emails enviados",
     creditos: "Crédito",
     recibo: "Recibo",
 };

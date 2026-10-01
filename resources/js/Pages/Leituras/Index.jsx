@@ -1,5 +1,6 @@
 import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
+    Ban,
     CheckCheck,
     CheckCircle2,
     Clock,
@@ -26,6 +27,8 @@ import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
+import FuseDanger from "@/Components/FuseDanger";
+import Textarea from "@/Components/Textarea";
 import TextInput from "@/Components/TextInput";
 import { formatDate, formatDateTime, formatNumero, formatVolume } from "@/lib/utils";
 
@@ -177,12 +180,12 @@ const detalheLeitura = {
     ),
 };
 
-export default function Index({ leituras, clientes, totais, resumoMes, mesReferencia, pendentesTotal = 0, filtros }) {
+export default function Index({ leituras, clientes, totais, resumoMes, mesReferencia, pendentesTotal = 0, facturarAoConfirmar = false, filtros }) {
     const { flash, auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador");
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
-    const [paraEliminar, setParaEliminar] = useState(null);
+    const [paraAnular, setParaAnular] = useState(null);
     const [leituraParaFacturar, setLeituraParaFacturar] = useState(null);
     const [confirmarTodasAberto, setConfirmarTodasAberto] = useState(false);
     const [confirmandoTodas, setConfirmandoTodas] = useState(false);
@@ -190,6 +193,7 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
     const [confirmarSeleccao, setConfirmarSeleccao] = useState(null);
 
     const form = useForm(formVazio);
+    const anularForm = useForm({ motivo_anulacao: "" });
 
     const metrics = [
         { label: "Leituras do mês", value: totais.total, icon: Waves, tone: "cyan" },
@@ -201,7 +205,7 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
     const abrirNova = () => {
         setEditando(null);
         form.reset();
-        form.setData({ ...formVazio, cliente_id: clientes[0]?.id ?? "" });
+        form.setData({ ...formVazio, cliente_id: "" });
         form.clearErrors();
         setShowModal(true);
     };
@@ -269,7 +273,8 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
             router.put(
                 `/leituras/${leitura.id}`,
                 { leitura_actual: leitura.leitura_actual, confirmado: true },
-                { preserveScroll: true, onSuccess: () => setLeituraParaFacturar(leitura) },
+                // Se a factura sai sozinha ao confirmar, não há nada a perguntar.
+                { preserveScroll: true, onSuccess: () => !facturarAoConfirmar && setLeituraParaFacturar(leitura) },
             );
         comAviso(avisosDaLeitura(leitura.cliente_id, leitura.leitura_anterior, leitura.leitura_actual), confirmar);
     };
@@ -279,9 +284,19 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
         router.visit(`/facturas?leitura_id=${leituraParaFacturar.id}`);
     };
 
-    const confirmarEliminacao = () => {
-        if (!paraEliminar) return;
-        router.delete(`/leituras/${paraEliminar.id}`, { onFinish: () => setParaEliminar(null), preserveScroll: true });
+    const abrirAnulacao = (leitura) => {
+        anularForm.reset();
+        anularForm.clearErrors();
+        setParaAnular(leitura);
+    };
+
+    const confirmarAnulacao = (event) => {
+        event?.preventDefault();
+        if (!paraAnular) return;
+        anularForm.delete(`/leituras/${paraAnular.id}`, {
+            preserveScroll: true,
+            onSuccess: () => setParaAnular(null),
+        });
     };
 
     const confirmarTodas = () => {
@@ -333,15 +348,11 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
                     onClick: () => abrirEdicao(leitura),
                 },
                 {
-                    icone: Trash2,
-                    rotulo: "Apagar",
+                    icone: Ban,
+                    rotulo: "Anular",
                     tone: "danger",
                     separadorAntes: true,
-                    disabled: leitura.confirmado || Boolean(leitura.factura),
-                    motivo: leitura.factura
-                        ? "Tem factura associada — anule a factura para poder apagar."
-                        : "Leitura já confirmada — não pode ser apagada.",
-                    onClick: () => setParaEliminar(leitura),
+                    onClick: () => abrirAnulacao(leitura),
                 },
             ],
         };
@@ -518,25 +529,48 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
                         <SecondaryButton type="button" onClick={() => setShowModal(false)}>
                             Cancelar
                         </SecondaryButton>
-                        <PrimaryButton type="submit" disabled={form.processing}>
+                        <PrimaryButton type="submit" disabled={form.processing || (!editando && !form.data.cliente_id)}>
                             {editando ? "Guardar alterações" : "Registar leitura"}
                         </PrimaryButton>
                     </div>
                 </form>
             </Modal>
 
-            <ConfirmDialog
-                show={Boolean(paraEliminar)}
-                onClose={() => setParaEliminar(null)}
-                onConfirm={confirmarEliminacao}
-                title="Eliminar leitura"
-                confirmLabel="Eliminar"
-                description={
-                    paraEliminar
-                        ? `Tem a certeza que deseja eliminar a leitura de ${paraEliminar.cliente?.nome ?? "cliente removido"} (${meses[paraEliminar.mes - 1]}/${paraEliminar.ano})?`
-                        : ""
-                }
-            />
+            <Modal show={Boolean(paraAnular)} onClose={() => setParaAnular(null)} title="Anular leitura" maxWidth="md">
+                {paraAnular && (
+                    <form onSubmit={confirmarAnulacao} className="space-y-4">
+                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                            Anular a leitura de <strong>{paraAnular.cliente?.nome ?? "cliente removido"}</strong> (
+                            {meses[paraAnular.mes - 1]}/{paraAnular.ano})? Vai para a lixeira, não é apagada de vez
+                            {paraAnular.factura && (
+                                <>
+                                    , e a factura <strong>{paraAnular.factura.numero_factura}</strong> também será anulada
+                                </>
+                            )}
+                            .
+                        </p>
+                        <div>
+                            <InputLabel htmlFor="motivo_anulacao" value="Motivo da anulação" />
+                            <Textarea
+                                id="motivo_anulacao"
+                                required
+                                rows={3}
+                                value={anularForm.data.motivo_anulacao}
+                                onChange={(event) => anularForm.setData("motivo_anulacao", event.target.value)}
+                                className="mt-1 block w-full"
+                                placeholder="Ex.: leitura registada por engano, contador mal lido..."
+                            />
+                            <InputError message={anularForm.errors.motivo_anulacao} className="mt-1" />
+                        </div>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <SecondaryButton type="button" onClick={() => setParaAnular(null)}>
+                                Cancelar
+                            </SecondaryButton>
+                            <FuseDanger label="Anular leitura" doneLabel="A anular…" disabled={anularForm.processing || !anularForm.data.motivo_anulacao.trim()} onCommit={() => confirmarAnulacao()} />
+                        </div>
+                    </form>
+                )}
+            </Modal>
 
             <ConfirmDialog
                 show={Boolean(leituraParaFacturar)}

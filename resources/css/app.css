@@ -91,6 +91,27 @@
 
 /* Formulários dentro de modais: campos mais altos e texto maior. */
 @layer components {
+    .page-help-card {
+        transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+        .page-help-card:hover {
+            transform: translateY(-2px) scale(1.005) !important;
+            box-shadow: 0 20px 32px rgb(15 23 42 / 0.18);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .page-help-card {
+            transition: opacity 160ms ease;
+        }
+
+        .page-help-card:hover {
+            transform: none !important;
+        }
+    }
+
     .form-grande label {
         @apply text-sm font-semibold;
     }

@@ -133,7 +133,7 @@ class Factura extends Model
 
     public function ultimoEnvio()
     {
-        return $this->hasOne(EnvioEmail::class)->latestOfMany();
+        return $this->hasOne(EnvioEmail::class)->where('tipo', 'factura')->latestOfMany();
     }
 
     public function pagamentos(){

@@ -1,5 +1,5 @@
-import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Check, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import TextInput from "@/Components/TextInput";
 import { filtrarDifuso } from "@/lib/busca";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,12 @@ export default function ListaPesquisavel({
     vazioTexto = "Nenhum resultado encontrado.",
 }) {
     const [busca, setBusca] = useState("");
+    const seleccionadoRef = useRef(null);
+
+    // Ao abrir (ou ao escolher), a linha seleccionada fica à vista dentro da lista.
+    useEffect(() => {
+        seleccionadoRef.current?.scrollIntoView({ block: "nearest" });
+    }, [valorSeleccionado]);
 
     const grupos = useMemo(() => {
         // Pesquisa difusa (sem acentos, palavras parciais, pequenos erros);
@@ -50,6 +56,7 @@ export default function ListaPesquisavel({
     }, [itens, busca, obterOrdenacao, obterTexto]);
 
     const totalResultados = grupos.reduce((soma, g) => soma + g.itens.length, 0);
+    const escolhido = valorSeleccionado === "" || valorSeleccionado == null ? null : itens.find((item) => String(obterId(item)) === String(valorSeleccionado));
 
     return (
         <div>
@@ -62,9 +69,20 @@ export default function ListaPesquisavel({
                     value={busca}
                     onChange={(event) => setBusca(event.target.value)}
                     placeholder={placeholder}
-                    className="w-full pl-9"
+                    aria-label={placeholder}
+                    className="w-full"
+                    // Inline de propósito: dentro dos modais o .form-grande define o padding dos campos
+                    // e anulava o pl-9, deixando o texto escrito por cima da lupa.
+                    style={{ paddingLeft: "2.5rem" }}
                 />
             </div>
+
+            {escolhido && (
+                <p className="mt-2 flex items-center gap-2 rounded-md bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-100">
+                    <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="truncate">Escolhido: {obterOrdenacao(escolhido)}</span>
+                </p>
+            )}
 
             <div className="mt-2 max-h-64 overflow-y-auto rounded-md border border-slate-200 dark:border-slate-800">
                 {totalResultados === 0 ? (
@@ -84,6 +102,8 @@ export default function ListaPesquisavel({
                                         <button
                                             type="button"
                                             key={id}
+                                            ref={seleccionado ? seleccionadoRef : undefined}
+                                            aria-pressed={seleccionado}
                                             onClick={() => onSeleccionar(item)}
                                             className={cn(
                                                 "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition",

@@ -1,68 +1,42 @@
 import { usePage } from "@inertiajs/react";
-import { Banknote, BellRing, Droplets, FileText, Gauge, Hammer, HandCoins, Mail, MapPin, PieChart, QrCode, SlidersHorizontal, Trash2, Users, Waves } from "lucide-react";
+import { Banknote, Bell, BellRing, Droplets, FileText, Hammer, HandCoins, House, Mail, MapPin, PieChart, QrCode, Settings, SlidersHorizontal, Trash2, Users, Waves } from "lucide-react";
 import AppShell from "@/Components/AppShell";
 
-// Layout partilhado por administrador, gestor, caixa e técnico — o
-// desenvolvedor usa o DevLayout, totalmente à parte (nem partilha itens de
-// menu, nem rotas). `roles: undefined` = visível a qualquer um destes
-// quatro papéis. Espelha exactamente o gating de `role:` já aplicado às
-// rotas em routes/web.php — evita mostrar um link que devolveria 403.
 const navGroups = [
-    {
-        categoria: "Geral",
-        items: [{ label: "Página Principal", href: "/dashboard", icon: Gauge }],
-    },
-    {
-        categoria: "Facturação e Clientes",
-        items: [
-            { label: "Clientes", href: "/clientes", icon: Users, roles: ["administrador", "gestor"] },
-            { label: "Leituras", href: "/leituras", icon: Waves, roles: ["administrador", "gestor", "tecnico"] },
-            { label: "Facturas", href: "/facturas", icon: FileText, roles: ["administrador", "gestor"] },
-            { label: "Pagamentos", href: "/pagamentos", icon: Banknote, roles: ["administrador", "gestor", "caixa"] },
-            { label: "Ler QR Code", href: "/ler-qr", icon: QrCode, roles: ["administrador", "gestor", "caixa"] },
-        ],
-    },
-    {
-        categoria: "Cobrança e operação",
-        items: [
-            { label: "Cobrança", href: "/cobranca", icon: HandCoins, roles: ["administrador", "gestor"] },
-            { label: "Mensagens", href: "/notificacoes", icon: BellRing, roles: ["administrador", "gestor"] },
-            { label: "Ocorrências", href: "/ocorrencias", icon: Hammer, roles: ["administrador", "gestor", "tecnico"] },
-            { label: "Produção de água", href: "/producao", icon: Droplets, roles: ["administrador", "gestor", "tecnico"] },
-        ],
-    },
-    {
-        categoria: "Administração",
-        items: [
-            { label: "KPIs", href: "/admin/kpis", icon: PieChart, roles: ["administrador", "gestor"] },
-            { label: "Zonas", href: "/zonas", icon: MapPin, roles: ["administrador"] },
-            { label: "Email", href: "/admin/email", icon: Mail, roles: ["administrador"] },
-            { label: "Valores e Regras", href: "/tarifas", icon: SlidersHorizontal, roles: ["administrador"] },
-            { label: "Lixeira", href: "/lixeira", icon: Trash2, roles: ["administrador"] },
-        ],
-    },
+    { categoria: "Geral", items: [
+        { label: "Página Principal", href: "/dashboard", icon: House },
+        { label: "Notificações do sistema", href: "/notificacoes-sistema", icon: Bell, roles: ["administrador", "gestor"] },
+    ] },
+    { categoria: "Facturação e Clientes", items: [
+        { label: "Clientes", href: "/clientes", icon: Users, roles: ["administrador", "gestor"] },
+        { label: "Leituras", href: "/leituras", icon: Waves, roles: ["administrador", "gestor", "tecnico"] },
+        { label: "Facturas", href: "/facturas", icon: FileText, roles: ["administrador", "gestor"] },
+        { label: "Pagamentos", href: "/pagamentos", icon: Banknote, roles: ["administrador", "gestor", "caixa"] },
+        { label: "Ler QR Code", href: "/ler-qr", icon: QrCode, roles: ["administrador", "gestor", "caixa"] },
+    ] },
+    { categoria: "Cobrança e operação", items: [
+        { label: "Cobrança", href: "/cobranca", icon: HandCoins, roles: ["administrador", "gestor"] },
+        { label: "Ocorrências", href: "/ocorrencias", icon: Hammer, roles: ["administrador", "gestor", "tecnico"] },
+        { label: "Produção de água", href: "/producao", icon: Droplets, roles: ["administrador", "gestor", "tecnico"] },
+    ] },
+    { categoria: "Email", items: [
+        { label: "Emails de cobrança", href: "/notificacoes", icon: BellRing, roles: ["administrador", "gestor"] },
+        { label: "Emails enviados", href: "/emails", icon: Mail, roles: ["administrador", "gestor"] },
+        { label: "Configuração de email", href: "/admin/email", icon: Settings, roles: ["administrador"] },
+    ] },
+    { categoria: "Administração", items: [
+        { label: "KPIs", href: "/admin/kpis", icon: PieChart, roles: ["administrador", "gestor"] },
+        { label: "Zonas", href: "/zonas", icon: MapPin, roles: ["administrador"] },
+        { label: "Valores e Regras", href: "/tarifas", icon: SlidersHorizontal, roles: ["administrador"] },
+        { label: "Lixeira", href: "/lixeira", icon: Trash2, roles: ["administrador"] },
+    ] },
 ];
 
 function gruposVisiveis(roles) {
-    return navGroups
-        .map((grupo) => ({
-            ...grupo,
-            items: grupo.items.filter((item) => !item.roles || item.roles.some((papel) => roles.includes(papel))),
-        }))
-        .filter((grupo) => grupo.items.length > 0);
+    return navGroups.map((grupo) => ({ ...grupo, items: grupo.items.filter((item) => !item.roles || item.roles.some((papel) => roles.includes(papel))) })).filter((grupo) => grupo.items.length > 0);
 }
 
 export default function AdminLayout({ header, children }) {
     const { auth } = usePage().props;
-
-    return (
-        <AppShell
-            groups={gruposVisiveis(auth.roles ?? [])}
-            casa="/dashboard"
-            chaveRecolhido="aquafuros-sidebar-collapsed"
-            header={header}
-        >
-            {children}
-        </AppShell>
-    );
+    return <AppShell groups={gruposVisiveis(auth.roles ?? [])} casa="/dashboard" chaveRecolhido="aquafuros-sidebar-collapsed" header={header}>{children}</AppShell>;
 }

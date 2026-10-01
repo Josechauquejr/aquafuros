@@ -8,7 +8,8 @@ use App\Models\Credito;
 use App\Models\Factura;
 use App\Models\PromessaPagamento;
 use App\Models\Zona;
-use App\Support\Mensagens;
+use App\Mail\CobrancaMail;
+use App\Support\RegistoEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -33,6 +34,27 @@ class CobrancaController extends Controller
             ->withSum('pagamentos', 'valor_pago')
             ->get(['id', 'cliente_id', 'total_pagar', 'data_vencimento']);
 
+        $facturasPorPagar = Factura::whereIn('estado', ['pendente', 'parcial'])
+            ->where('data_vencimento', '<', now()->toDateString())
+            ->withSum('pagamentos', 'valor_pago')
+            ->get(['id', 'cliente_id', 'total_pagar'])
+            ->filter(fn (Factura $factura) => $factura->emFalta() > 0)
+            ->groupBy('cliente_id');
+
+        $clientesEmail = Cliente::whereIn('id', $facturasPorPagar->keys())
+            ->whereNotNull('email')->where('email', '!=', '')
+            ->orderBy('nome')->get(['id', 'nome', 'email'])->map(function (Cliente $cliente) use ($facturasPorPagar) {
+                $facturas = $facturasPorPagar->get($cliente->id, collect());
+
+                return [
+                    'id' => $cliente->id,
+                    'nome' => $cliente->nome,
+                    'email' => $cliente->email,
+                    'facturas' => $facturas->count(),
+                    'valor' => round((float) $facturas->sum(fn ($factura) => $factura->emFalta()), 2),
+                ];
+            })->values();
+
         $porCliente = $vencidas->groupBy('cliente_id')->map(fn ($facturas) => [
             'facturas' => $facturas->count(),
             'valor' => round((float) $facturas->sum(fn ($f) => max(0, (float) $f->total_pagar - (float) ($f->pagamentos_sum_valor_pago ?? 0))), 2),
@@ -54,7 +76,7 @@ class CobrancaController extends Controller
             $promessa = $promessas->get($clienteId)?->first();
 
             return [
-                'cliente' => ['id' => $cliente->id, 'nome' => $cliente->nome, 'numero_cliente' => $cliente->numero_cliente, 'telefone' => $cliente->telefone, 'estado' => $cliente->estado],
+                'cliente' => ['id' => $cliente->id, 'nome' => $cliente->nome, 'numero_cliente' => $cliente->numero_cliente, 'telefone' => $cliente->telefone, 'email' => $cliente->email, 'estado' => $cliente->estado],
                 'zona' => $cliente->zona?->nome,
                 'zona_id' => $cliente->zona_id,
                 ...$dados,
@@ -70,7 +92,6 @@ class CobrancaController extends Controller
                     'utilizador' => $c->utilizador?->name,
                 ])->values()->all(),
                 'credito' => Credito::saldoDe($cliente->id),
-                'whatsapp' => Mensagens::whatsappUrl($cliente->telefone, Mensagens::cobranca($cliente, $dados['valor'], $dados['facturas'])),
             ];
         })->filter()->values();
 
@@ -98,6 +119,7 @@ class CobrancaController extends Controller
 
         return Inertia::render('Cobranca/Index', [
             'linhas' => $linhas->sortByDesc('valor')->values()->take(150)->all(),
+            'clientesEmail' => $clientesEmail,
             'totais' => $totais,
             'zonas' => Zona::orderBy('nome')->get(['id', 'nome']),
             'canais' => ContactoCobranca::CANAIS,
@@ -143,6 +165,45 @@ class CobrancaController extends Controller
         }
 
         return back()->with('status', 'Contacto registado com sucesso.');
+    }
+
+    /**
+     * Email de cobrança a um cliente com TODAS as suas facturas vencidas (PDFs
+     * em anexo, até 5). Fica registado como contacto, para a lista de cobrança
+     * saber que ele foi contactado. Quem não tem email não recebe.
+     */
+    public function enviarEmail(Request $request, Cliente $cliente)
+    {
+        if (! filled($cliente->email)) {
+            return back()->with('error', 'Este cliente não tem email registado.');
+        }
+
+        $facturas = Factura::where('cliente_id', $cliente->id)
+            ->whereIn('estado', ['pendente', 'parcial'])->where('data_vencimento', '<', now()->toDateString())
+            ->orderBy('data_vencimento')->get()
+            ->filter(fn (Factura $f) => $f->emFalta() > 0)->values();
+
+        if ($facturas->isEmpty()) {
+            return back()->with('error', 'Este cliente já não tem facturas vencidas.');
+        }
+
+        $envio = RegistoEmail::enviar(new CobrancaMail('cobranca', $cliente, $facturas), $cliente->email, [
+            'tipo' => 'cobranca', 'origem' => 'manual', 'cliente_id' => $cliente->id, 'factura_id' => $facturas->count() === 1 ? $facturas->first()->id : null, 'enviado_por' => $request->user()->id,
+        ]);
+
+        if ($envio->estado !== 'enviado') {
+            return back()->with('error', 'Não foi possível enviar o email: '.mb_substr((string) $envio->erro, 0, 160));
+        }
+
+        ContactoCobranca::create([
+            'cliente_id' => $cliente->id,
+            'user_id' => $request->user()->id,
+            'canal' => 'email',
+            'resultado' => 'sem_resposta',
+            'nota' => 'Email de cobrança enviado: '.$facturas->count().' factura(s), '.number_format((float) $facturas->sum(fn ($f) => $f->emFalta()), 2, ',', ' ').' MZN.',
+        ]);
+
+        return back()->with('status', "Email de cobrança enviado para {$cliente->email}.");
     }
 
     public function cancelarPromessa(PromessaPagamento $promessa)

@@ -31,6 +31,7 @@ class FacturaMail extends Mailable
 
         return new Content(view: 'emails.factura', with: [
             'empresa' => EmpresaPerfil::atual(),
+            'logoUrl' => EmpresaPerfil::atual()->logotipo_url,
             'factura' => $this->factura,
             'periodo' => self::MESES[$this->factura->mes - 1].' de '.$this->factura->ano,
             'consumo' => $leitura ? max(0.0, (float) $leitura->leitura_actual - (float) $leitura->leitura_anterior) : null,

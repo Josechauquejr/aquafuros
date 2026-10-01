@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
+import { createPortal } from "react-dom";
 import { MoreVertical } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -12,12 +13,43 @@ import { cn } from "@/lib/utils";
 export default function ActionsMenu({ children, label = "Mais acções", align = "right" }) {
     const [open, setOpen] = useState(false);
     const containerRef = useRef(null);
+    const menuRef = useRef(null);
+    const [posicao, setPosicao] = useState(null);
+
+    useLayoutEffect(() => {
+        if (!open || !containerRef.current) return;
+
+        const actualizar = () => {
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+
+            const alturaMenu = Math.min(menuRef.current?.offsetHeight ?? 336, window.innerHeight - 24);
+            const espacoAbaixo = window.innerHeight - rect.bottom;
+            const abrirAcima = espacoAbaixo < alturaMenu + 12 && rect.top > espacoAbaixo;
+
+            setPosicao({
+                top: abrirAcima ? undefined : rect.bottom + 4,
+                bottom: abrirAcima ? window.innerHeight - rect.top + 4 : undefined,
+                left: align === "right" ? undefined : rect.left,
+                right: align === "right" ? window.innerWidth - rect.right : undefined,
+                origem: abrirAcima ? "bottom right" : "top right",
+            });
+        };
+
+        actualizar();
+        window.addEventListener("resize", actualizar);
+        window.addEventListener("scroll", actualizar, true);
+        return () => {
+            window.removeEventListener("resize", actualizar);
+            window.removeEventListener("scroll", actualizar, true);
+        };
+    }, [align, open]);
 
     useEffect(() => {
         if (!open) return;
 
         const fecharFora = (event) => {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+            if (containerRef.current && !containerRef.current.contains(event.target) && !menuRef.current?.contains(event.target)) {
                 setOpen(false);
             }
         };
@@ -46,23 +78,25 @@ export default function ActionsMenu({ children, label = "Mais acções", align =
             >
                 <MoreVertical className="h-5 w-5" aria-hidden="true" />
             </button>
-            <AnimatePresence>
-                {open && (
+            {typeof document !== "undefined" && createPortal(
+                <AnimatePresence>
+                    {open && posicao && (
                     <motion.div
+                        ref={menuRef}
                         initial={{ opacity: 0, scale: 0.96, y: -4 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.97, y: -2 }}
                         transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
                         onClick={() => setOpen(false)}
-                        className={cn(
-                            "absolute z-20 mt-1 w-52 overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-left shadow-lg shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900",
-                            align === "right" ? "right-0" : "left-0",
-                        )}
+                        style={{ top: posicao.top, bottom: posicao.bottom, left: posicao.left, right: posicao.right, transformOrigin: posicao.origem }}
+                        className="fixed z-[70] max-h-[calc(100vh-1.5rem)] w-52 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 text-left shadow-lg shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900"
                     >
                         {children}
                     </motion.div>
-                )}
-            </AnimatePresence>
+                    )}
+                </AnimatePresence>,
+                document.body,
+            )}
         </div>
     );
 }

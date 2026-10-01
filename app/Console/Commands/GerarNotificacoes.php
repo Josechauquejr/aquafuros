@@ -14,10 +14,16 @@ class GerarNotificacoes extends Command
 
     public function handle(): int
     {
+        if (! Notificacoes::automaticas()) {
+            $this->comment('Emails automáticos de cobrança desligados (Administração > Email).');
+
+            return self::SUCCESS;
+        }
+
         $criadas = Notificacoes::gerar();
         $enviadas = Notificacoes::enviarPendentes();
 
-        $this->info("{$criadas} mensagem(ns) criada(s), {$enviadas} enviada(s) (modo: ".config('notificacoes.driver').').');
+        $this->info("{$criadas} email(s) de cobrança criado(s), {$enviadas} enviado(s).");
 
         return self::SUCCESS;
     }

@@ -42,6 +42,12 @@ class Configuracao extends Model
         return (float) (static::where('chave', $chave)->value('valor') ?? $omissao);
     }
 
+    /** Interruptor (sim/não) guardado como 1/0. */
+    public static function ligado(string $chave, bool $omissao = false): bool
+    {
+        return static::valor($chave, $omissao ? 1.0 : 0.0) >= 1.0;
+    }
+
     /** Prazos e limites editáveis em Tarifas > Regras gerais de cobrança (com os valores de origem). */
     public static function regrasDeCobranca(): array
     {

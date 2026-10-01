@@ -324,6 +324,7 @@ export default function Index({
     facturasAnteriores = {},
     qrUrls = {},
     resumoMensal: resumoMensalProp,
+    emailAutomatico = false,
     totais,
     mesReferencia,
     filtros,
@@ -347,7 +348,7 @@ export default function Index({
     const ultimaFacturaTratadaRef = useRef(null);
 
     const form = useForm({ divida_anterior: "", multa: "", estado: "pendente" });
-    const loteForm = useForm({ mes: "", ano: "", enviar_email: false });
+    const loteForm = useForm({ mes: "", ano: "", enviar_email: emailAutomatico });
     const [paraEnviar, setParaEnviar] = useState(null);
     const anularForm = useForm({ motivo_anulacao: "" });
 
@@ -1018,7 +1019,7 @@ export default function Index({
                             onChange={(event) => loteForm.setData("enviar_email", event.target.checked)}
                             className="mt-0.5 h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
                         />
-                        <span>Enviar logo por email aos clientes que têm email (os outros ficam de fora).</span>
+                        <span>Enviar por email aos clientes que têm email (os outros ficam de fora). {emailAutomatico ? "Está activo por omissão em Administração › Email." : ""}</span>
                     </label>
 
                     <div className="flex justify-end gap-3 pt-2">

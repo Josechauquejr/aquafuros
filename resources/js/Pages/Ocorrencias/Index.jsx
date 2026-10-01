@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
-import { AlertTriangle, CheckCircle2, Clock, Hammer, Play, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Hammer, Play, Plus, RotateCcw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
@@ -13,11 +13,41 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import { cn, formatDateTime } from "@/lib/utils";
+import Dropdown from "@/Components/DataTable/Dropdown";
+import { PainelFiltros } from "@/Components/DataTable/Toolbar";
 
 const tipos = { sem_agua: "Sem água", fuga: "Fuga", avaria: "Avaria", contador: "Contador", reclamacao: "Reclamação", outro: "Outro" };
 const estados = { aberta: ["Aberta", "rose"], em_curso: ["Em curso", "amber"], resolvida: ["Resolvida", "emerald"] };
 const selectClasses =
     "mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+
+const filtrosConfig = [
+    {
+        chave: "estado",
+        rotulo: "Estado",
+        tipo: "select",
+        padrao: "abertas",
+        opcoes: [
+            { valor: "abertas", rotulo: "Por resolver" },
+            { valor: "resolvida", rotulo: "Resolvidas" },
+            { valor: "todas", rotulo: "Todas" },
+        ],
+    },
+    {
+        chave: "tipo",
+        rotulo: "Tipo",
+        tipo: "select",
+        padrao: "todos",
+        opcoes: [{ valor: "todos", rotulo: "Todos os tipos" }, ...Object.entries(tipos).map(([valor, rotulo]) => ({ valor, rotulo }))],
+    },
+    {
+        chave: "zona",
+        rotulo: "Zona",
+        tipo: "select",
+        padrao: "todas",
+        opcoes: [{ valor: "todas", rotulo: "Todas as zonas" }],
+    },
+];
 
 export default function Index({ ocorrencias, zonas, clientes, totais, filtros }) {
     const { auth } = usePage().props;
@@ -33,6 +63,12 @@ export default function Index({ ocorrencias, zonas, clientes, totais, filtros })
             Object.fromEntries(Object.entries({ ...filtros, ...extra }).filter(([c, v]) => v && v !== "todos" && v !== "todas" && !(c === "estado" && v === "abertas"))),
             { preserveScroll: true, replace: true },
         );
+
+    const filtrosActivos = [
+        filtros.estado !== "abertas",
+        filtros.tipo !== "todos",
+        filtros.zona !== "todas",
+    ].filter(Boolean).length;
 
     const registar = (evento) => {
         evento.preventDefault();
@@ -73,25 +109,20 @@ export default function Index({ ocorrencias, zonas, clientes, totais, filtros })
                         <KpiCard label="Há mais de 48 h" value={totais.maisDe48h} detail="por resolver" icon={Clock} tone={totais.maisDe48h > 0 ? "rose" : "emerald"} />
                     </section>
 
-                    <div className="flex flex-wrap gap-2">
-                        <select value={filtros.estado} onChange={(e) => navegar({ estado: e.target.value })} className={`${selectClasses} mt-0 h-10 w-auto`} aria-label="Estado">
-                            <option value="abertas">Por resolver</option>
-                            <option value="resolvida">Resolvidas</option>
-                            <option value="todas">Todas</option>
-                        </select>
-                        <select value={filtros.tipo} onChange={(e) => navegar({ tipo: e.target.value })} className={`${selectClasses} mt-0 h-10 w-auto`} aria-label="Tipo">
-                            <option value="todos">Todos os tipos</option>
-                            {Object.entries(tipos).map(([v, r]) => (
-                                <option key={v} value={v}>{r}</option>
-                            ))}
-                        </select>
-                        <select value={filtros.zona} onChange={(e) => navegar({ zona: e.target.value })} className={`${selectClasses} mt-0 h-10 w-auto`} aria-label="Zona">
-                            <option value="todas">Todas as zonas</option>
-                            {zonas.map((z) => (
-                                <option key={z.id} value={z.id}>{z.nome}</option>
-                            ))}
-                        </select>
-                    </div>
+                    <AnimatedPanel className="p-4">
+                        <Dropdown rotulo="Filtros" icone={SlidersHorizontal} contador={filtrosActivos} titulo="Filtros" sheetMobile alinhar="right">
+                            {(fechar) => (
+                                <PainelFiltros
+                                    filtrosConfig={filtrosConfig.map((filtro) => filtro.chave === "zona"
+                                        ? { ...filtro, opcoes: [...filtro.opcoes, ...zonas.map((z) => ({ valor: String(z.id), rotulo: z.nome }))] }
+                                        : filtro)}
+                                    filtros={filtros}
+                                    navegar={(valores) => { navegar(valores); fechar(); }}
+                                    colunasOrdenaveis={[]}
+                                />
+                            )}
+                        </Dropdown>
+                    </AnimatedPanel>
 
                     <AnimatedPanel className="overflow-hidden">
                         {ocorrencias.data.length === 0 ? (

@@ -25,6 +25,8 @@ use App\Http\Controllers\OcorrenciaController;
 use App\Http\Controllers\ProducaoController;
 use App\Http\Controllers\ZonaController;
 use App\Http\Controllers\EmailConfigController;
+use App\Http\Controllers\EmailEnviadoController;
+use App\Http\Controllers\NotificacaoSistemaController;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
 
@@ -96,6 +98,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('facturas/imprimir-lote', [FacturaController::class, 'imprimirLote'])->name('facturas.imprimir-lote');
         Route::get('clientes/{cliente}/imprimir', [ClienteController::class, 'imprimir'])->name('clientes.imprimir');
         Route::resource('clientes', ClienteController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::post('clientes/zonas', [ZonaController::class, 'store'])->name('clientes.zonas.store');
+        Route::post('clientes/historico/{activity}/reverter', [ClienteController::class, 'reverter'])->name('clientes.historico.reverter');
         Route::resource('facturas', FacturaController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::get('facturas/{factura}/imprimir', [FacturaController::class, 'imprimir'])->name('facturas.imprimir');
         Route::get('facturas/{factura}/pdf', [FacturaController::class, 'pdf'])->name('facturas.pdf');
@@ -104,12 +108,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Cobrança: quem está em atraso, contactos feitos e promessas de pagamento.
         Route::get('cobranca', [CobrancaController::class, 'index'])->name('cobranca.index');
         Route::post('cobranca/contactos', [CobrancaController::class, 'storeContacto'])->name('cobranca.contactos.store');
+        Route::post('cobranca/clientes/{cliente}/email', [CobrancaController::class, 'enviarEmail'])->name('cobranca.email');
         Route::put('cobranca/promessas/{promessa}/cancelar', [CobrancaController::class, 'cancelarPromessa'])->name('cobranca.promessas.cancelar');
+
+        // Registo de todos os emails enviados aos clientes.
+        Route::get('emails', [EmailEnviadoController::class, 'index'])->name('emails.index');
+        Route::get('emails/{envio}/ver', [EmailEnviadoController::class, 'ver'])->name('emails.ver');
+        Route::get('notificacoes-sistema', [NotificacaoSistemaController::class, 'index'])->name('notificacoes-sistema.index');
 
         // Mensagens aos clientes (lembretes e avisos de atraso).
         Route::get('notificacoes', [NotificacaoController::class, 'index'])->name('notificacoes.index');
         Route::post('notificacoes/gerar', [NotificacaoController::class, 'gerar'])->name('notificacoes.gerar');
-        Route::post('notificacoes/{notificacao}/enviada', [NotificacaoController::class, 'marcarEnviada'])->name('notificacoes.enviada');
+        Route::post('notificacoes/{notificacao}/enviar', [NotificacaoController::class, 'enviar'])->name('notificacoes.enviar');
         Route::delete('notificacoes/{notificacao}', [NotificacaoController::class, 'destroy'])->name('notificacoes.destroy');
     });
 
@@ -159,6 +169,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('admin/email/google', [EmailConfigController::class, 'ligar'])->name('email.ligar');
         Route::get('admin/email/google/callback', [EmailConfigController::class, 'callback'])->name('email.callback');
         Route::delete('admin/email/google', [EmailConfigController::class, 'desligar'])->name('email.desligar');
+        Route::put('admin/email/automatico', [EmailConfigController::class, 'automatico'])->name('email.automatico');
         Route::post('admin/email/teste', [EmailConfigController::class, 'testar'])->name('email.testar');
     });
 

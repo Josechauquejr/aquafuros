@@ -16,7 +16,7 @@ class Cliente extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['nome', 'endereco', 'telefone', 'bairro', 'tarifa_id', 'estado'])
+            ->logOnly(['nome', 'endereco', 'telefone', 'email', 'bairro', 'zona_id', 'tarifa_id', 'estado', 'leitura_inicial'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('cliente')

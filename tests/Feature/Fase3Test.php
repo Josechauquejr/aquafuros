@@ -126,31 +126,140 @@ class Fase3Test extends TestCase
         $this->actingAs($this->utilizador('tecnico'))->get('/notificacoes')->assertForbidden();
     }
 
-    // ------------------------------------------------------------ mensagens
+    // ------------------------------------------------- emails de cobrança
 
-    public function test_mensagens_geram_se_uma_vez_e_so_para_quem_tem_telefone(): void
+    public function test_emails_de_cobranca_geram_se_uma_vez_e_so_para_quem_tem_email(): void
     {
+        $this->ana->update(['email' => 'ana@exemplo.co.mz']);
         $this->factura('F-3', 200, now()->addDays(3)->toDateString());   // lembrete
         $this->factura('F-4', 300, now()->subDays(2)->toDateString());   // atraso
         $this->factura('F-5', 400, now()->subDays(20)->toDateString());  // atraso grave
-        $semTelefone = Cliente::create(['numero_cliente' => 'CLI-2', 'nome' => 'Bia', 'tarifa_id' => Tarifa::first()->id, 'estado' => 'ativo']);
-        $this->factura('F-6', 100, now()->subDays(2)->toDateString(), $semTelefone);
+        $semEmail = Cliente::create(['numero_cliente' => 'CLI-2', 'nome' => 'Bia', 'telefone' => '845626157', 'tarifa_id' => Tarifa::first()->id, 'estado' => 'ativo']);
+        $this->factura('F-6', 100, now()->subDays(2)->toDateString(), $semEmail); // sem email: não recebe
 
         $this->assertSame(3, Notificacoes::gerar());
         $this->assertSame(0, Notificacoes::gerar()); // não repete
 
         $this->assertEqualsCanonicalizing(['lembrete_vencimento', 'atraso', 'atraso_grave'], Notificacao::pluck('tipo')->all());
-        $this->assertSame('pendente', Notificacao::first()->estado);
+        $this->assertSame(['email'], Notificacao::pluck('canal')->unique()->all());
+        $this->assertSame(['ana@exemplo.co.mz'], Notificacao::pluck('email')->unique()->all());
 
-        $this->actingAs($this->admin)->get('/notificacoes')->assertInertia(fn (Assert $p) => $p
-            ->has('notificacoes.data', 3)->where('contagens.pendente', 3)
-            ->where('notificacoes.data.0.whatsapp', fn ($url) => str_starts_with($url, 'https://wa.me/258845626156?text=')));
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->assertSame(3, Notificacoes::enviarPendentes());
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\CobrancaMail::class, 3);
+        $this->assertSame(['enviada'], Notificacao::pluck('estado')->unique()->all());
 
-        $n = Notificacao::first();
-        $this->post('/notificacoes/'.$n->id.'/enviada');
-        $this->assertSame('enviada', $n->fresh()->estado);
+        $this->actingAs($this->admin)->get('/notificacoes?estado=enviada')->assertInertia(fn (Assert $p) => $p
+            ->has('notificacoes.data', 3)->where('contagens.enviada', 3));
+    }
 
+    public function test_aviso_de_uma_factura_ja_paga_e_retirado_em_vez_de_enviado(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->ana->update(['email' => 'ana@exemplo.co.mz']);
+        $f = $this->factura('F-7', 300, now()->subDays(2)->toDateString());
+        Notificacoes::gerar();
+
+        $f->update(['estado' => 'paga']);
+
+        $this->assertSame(0, Notificacoes::enviarPendentes());
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+        $this->assertSame(0, Notificacao::count());
+    }
+
+    public function test_comando_diario_respeita_o_interruptor_e_envia_a_cobranca_automatica(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->ana->update(['email' => 'ana@exemplo.co.mz']);
+        $this->factura('F-8', 300, now()->subDays(2)->toDateString());
+
+        \App\Models\Configuracao::definir('email_cobranca_automatica', 0);
         $this->artisan('notificacoes:gerar')->assertSuccessful();
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+
+        \App\Models\Configuracao::definir('email_cobranca_automatica', 1);
+        $this->artisan('notificacoes:gerar')->assertSuccessful();
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\CobrancaMail::class, 1);
+    }
+
+    public function test_email_de_cobranca_manual_junta_as_facturas_vencidas_e_regista_o_contacto(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->ana->update(['email' => 'ana@exemplo.co.mz']);
+        $this->factura('F-9', 300, now()->subDays(10)->toDateString());
+        $this->factura('F-10', 200, now()->subDays(3)->toDateString());
+        $this->factura('F-11', 999, now()->addDays(5)->toDateString()); // ainda não venceu
+
+        $this->actingAs($this->utilizador('gestor'))->post('/cobranca/clientes/'.$this->ana->id.'/email')->assertSessionHas('status');
+
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\CobrancaMail::class, fn ($m) => $m->hasTo('ana@exemplo.co.mz') && $m->facturas->count() === 2);
+        $this->assertDatabaseHas('contactos_cobranca', ['cliente_id' => $this->ana->id, 'canal' => 'email']);
+
+        // sem email: não envia
+        $this->ana->update(['email' => null]);
+        $this->post('/cobranca/clientes/'.$this->ana->id.'/email')->assertSessionHas('error');
+    }
+
+    public function test_o_email_de_cobranca_tem_o_texto_e_os_anexos_certos(): void
+    {
+        $this->ana->update(['email' => 'ana@exemplo.co.mz']);
+        $f = $this->factura('F-12', 300, now()->subDays(20)->toDateString());
+
+        $mail = new \App\Mail\CobrancaMail('atraso_grave', $this->ana, collect([$f]));
+
+        $this->assertStringContainsString('F-12', $mail->envelope()->subject);
+        $this->assertStringContainsString('cortado', $mail->render());
+        $this->assertCount(1, $mail->attachments());
+    }
+
+    public function test_os_dias_de_atraso_no_email_sao_os_reais_e_o_pdf_vai_em_anexo(): void
+    {
+        $this->ana->update(['email' => 'ana@exemplo.co.mz']);
+        $velha = $this->factura('F-40', 300, now()->subDays(40)->toDateString());
+        $recente = $this->factura('F-3d', 200, now()->subDays(3)->toDateString());
+        $aVencer = $this->factura('F-V', 100, now()->addDays(3)->toDateString());
+
+        // atraso grave a 40 dias (e não "15"): o texto, o assunto e a tabela dizem 40
+        $grave = new \App\Mail\CobrancaMail('atraso_grave', $this->ana, collect([$velha]));
+        $this->assertStringContainsString('há 40 dias', $grave->envelope()->subject);
+        $this->assertStringContainsString('<strong>40 dias</strong>', $grave->render());
+        $this->assertStringContainsString('40 dias de atraso', $grave->render());
+        $this->assertStringContainsString('Segue em anexo a factura em PDF', $grave->render());
+        $this->assertCount(1, $grave->attachments());
+        $this->assertSame('Factura-F-40.pdf', $grave->attachments()[0]->as);
+
+        // atraso simples a 3 dias, no singular/plural certo
+        $this->assertStringContainsString('3 dias', (new \App\Mail\CobrancaMail('atraso', $this->ana, collect([$recente])))->render());
+
+        // lembrete: dias que FALTAM
+        $lembrete = new \App\Mail\CobrancaMail('lembrete_vencimento', $this->ana, collect([$aVencer]));
+        $this->assertStringContainsString('vence em 3 dias', $lembrete->render());
+        $this->assertStringContainsString('vence em breve', $lembrete->envelope()->subject);
+
+        // cobrança com várias: a mais antiga manda, e cada linha tem o seu atraso
+        $varias = new \App\Mail\CobrancaMail('cobranca', $this->ana, collect([$recente, $velha]));
+        $html = $varias->render();
+        $this->assertStringContainsString('a mais antiga está em atraso há <strong>40 dias</strong>', $html);
+        $this->assertStringContainsString('40 dias de atraso', $html);
+        $this->assertStringContainsString('3 dias de atraso', $html);
+        $this->assertStringContainsString('Seguem em anexo as facturas em PDF', $html);
+        $this->assertCount(2, $varias->attachments());
+
+        // singular
+        $umDia = $this->factura('F-1d', 50, now()->subDay()->toDateString());
+        $this->assertStringContainsString('<strong>1 dia</strong>', (new \App\Mail\CobrancaMail('atraso', $this->ana, collect([$umDia])))->render());
+    }
+
+    public function test_a_lista_de_emails_mostra_os_dias_de_atraso_de_hoje(): void
+    {
+        $this->ana->update(['email' => 'ana@exemplo.co.mz']);
+        $f = $this->factura('F-L', 300, now()->subDays(2)->toDateString());
+        Notificacoes::gerar();
+
+        // passam-se dias antes de ser enviado: a lista mostra o atraso de agora, não o do dia da criação
+        $f->update(['data_vencimento' => now()->subDays(9)->toDateString()]);
+
+        $this->actingAs($this->admin)->get('/notificacoes')->assertInertia(fn (Assert $p) => $p->where('notificacoes.data.0.dias_atraso', 9));
     }
 
     // ---------------------------------------------------------- ocorrências

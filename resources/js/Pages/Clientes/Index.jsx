@@ -338,6 +338,8 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
     const [editando, setEditando] = useState(null);
     const [paraEliminar, setParaEliminar] = useState(null);
     const [facturaParaPagar, setFacturaParaPagar] = useState(null);
+    const [novaZonaAberta, setNovaZonaAberta] = useState(false);
+    const novaZona = useForm({ nome: "" });
     const ultimaFacturaTratadaRef = useRef(null);
 
     const form = useForm(formVazio);
@@ -433,6 +435,19 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
     const fecharModalCliente = () => {
         setEtapaNovo(null);
         setEditando(null);
+    };
+
+    const criarZona = (event) => {
+        event.preventDefault();
+        novaZona.post("/clientes/zonas", {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                const criada = page.props.flash?.zonaCriada;
+                if (criada) form.setData("zona_id", String(criada.id));
+                novaZona.reset();
+                setNovaZonaAberta(false);
+            },
+        });
     };
 
     const submitCliente = (event) => {
@@ -635,6 +650,12 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
                                 ))}
                             </select>
                             <InputError message={form.errors.zona_id} className="mt-1" />
+                            {!editando && (
+                                <button type="button" onClick={() => setNovaZonaAberta(true)} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-cyan-700 hover:underline dark:text-cyan-300">
+                                    <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Adicionar bairro/zona
+                                </button>
+                            )}
                         </div>
                         <div>
                             <InputLabel htmlFor="telefone" value="Telefone" />
@@ -734,6 +755,20 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
                         <PrimaryButton type="submit" disabled={form.processing}>
                             {editando ? "Guardar alterações" : "Adicionar cliente"}
                         </PrimaryButton>
+                    </div>
+                </form>
+            </Modal>
+
+            <Modal show={novaZonaAberta} onClose={() => setNovaZonaAberta(false)} title="Adicionar bairro/zona" maxWidth="sm">
+                <form onSubmit={criarZona} className="space-y-4">
+                    <div>
+                        <InputLabel htmlFor="nova_zona_nome" value="Nome do bairro ou zona" />
+                        <TextInput id="nova_zona_nome" value={novaZona.data.nome} onChange={(event) => novaZona.setData("nome", event.target.value)} className="mt-1 block w-full" autoFocus required />
+                        <InputError message={novaZona.errors.nome} className="mt-1" />
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <SecondaryButton type="button" onClick={() => setNovaZonaAberta(false)}>Cancelar</SecondaryButton>
+                        <PrimaryButton type="submit" disabled={novaZona.processing}>Criar zona</PrimaryButton>
                     </div>
                 </form>
             </Modal>

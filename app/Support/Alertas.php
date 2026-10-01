@@ -48,8 +48,11 @@ class Alertas
         $adicionar('ocorrencias', 'alto', 'Ocorrências abertas há mais de 48 horas',
             'Avarias ou reclamações por resolver',
             Ocorrencia::where('estado', '!=', 'resolvida')->where('reportada_em', '<', now()->subHours(48))->count(), '/ocorrencias');
-        $adicionar('mensagens', 'medio', 'Mensagens a clientes por enviar',
-            'Lembretes e avisos de atraso à espera de serem enviados', Notificacao::where('estado', 'pendente')->count(), '/notificacoes');
+        $adicionar('mensagens', 'medio', 'Emails de cobrança por enviar',
+            'Lembretes e avisos de atraso na fila (ou que falharam)', Notificacao::where('estado', 'pendente')->count(), '/notificacoes');
+        $adicionar('emails-falhados', 'alto', 'Emails que falharam (últimos 7 dias)',
+            'Facturas ou cobranças que não chegaram a sair — ver o erro',
+            \App\Models\EnvioEmail::where('estado', 'falhou')->where('created_at', '>=', now()->subDays(7))->count(), '/emails?estado=falhou');
         $perdas = AnaliseOperacional::perdas(now());
         $adicionar('perdas', 'alto', 'Perdas de água acima de 30% este mês',
             'Produzido '.number_format($perdas['produzidoM3'], 0, ',', ' ').' m³, facturado '.number_format($perdas['facturadoM3'], 0, ',', ' ').' m³',

@@ -9,7 +9,7 @@ class Notificacao extends Model
 {
     protected $table = 'notificacoes';
 
-    protected $fillable = ['cliente_id', 'factura_id', 'tipo', 'canal', 'telefone', 'mensagem', 'estado', 'enviada_em', 'erro'];
+    protected $fillable = ['cliente_id', 'factura_id', 'tipo', 'canal', 'email', 'telefone', 'mensagem', 'estado', 'enviada_em', 'erro'];
 
     protected $casts = ['enviada_em' => 'datetime'];
 

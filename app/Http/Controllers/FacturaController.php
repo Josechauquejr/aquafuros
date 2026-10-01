@@ -10,6 +10,7 @@ use App\Models\Cliente;
 use App\Models\Configuracao;
 use App\Support\BuscaDifusa;
 use App\Support\FacturaEmail;
+use App\Support\Facturacao;
 use App\Support\FacturaPdf;
 use App\Support\ListaQuery;
 use App\Support\MesReferencia;
@@ -79,6 +80,7 @@ class FacturaController extends Controller
                 ->where('confirmado', true)
                 ->with(['cliente' => fn ($q) => $q->withTrashed()])
                 ->orderByDesc('ano')->orderByDesc('mes')->get(),
+            'emailAutomatico' => Facturacao::enviarAoEmitir(),
             'resumoMensal' => $this->resumoMensal(),
             'totais' => ResumoMensal::facturas($mesRef->month, $mesRef->year),
             'mesReferencia' => MesReferencia::paraSeletor($mesRef),
@@ -183,9 +185,10 @@ class FacturaController extends Controller
         }
 
         $factura = $this->criarFactura($leitura, $request->user()->id);
+        $envio = Facturacao::enviarPorEmail([$factura], $request->user()->id);
 
         return redirect()->route('facturas.index')
-            ->with('status', 'Factura emitida com sucesso.')
+            ->with('status', 'Factura emitida com sucesso.'.($envio['comEmail'] ? ' A enviar por email ao cliente.' : ''))
             // Permite ao frontend perguntar "deseja efectuar o pagamento
             // agora?" logo a seguir, sem precisar de adivinhar o id criado.
             ->with('novaFactura', [
@@ -230,13 +233,12 @@ class FacturaController extends Controller
 
         $mensagem = "{$leituras->count()} factura(s) emitida(s) com sucesso.";
 
-        // Opcional: já segue por email aos clientes que têm email (depois de responder, sem fazer esperar).
-        if ($request->boolean('enviar_email')) {
-            $comEmail = $criadas->filter(fn (Factura $f) => filled($f->cliente?->email))->values();
-            if ($comEmail->isNotEmpty()) {
-                dispatch(fn () => FacturaEmail::enviarVarias($comEmail, $geradaPor))->afterResponse();
-            }
-            $mensagem .= " A enviar {$comEmail->count()} por email".($criadas->count() > $comEmail->count() ? ' ('.($criadas->count() - $comEmail->count()).' cliente(s) sem email).' : '.');
+        // Segue por email aos clientes que têm email: por omissão como está em Administração > Email;
+        // a opção da janela "Facturar mês" pode forçar o envio deste lote.
+        $quer = $request->has('enviar_email') ? $request->boolean('enviar_email') : Facturacao::enviarAoEmitir();
+        if ($quer) {
+            $envio = Facturacao::enviarPorEmail($criadas, $geradaPor, true);
+            $mensagem .= " A enviar {$envio['comEmail']} por email".($envio['semEmail'] ? " ({$envio['semEmail']} cliente(s) sem email ficaram de fora)." : '.');
         }
 
         return redirect()->route('facturas.index')->with('status', $mensagem);
@@ -244,25 +246,7 @@ class FacturaController extends Controller
 
     private function criarFactura(Leitura $leitura, int $geradaPor): Factura
     {
-        $calculo = app(BillingService::class)->calcular($leitura, $leitura->cliente);
-
-        return Factura::create([
-            'numero_factura' => $this->proximoNumero($leitura->ano),
-            'cliente_id' => $leitura->cliente_id,
-            'leitura_id' => $leitura->id,
-            'tipo' => 'consumo',
-            'mes' => $leitura->mes,
-            'ano' => $leitura->ano,
-            // Prazo em dias corridos após a emissão (Tarifas > Regras gerais de cobrança; 15 por omissão).
-            'data_vencimento' => now()->addDays((int) Configuracao::valor('dias_vencimento', 15))->toDateString(),
-            'valor_consumo' => $calculo['valor_consumo'],
-            'divida_anterior' => $calculo['divida_anterior'],
-            'divida_anterior_incluida' => false,
-            'multa' => $calculo['multa'],
-            'total_pagar' => $calculo['total_pagar'],
-            'estado' => 'pendente',
-            'gerada_por' => $geradaPor,
-        ]);
+        return Facturacao::emitir($leitura, $geradaPor);
     }
 
     /**
@@ -376,7 +360,7 @@ class FacturaController extends Controller
         }
 
         $utilizador = $request->user()->id;
-        dispatch(fn () => FacturaEmail::enviarVarias($comEmail, $utilizador))->afterResponse();
+        dispatch(fn () => FacturaEmail::enviarVarias($comEmail, $utilizador, 'manual'))->afterResponse();
 
         return back()->with('status', "A enviar {$comEmail->count()} factura(s) por email".($semEmail ? " — {$semEmail} cliente(s) sem email ficaram de fora." : '.'));
     }
@@ -539,16 +523,5 @@ class FacturaController extends Controller
     private function qrUrl(Factura $factura): string
     {
         return URL::signedRoute('verificacao.factura', ['factura' => $factura->id]);
-    }
-
-    private function proximoNumero(int $ano): string
-    {
-        // withTrashed(): uma factura anulada e movida para a lixeira ainda
-        // ocupa o número — ignorá-la geraria um número duplicado.
-        return NumeracaoDocumentos::proximoNumero(
-            Factura::withTrashed()->where('numero_factura', 'like', "FAT-{$ano}-%"),
-            'numero_factura',
-            "FAT-{$ano}-%04d",
-        );
     }
 }

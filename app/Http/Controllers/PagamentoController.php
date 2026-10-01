@@ -12,6 +12,8 @@ use App\Support\ListaQuery;
 use App\Support\MesReferencia;
 use App\Support\ResumoMensal;
 use App\Support\NumeracaoDocumentos;
+use App\Support\RegistoEmail;
+use App\Mail\ReciboMail;
 use Illuminate\Http\Request;
 use App\Models\Configuracao;
 use App\Models\Credito;
@@ -199,6 +201,8 @@ class PagamentoController extends Controller
             return $normal ?? $comCredito;
         });
 
+        $this->enviarReciboEmail(collect([$principal->fresh(['cliente', 'factura'])]), $request->user()->id);
+
         // Vai directo para o recibo — evita o passo extra de procurar o
         // pagamento acabado de registar na lista.
         return redirect()->route('pagamentos.imprimir', $principal)
@@ -287,6 +291,9 @@ class PagamentoController extends Controller
                 return $pagamento;
             });
         });
+
+        $pagamentos->each(fn (Pagamento $pagamento) => $pagamento->load(['cliente', 'factura']));
+        $this->enviarReciboEmail($pagamentos, $request->user()->id);
 
         // Um só recibo com todas as facturas (os recibos individuais continuam a existir).
         return redirect()
@@ -642,6 +649,24 @@ class PagamentoController extends Controller
     private function qrUrl(Pagamento $pagamento): string
     {
         return URL::signedRoute('verificacao.pagamento', ['pagamento' => $pagamento->id]);
+    }
+
+    private function enviarReciboEmail($pagamentos, int $enviadoPor): void
+    {
+        $pagamentos = collect($pagamentos)->filter(fn (Pagamento $pagamento) => filled($pagamento->cliente?->email))->values();
+        $cliente = $pagamentos->first()?->cliente;
+
+        if (! $cliente) {
+            return;
+        }
+
+        RegistoEmail::enviar(new ReciboMail($pagamentos), $cliente->email, [
+            'tipo' => 'recibo',
+            'origem' => 'automatico',
+            'cliente_id' => $cliente->id,
+            'factura_id' => $pagamentos->count() === 1 ? $pagamentos->first()->factura_id : null,
+            'enviado_por' => $enviadoPor,
+        ]);
     }
 
     private function proximoRecibo(int $ano): string

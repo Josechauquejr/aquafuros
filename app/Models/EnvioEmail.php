@@ -9,11 +9,18 @@ class EnvioEmail extends Model
 {
     protected $table = 'envios_email';
 
-    protected $fillable = ['factura_id', 'cliente_id', 'email', 'estado', 'erro', 'enviado_por'];
+    protected $fillable = ['factura_id', 'cliente_id', 'tipo', 'origem', 'email', 'assunto', 'estado', 'tentativas', 'erro', 'anexos', 'corpo', 'enviado_por'];
+
+    protected $casts = ['anexos' => 'array', 'tentativas' => 'integer'];
 
     public function factura()
     {
-        return $this->belongsTo(Factura::class);
+        return $this->belongsTo(Factura::class)->withTrashed();
+    }
+
+    public function cliente()
+    {
+        return $this->belongsTo(Cliente::class)->withTrashed();
     }
 
     public function enviadoPor()

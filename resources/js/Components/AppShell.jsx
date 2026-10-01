@@ -2,6 +2,7 @@ import { Link, router, useForm, usePage } from "@inertiajs/react";
 import { ChevronDown, LogOut, User } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import PageHelp from "@/Components/PageHelp";
 import {
     Sidebar,
     SidebarContent,
@@ -60,18 +61,16 @@ function MenuArvore({ groups, url }) {
     const todos = groups.flatMap((grupo) => grupo.items.map((item) => item.href));
     // A mais específica ganha (ex.: /dev/logs/acessos antes de /dev).
     const activa = todos.filter((href) => activo(url, href)).sort((a, b) => b.length - a.length)[0] ?? "";
-    const aberto = groups.map((grupo, indice) => (grupo.items.some((item) => item.href === activa) ? indice : -1)).filter((i) => i >= 0);
-
     return (
         <BranchedMenu
             items={items}
-            defaultOpen={aberto.length ? aberto : groups.map((_, indice) => indice)}
+            defaultOpen={groups.map((_, indice) => indice)}
             defaultActive={activa}
             onSelect={(valor) => router.visit(valor)}
             color="hsl(var(--sidebar-foreground))"
             accentColor="hsl(var(--sidebar-primary))"
             lineColor="hsl(var(--sidebar-border))"
-            width={220}
+            width={260}
             className="px-1"
         />
     );
@@ -81,11 +80,11 @@ function MenuLateral({ groups, casa, empresa }) {
     const { url } = usePage();
 
     return (
-        <Sidebar collapsible="icon">
+        <Sidebar collapsible="icon" animateOnHover={false}>
             <SidebarHeader>
                 <Link href={casa} className="flex items-center gap-3 px-1 py-1">
                     <ApplicationLogo className="h-8 w-8 shrink-0 text-sm" />
-                    <span className="truncate text-sm font-bold group-data-[collapsible=icon]:hidden">
+                        <span className="max-w-[13rem] break-words text-sm font-bold leading-tight group-data-[collapsible=icon]:hidden">
                         {empresa?.nome ?? "Aquafuros"}
                     </span>
                 </Link>
@@ -219,6 +218,7 @@ export default function AppShell({ groups, casa, chaveRecolhido, header, childre
                         <Breadcrumbs casa={casa} />
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
+                        <PageHelp url={url} />
                         <ThemeToggle />
                         <MenuConta nome={auth?.user?.name} />
                     </div>

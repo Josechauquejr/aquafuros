@@ -3,17 +3,16 @@
 namespace App\Support;
 
 use App\Mail\FacturaMail;
-use App\Models\EnvioEmail;
 use App\Models\Factura;
-use Illuminate\Support\Facades\Mail;
 
 /** Envia a factura por email ao cliente e regista o resultado (enviado ou falhou, e porquê). */
 class FacturaEmail
 {
     /**
+     * @param  string  $origem  'automatico' (ao confirmar/emitir) ou 'manual' (alguém carregou no botão)
      * @return array{ok: bool, mensagem: string}
      */
-    public static function enviar(Factura $factura, ?int $enviadoPor = null): array
+    public static function enviar(Factura $factura, ?int $enviadoPor = null, string $origem = 'manual'): array
     {
         $factura->loadMissing(['cliente' => fn ($q) => $q->withTrashed(), 'leitura' => fn ($q) => $q->withTrashed()]);
         $email = trim((string) $factura->cliente?->email);
@@ -25,18 +24,13 @@ class FacturaEmail
             return ['ok' => false, 'mensagem' => 'Uma factura anulada não se envia.'];
         }
 
-        $registo = ['factura_id' => $factura->id, 'cliente_id' => $factura->cliente_id, 'email' => $email, 'enviado_por' => $enviadoPor];
+        $envio = RegistoEmail::enviar(new FacturaMail($factura), $email, [
+            'tipo' => 'factura', 'origem' => $origem, 'cliente_id' => $factura->cliente_id, 'factura_id' => $factura->id, 'enviado_por' => $enviadoPor,
+        ]);
 
-        try {
-            Mail::to($email)->send(new FacturaMail($factura));
-            EnvioEmail::create([...$registo, 'estado' => 'enviado']);
-
-            return ['ok' => true, 'mensagem' => "Factura enviada para {$email}."];
-        } catch (\Throwable $e) {
-            EnvioEmail::create([...$registo, 'estado' => 'falhou', 'erro' => mb_substr($e->getMessage(), 0, 250)]);
-
-            return ['ok' => false, 'mensagem' => 'Não foi possível enviar o email: '.mb_substr($e->getMessage(), 0, 160)];
-        }
+        return $envio->estado === 'enviado'
+            ? ['ok' => true, 'mensagem' => "Factura enviada para {$email}."]
+            : ['ok' => false, 'mensagem' => 'Não foi possível enviar o email: '.mb_substr((string) $envio->erro, 0, 160)];
     }
 
     /**
@@ -45,7 +39,7 @@ class FacturaEmail
      * @param  iterable<Factura>  $facturas
      * @return array{enviadas: int, falharam: int, semEmail: int}
      */
-    public static function enviarVarias(iterable $facturas, ?int $enviadoPor = null): array
+    public static function enviarVarias(iterable $facturas, ?int $enviadoPor = null, string $origem = 'manual'): array
     {
         $r = ['enviadas' => 0, 'falharam' => 0, 'semEmail' => 0];
 
@@ -56,7 +50,7 @@ class FacturaEmail
 
                 continue;
             }
-            self::enviar($factura, $enviadoPor)['ok'] ? $r['enviadas']++ : $r['falharam']++;
+            self::enviar($factura, $enviadoPor, $origem)['ok'] ? $r['enviadas']++ : $r['falharam']++;
         }
 
         return $r;

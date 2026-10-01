@@ -9,7 +9,7 @@ class ContactoCobranca extends Model
 {
     protected $table = 'contactos_cobranca';
 
-    public const CANAIS = ['telefone', 'presencial', 'whatsapp', 'sms', 'outro'];
+    public const CANAIS = ['email', 'telefone', 'presencial', 'whatsapp', 'sms', 'outro'];
 
     public const RESULTADOS = ['sem_resposta', 'prometeu_pagar', 'recusou', 'pagou', 'outro'];
 

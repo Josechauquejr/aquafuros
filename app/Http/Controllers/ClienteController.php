@@ -16,6 +16,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Spatie\Activitylog\Models\Activity;
 
 class ClienteController extends Controller
 {
@@ -258,6 +259,22 @@ class ClienteController extends Controller
         $cliente->update($data);
 
         return redirect()->route('clientes.index')->with('status', 'Cliente actualizado com sucesso.');
+    }
+
+    public function reverter(Activity $activity)
+    {
+        abort_unless($activity->log_name === 'cliente' && $activity->subject_type === Cliente::class, 404);
+
+        $antigos = $activity->properties?->get('old', []);
+        if (empty($antigos)) {
+            return back()->with('error', 'Esta alteração não tem valores anteriores para repor.');
+        }
+
+        $permitidos = ['nome', 'endereco', 'telefone', 'email', 'bairro', 'zona_id', 'tarifa_id', 'estado', 'leitura_inicial'];
+        $cliente = Cliente::findOrFail($activity->subject_id);
+        $cliente->update(array_intersect_key($antigos, array_flip($permitidos)));
+
+        return back()->with('status', "Dados de {$cliente->nome} repostos a partir do histórico.");
     }
 
     /**

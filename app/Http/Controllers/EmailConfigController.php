@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Configuracao;
 use App\Models\EmpresaPerfil;
+use App\Support\Facturacao;
+use App\Support\Notificacoes;
 use App\Support\GmailOAuth;
+use App\Support\RegistoEmail;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -24,6 +27,12 @@ class EmailConfigController extends Controller
             'redirect' => GmailOAuth::urlRedirecionamento(),
             'transporte' => config('mail.default'),
             'remetente' => config('mail.from.address'),
+            'automatico' => [
+                'facturar_ao_confirmar' => Facturacao::facturarAoConfirmar(),
+                'enviar_ao_emitir' => Facturacao::enviarAoEmitir(),
+                'cobranca_automatica' => Notificacoes::automaticas(),
+                'intervalo_cobranca_dias' => (int) Configuracao::valor('email_intervalo_cobranca_dias', config('notificacoes.intervalo_minimo_dias', 7)),
+            ],
         ]);
     }
 
@@ -58,6 +67,24 @@ class EmailConfigController extends Controller
         return redirect()->route('email.index')->with('status', "Gmail ligado: {$email}.");
     }
 
+    /** Interruptores do envio automático (facturas e cobranças). */
+    public function automatico(Request $request)
+    {
+        $data = $request->validate([
+            'facturar_ao_confirmar' => 'required|boolean',
+            'enviar_ao_emitir' => 'required|boolean',
+            'cobranca_automatica' => 'required|boolean',
+            'intervalo_cobranca_dias' => 'sometimes|nullable|integer|min:0|max:365',
+        ]);
+
+        Configuracao::definir('email_facturar_ao_confirmar', $data['facturar_ao_confirmar'] ? 1 : 0);
+        Configuracao::definir('email_enviar_ao_emitir', $data['enviar_ao_emitir'] ? 1 : 0);
+        Configuracao::definir('email_cobranca_automatica', $data['cobranca_automatica'] ? 1 : 0);
+        Configuracao::definir('email_intervalo_cobranca_dias', (int) ($data['intervalo_cobranca_dias'] ?? Configuracao::valor('email_intervalo_cobranca_dias', 7)));
+
+        return back()->with('status', 'Envio automático actualizado.');
+    }
+
     public function desligar()
     {
         GmailOAuth::desligar();
@@ -72,12 +99,28 @@ class EmailConfigController extends Controller
         $destino = $data['para'] ?? $request->user()->email;
         $empresa = EmpresaPerfil::atual()->nome;
 
-        try {
-            Mail::raw("Este é um email de teste do sistema {$empresa}. Se o está a ler, o envio de facturas por email está a funcionar.", function ($m) use ($destino, $empresa) {
-                $m->to($destino)->subject("Teste de email — {$empresa}");
-            });
-        } catch (\Throwable $e) {
-            return back()->with('error', 'Falhou: '.mb_substr($e->getMessage(), 0, 200));
+        $mail = new class($empresa) extends \Illuminate\Mail\Mailable {
+            public function __construct(private string $empresa) {}
+
+            public function envelope(): \Illuminate\Mail\Mailables\Envelope
+            {
+                return new \Illuminate\Mail\Mailables\Envelope(subject: "Teste de email — {$this->empresa}");
+            }
+
+            public function content(): \Illuminate\Mail\Mailables\Content
+            {
+                return new \Illuminate\Mail\Mailables\Content(htmlString: "Este é um email de teste do sistema {$this->empresa}. Se o está a ler, o envio de emails está a funcionar.");
+            }
+        };
+
+        $envio = RegistoEmail::enviar($mail, $destino, [
+            'tipo' => 'teste',
+            'origem' => 'manual',
+            'enviado_por' => $request->user()->id,
+        ]);
+
+        if ($envio->estado !== 'enviado') {
+            return back()->with('error', 'Falhou: '.mb_substr((string) $envio->erro, 0, 200));
         }
 
         return back()->with('status', "Email de teste enviado para {$destino}.");

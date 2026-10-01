@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Cliente;
 use App\Models\Leitura;
 use App\Support\BuscaDifusa;
+use App\Support\Facturacao;
 use App\Support\ListaQuery;
 use App\Support\MesReferencia;
 use App\Support\ResumoMensal;
@@ -66,6 +67,7 @@ class LeituraController extends Controller
             'totais' => ResumoMensal::leituras($mesRef->month, $mesRef->year),
             'resumoMes' => ResumoMensal::facturas($mesRef->month, $mesRef->year),
             'pendentesTotal' => Leitura::where('confirmado', false)->count(),
+            'facturarAoConfirmar' => Facturacao::facturarAoConfirmar(),
             'mesReferencia' => MesReferencia::paraSeletor($mesRef),
             'filtros' => [
                 ...$periodo,
@@ -168,6 +170,19 @@ class LeituraController extends Controller
 
         $leitura->update($data);
 
+        // Aprovada a leitura, a factura sai logo (e por email a quem tem email) se o automatismo estiver ligado.
+        if (! empty($data['confirmado'])) {
+            $emitidas = Facturacao::aoConfirmar(collect([$leitura->fresh()]), $request->user()->id);
+
+            if ($emitidas->isNotEmpty()) {
+                $factura = $emitidas->first();
+                $email = $factura->cliente?->email;
+
+                return back()->with('status', "Leitura confirmada e factura {$factura->numero_factura} emitida"
+                    .($email && Facturacao::enviarAoEmitir() ? " — a enviar por email para {$email}." : ($email ? '.' : ' (o cliente não tem email, não foi enviada).')));
+            }
+        }
+
         return back()->with('status', 'Leitura actualizada com sucesso.');
     }
 
@@ -197,26 +212,60 @@ class LeituraController extends Controller
             return back()->with('error', 'Não há leituras pendentes para confirmar.');
         }
 
+        $alvo = (clone $query)->pluck('id');
         $query->update(['confirmado' => true, 'confirmado_por' => $request->user()->id, 'confirmado_em' => now()]);
 
-        return back()->with('status', "{$total} leitura(s) confirmada(s) com sucesso.");
+        $mensagem = "{$total} leitura(s) confirmada(s) com sucesso.";
+        $emitidas = Facturacao::aoConfirmar(Leitura::whereIn('id', $alvo)->get(), $request->user()->id);
+
+        if ($emitidas->isNotEmpty()) {
+            $comEmail = $emitidas->filter(fn ($f) => filled($f->cliente?->email))->count();
+            $mensagem .= " {$emitidas->count()} factura(s) emitida(s)"
+                .(Facturacao::enviarAoEmitir() ? ", {$comEmail} a enviar por email (".($emitidas->count() - $comEmail).' cliente(s) sem email).' : '.');
+        }
+
+        return back()->with('status', $mensagem);
     }
 
     /**
-     * Eliminar uma leitura — bloqueado se confirmada ou com factura associada.
+     * Anular uma leitura — a mesma ideia das facturas: motivo obrigatório,
+     * fica registado quem e quando, e vai para a lixeira (nunca é apagada de
+     * vez). Se já tem factura, a factura é anulada junto; se a factura tem
+     * pagamentos, estes têm de ser estornados primeiro.
      */
-    public function destroy(Leitura $leitura)
+    public function destroy(Request $request, Leitura $leitura)
     {
-        if ($leitura->factura) {
-            return back()->with('error', 'Não é possível eliminar uma leitura com factura associada.');
+        $data = $request->validate([
+            'motivo_anulacao' => 'required|string|min:5|max:1000',
+        ]);
+
+        $factura = $leitura->factura;
+
+        if ($factura?->pagamentos()->exists()) {
+            return back()->with('error', 'A factura desta leitura tem pagamentos registados. Estorne os pagamentos primeiro (apenas administradores) e só depois anule a leitura.');
         }
 
-        if ($leitura->confirmado) {
-            return back()->with('error', 'Não é possível eliminar uma leitura já confirmada.');
+        $agora = now();
+        $userId = $request->user()->id;
+
+        if ($factura && $factura->estado !== 'anulada') {
+            $factura->update([
+                'estado' => 'anulada',
+                'motivo_anulacao' => "Leitura anulada: {$data['motivo_anulacao']}",
+                'anulada_por' => $userId,
+                'anulada_em' => $agora,
+            ]);
         }
 
+        $leitura->update([
+            'motivo_anulacao' => $data['motivo_anulacao'],
+            'anulada_por' => $userId,
+            'anulada_em' => $agora,
+        ]);
         $leitura->delete();
 
-        return back()->with('status', 'Leitura eliminada com sucesso.');
+        return back()->with('status', $factura
+            ? 'Leitura anulada com sucesso. A factura associada também foi anulada.'
+            : 'Leitura anulada com sucesso.');
     }
 }

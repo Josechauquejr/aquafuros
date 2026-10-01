@@ -97,7 +97,7 @@ export function PainelPeriodo({ filtros, navegar, fechar, opcoes = opcoesPeriodo
     );
 }
 
-function PainelFiltros({ filtrosConfig, filtros, navegar, colunasOrdenaveis }) {
+export function PainelFiltros({ filtrosConfig, filtros, navegar, colunasOrdenaveis }) {
     return (
         <div className="space-y-4">
             {filtrosConfig.filter((filtro) => filtro.tipo !== "oculto").map((filtro) =>

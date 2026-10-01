@@ -3,12 +3,15 @@ import { Bot, CheckCircle2, Eye, FileText, Mail, Paperclip, Search, User, XCircl
 import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
+import { Campo, Campos, Destaque, Destaques } from "@/Components/DataTable/Detalhe";
+import useCartaoDeLinha, { linhaClicavel } from "@/Components/DataTable/useCartaoDeLinha";
 import KpiCard from "@/Components/KpiCard";
 import Modal from "@/Components/Modal";
 import Pagination from "@/Components/Pagination";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
-import { formatDateTime } from "@/lib/utils";
+import { ExpandableCard } from "@/Components/ui/expandable-card";
+import { cn, formatDateTime } from "@/lib/utils";
 
 const selectClasses =
     "h-10 rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
@@ -17,6 +20,8 @@ const tomTipo = { factura: "cyan", lembrete_vencimento: "slate", atraso: "amber"
 export default function Index({ envios, tipos, totais, filtros }) {
     const [search, setSearch] = useState(filtros.search);
     const [aVer, setAVer] = useState(null);
+    const cartao = useCartaoDeLinha(envios.data);
+    const ev = cartao.linha;
 
     const navegar = (extra = {}) =>
         router.get(
@@ -95,7 +100,7 @@ export default function Index({ envios, tipos, totais, filtros }) {
                         ) : (
                             <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {envios.data.map((e) => (
-                                    <li key={e.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <li key={e.id} {...cartao.propsLinha(e)} className={cn("flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-start sm:justify-between", linhaClicavel)}>
                                         <div className="min-w-0">
                                             <p className="flex flex-wrap items-center gap-2">
                                                 <StatusBadge tone={tomTipo[e.tipo] ?? "slate"}>{tipos[e.tipo] ?? e.tipo}</StatusBadge>
@@ -144,6 +149,54 @@ export default function Index({ envios, tipos, totais, filtros }) {
                     <Pagination paginador={envios} />
                 </div>
             </div>
+
+            {ev && (
+                <ExpandableCard
+                    open={cartao.aberta}
+                    onOpenChange={(v) => !v && cartao.fechar()}
+                    title={ev.assunto ?? "(sem assunto)"}
+                    description={tipos[ev.tipo] ?? ev.tipo}
+                    footer={
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const alvo = ev;
+                                    cartao.fechar();
+                                    setAVer(alvo);
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                            >
+                                <Eye className="h-3.5 w-3.5" aria-hidden="true" /> Ver o email
+                            </button>
+                        </div>
+                    }
+                >
+                    <Destaques>
+                        <Destaque rotulo="Estado" tom={ev.estado === "enviado" ? "sucesso" : "perigo"}>{ev.estado === "enviado" ? "Enviado" : "Falhou"}</Destaque>
+                        <Destaque rotulo="Origem">{ev.origem === "automatico" ? "Automático" : "Manual"}</Destaque>
+                    </Destaques>
+                    <Campos className="mt-5">
+                        <Campo rotulo="Para">{ev.cliente?.nome ?? "cliente removido"}</Campo>
+                        <Campo rotulo="Email">{ev.email}</Campo>
+                        <Campo rotulo="Quando">{formatDateTime(ev.created_at)}</Campo>
+                        <Campo rotulo="Enviado por">{ev.origem === "automatico" ? "Sistema" : ev.enviado_por?.name}</Campo>
+                        <Campo rotulo="Factura">
+                            {ev.factura && (
+                                <Link href={`/facturas?search=${encodeURIComponent(ev.factura.numero_factura)}`} className="text-cyan-700 hover:underline dark:text-cyan-300">
+                                    {ev.factura.numero_factura}
+                                </Link>
+                            )}
+                        </Campo>
+                        <Campo rotulo="Anexos">{ev.anexos?.length > 0 ? ev.anexos.join(", ") : null}</Campo>
+                        {ev.erro && (
+                            <Campo rotulo={`Erro após ${ev.tentativas ?? 1} tentativa(s)`} largo>
+                                {ev.erro}
+                            </Campo>
+                        )}
+                    </Campos>
+                </ExpandableCard>
+            )}
 
             <Modal show={Boolean(aVer)} onClose={() => setAVer(null)} title={aVer?.assunto ?? "Email"} maxWidth="2xl">
                 {aVer && (

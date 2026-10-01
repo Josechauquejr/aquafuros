@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
+import { Campo, Campos, Destaque, Destaques } from "@/Components/DataTable/Detalhe";
+import useCartaoDeLinha, { linhaClicavel } from "@/Components/DataTable/useCartaoDeLinha";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import IconButton from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
@@ -17,6 +19,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
+import { ExpandableCard } from "@/Components/ui/expandable-card";
 import { cn, formatDateTime } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
@@ -46,6 +49,8 @@ export default function Index({ usuarios, papeis, filtros }) {
     const deleteForm = useForm({});
 
     const dados = usuarios.data;
+    const cartao = useCartaoDeLinha(dados);
+    const utilizador = cartao.linha;
 
     const aplicarFiltros = (novosFiltros) => {
         router.get("/dev/users", { ...filtros, ...novosFiltros }, { preserveState: true, preserveScroll: true, replace: true });
@@ -233,7 +238,8 @@ export default function Index({ usuarios, papeis, filtros }) {
                                         <motion.div
                                             key={user.id}
                                             variants={itemVariants}
-                                            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                                            {...cartao.propsLinha(user)}
+                                            className={cn("rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900", linhaClicavel)}
                                         >
                                             <div className="flex items-start justify-between gap-2">
                                                 <div className="flex items-center gap-3">
@@ -303,7 +309,8 @@ export default function Index({ usuarios, papeis, filtros }) {
                                                     <motion.tr
                                                         key={user.id}
                                                         variants={itemVariants}
-                                                        className="transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                                                        {...cartao.propsLinha(user)}
+                                                        className={linhaClicavel}
                                                     >
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center gap-3">
@@ -507,6 +514,40 @@ export default function Index({ usuarios, papeis, filtros }) {
                     </div>
                 )}
             </Modal>
+            {utilizador && (
+                <ExpandableCard
+                    open={cartao.aberta}
+                    onOpenChange={(v) => !v && cartao.fechar()}
+                    title={utilizador.name}
+                    description={`@${utilizador.username}`}
+                    footer={
+                        <div className="flex flex-wrap justify-end gap-2">
+                            <SecondaryButton type="button" onClick={() => { const alvo = utilizador; cartao.fechar(); setParaRepor(alvo); }}>
+                                <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" /> Repor senha
+                            </SecondaryButton>
+                            <SecondaryButton type="button" onClick={() => { const alvo = utilizador; cartao.fechar(); abrirEdicao(alvo); }}>
+                                <Pencil className="mr-2 h-4 w-4" aria-hidden="true" /> Editar
+                            </SecondaryButton>
+                            {utilizador.id !== auth.user.id && (
+                                <SecondaryButton type="button" onClick={() => { const alvo = utilizador; cartao.fechar(); setParaEliminar(alvo); }}>
+                                    <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" /> Eliminar
+                                </SecondaryButton>
+                            )}
+                        </div>
+                    }
+                >
+                    <Destaques>
+                        <Destaque rotulo="Função">{(roleConfig[utilizador.roles?.[0]?.name] ?? { label: utilizador.roles?.[0]?.name ?? "—" }).label}</Destaque>
+                        <Destaque rotulo="Estado" tom={utilizador.is_active ? "sucesso" : "neutro"}>{utilizador.is_active ? "Activo" : "Inactivo"}</Destaque>
+                    </Destaques>
+                    <Campos className="mt-5">
+                        <Campo rotulo="Email">{utilizador.email}</Campo>
+                        <Campo rotulo="Telefone">{utilizador.telefone}</Campo>
+                        <Campo rotulo="Criado em">{formatDateTime(utilizador.created_at)}</Campo>
+                        <Campo rotulo="Email verificado">{utilizador.email_verified_at ? formatDateTime(utilizador.email_verified_at) : "Não"}</Campo>
+                    </Campos>
+                </ExpandableCard>
+            )}
         </DevLayout>
     );
 }

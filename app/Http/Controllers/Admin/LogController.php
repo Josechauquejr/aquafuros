@@ -80,6 +80,8 @@ class LogController extends Controller
         $limite = Carbon::now()->subDays($data['dias']);
         $eliminados = Activity::where('created_at', '<', $limite)->delete();
 
+        \App\Models\DevAuditoria::registar('dev.logs.actividade.limpar.resultado', null, ['eliminados' => $eliminados, 'dias' => $data['dias']]);
+
         return redirect()->route('dev.logs.actividade')
             ->with('status', "{$eliminados} registo(s) de actividade com mais de {$data['dias']} dias foram eliminados.");
     }

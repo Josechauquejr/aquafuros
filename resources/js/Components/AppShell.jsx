@@ -26,6 +26,7 @@ import Breadcrumbs from "@/Components/Breadcrumbs";
 import FlashToasts from "@/Components/FlashToasts";
 import NovidadesModal from "@/Components/NovidadesModal";
 import ThemeToggle from "@/Components/ThemeToggle";
+import { cn } from "@/lib/utils";
 
 function activo(url, href) {
     const caminho = url.split("?")[0];
@@ -48,36 +49,141 @@ function ItemMenu({ item, url }) {
     );
 }
 
-// Menu em árvore (BranchedMenu): cada categoria é um ramo, cada página uma folha.
-// O valor de cada folha é o seu href — escolher uma folha navega para lá.
-function MenuArvore({ groups, url }) {
-    const items = groups.map((grupo) => ({
-        label: grupo.categoria,
-        children: grupo.items.map((item) => ({
-            value: item.href,
-            label: item.label,
-            icon: <item.icon aria-hidden="true" className="h-4 w-4" />,
-        })),
-    }));
-    const todos = groups.flatMap((grupo) => grupo.items.map((item) => item.href));
-    // A mais específica ganha (ex.: /dev/logs/acessos antes de /dev).
-    const activa = todos.filter((href) => activo(url, href)).sort((a, b) => b.length - a.length)[0] ?? "";
+// Todas as páginas de uma categoria, com ou sem subcategorias.
+// Categoria simples: { categoria, items }. Com subcategorias: { categoria, subgrupos: [{ nome, items }] }.
+const itensDoGrupo = (grupo) => grupo.subgrupos?.flatMap((sub) => sub.items) ?? grupo.items ?? [];
+
+const folha = (item) => ({ value: item.href, label: item.label, icon: <item.icon aria-hidden="true" className="h-4 w-4" /> });
+
+// A página mais específica ganha (ex.: /dev/logs/acessos antes de /dev).
+function paginaActiva(groups, url) {
     return (
-        <BranchedMenu
-            items={items}
-            defaultOpen={groups.map((_, indice) => indice)}
-            defaultActive={activa}
-            onSelect={(valor) => router.visit(valor)}
-            color="hsl(var(--sidebar-foreground))"
-            accentColor="hsl(var(--sidebar-primary))"
-            lineColor="hsl(var(--sidebar-border))"
-            width={260}
-            className="px-1"
-        />
+        groups
+            .flatMap(itensDoGrupo)
+            .map((item) => item.href)
+            .filter((href) => activo(url, href))
+            .sort((a, b) => b.length - a.length)[0] ?? ""
     );
 }
 
-function MenuLateral({ groups, casa, empresa }) {
+const estiloArvore = {
+    color: "hsl(var(--sidebar-foreground))",
+    accentColor: "hsl(var(--sidebar-primary))",
+    lineColor: "hsl(var(--sidebar-border))",
+    width: 260,
+    className: "px-1",
+};
+
+// Categoria com subcategorias: o título recolhe/expande, e cada subcategoria é
+// um ramo (BranchedMenu) cujas folhas são as páginas.
+function CategoriaComSubgrupos({ grupo, activa, aberta, alternar }) {
+    const items = grupo.subgrupos.map((sub) => ({ label: sub.nome, children: sub.items.map(folha) }));
+
+    return (
+        <div>
+            <button
+                type="button"
+                onClick={alternar}
+                aria-expanded={aberta}
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            >
+                {grupo.categoria}
+                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", !aberta && "-rotate-90")} aria-hidden="true" />
+            </button>
+            <AnimatePresence initial={false}>
+                {aberta && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                        className="overflow-hidden"
+                    >
+                        <BranchedMenu
+                            items={items}
+                            defaultOpen={items.map((_, indice) => indice)}
+                            defaultActive={activa}
+                            onSelect={(valor) => router.visit(valor)}
+                            {...estiloArvore}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+// Menu em árvore (BranchedMenu). Categorias simples: cada categoria é um ramo e
+// cada página uma folha, tudo num só menu. Categorias com subcategorias: título
+// da categoria + um ramo por subcategoria. O valor de cada folha é o seu href.
+function MenuArvore({ groups, url, chave }) {
+    const activa = paginaActiva(groups, url);
+    const comSubgrupos = groups.some((grupo) => grupo.subgrupos);
+    const categoriaActiva = groups.find((grupo) => itensDoGrupo(grupo).some((item) => item.href === activa))?.categoria;
+
+    // Categorias abertas: a da página actual abre sempre; as outras lembram-se do que o utilizador fez.
+    const [abertas, setAbertas] = useState(() => {
+        let guardadas = [];
+        try {
+            guardadas = JSON.parse(localStorage.getItem(`${chave}-categorias`) ?? "[]");
+        } catch {
+            // sem armazenamento: só abre a actual
+        }
+        return new Set([...guardadas, categoriaActiva].filter(Boolean));
+    });
+    const alternar = (categoria) =>
+        setAbertas((anterior) => {
+            const seguinte = new Set(anterior);
+            seguinte.has(categoria) ? seguinte.delete(categoria) : seguinte.add(categoria);
+            try {
+                localStorage.setItem(`${chave}-categorias`, JSON.stringify([...seguinte]));
+            } catch {
+                // preferência não guardada: não é grave
+            }
+            return seguinte;
+        });
+
+    if (!comSubgrupos) {
+        const items = groups.map((grupo) => ({ label: grupo.categoria, children: itensDoGrupo(grupo).map(folha) }));
+
+        return (
+            <BranchedMenu
+                items={items}
+                defaultOpen={groups.map((_, indice) => indice)}
+                defaultActive={activa}
+                onSelect={(valor) => router.visit(valor)}
+                {...estiloArvore}
+            />
+        );
+    }
+
+    return (
+        <div className="space-y-1">
+            {groups.map((grupo) =>
+                grupo.subgrupos ? (
+                    <CategoriaComSubgrupos
+                        key={grupo.categoria}
+                        grupo={grupo}
+                        activa={activa}
+                        aberta={abertas.has(grupo.categoria)}
+                        alternar={() => alternar(grupo.categoria)}
+                    />
+                ) : (
+                    <BranchedMenu
+                        key={grupo.categoria}
+                        items={[{ label: grupo.categoria, children: grupo.items.map(folha) }]}
+                        defaultOpen={[0]}
+                        defaultActive={activa}
+                        onSelect={(valor) => router.visit(valor)}
+                        {...estiloArvore}
+                    />
+                ),
+            )}
+        </div>
+    );
+}
+
+function MenuLateral({ groups, casa, empresa, chave }) {
     const { url } = usePage();
 
     return (
@@ -95,14 +201,14 @@ function MenuLateral({ groups, casa, empresa }) {
                 {/* Sidebar aberta: menu em árvore. Recolhida (só ícones): os botões
                     com tooltip de sempre, que a árvore não consegue mostrar. */}
                 <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
-                    <MenuArvore groups={groups} url={url} />
+                    <MenuArvore groups={groups} url={url} chave={chave} />
                 </div>
                 {groups.map((grupo) => (
                     <SidebarGroup key={grupo.categoria} className="hidden group-data-[collapsible=icon]:block">
                         <SidebarGroupLabel>{grupo.categoria}</SidebarGroupLabel>
                         <SidebarGroupContent>
                             <SidebarMenu>
-                                {grupo.items.map((item) => (
+                                {itensDoGrupo(grupo).map((item) => (
                                     <ItemMenu key={item.href} item={item} url={url} />
                                 ))}
                             </SidebarMenu>
@@ -211,7 +317,7 @@ export default function AppShell({ groups, casa, chaveRecolhido, header, childre
         <SidebarProvider open={aberta} onOpenChange={alterar}>
             <FlashToasts />
             <NovidadesModal />
-            <MenuLateral groups={groups} casa={casa} empresa={empresa} />
+            <MenuLateral groups={groups} casa={casa} empresa={empresa} chave={chaveRecolhido} />
 
             <SidebarInset className="min-w-0 bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
                 <div className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/85 sm:px-6">

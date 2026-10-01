@@ -3,9 +3,19 @@
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\LixeiraController;
 use App\Http\Controllers\Admin\LogController;
+use App\Http\Controllers\Dev\AlteracoesController as DevAlteracoesController;
+use App\Http\Controllers\Dev\AuditoriaController as DevAuditoriaController;
+use App\Http\Controllers\Dev\DadosController as DevDadosController;
+use App\Http\Controllers\Dev\EdicaoController as DevEdicaoController;
+use App\Http\Controllers\Dev\EmailsController as DevEmailsController;
+use App\Http\Controllers\Dev\FilasController as DevFilasController;
+use App\Http\Controllers\Dev\IntegridadeController as DevIntegridadeController;
+use App\Http\Controllers\Dev\OperacoesController as DevOperacoesController;
+use App\Http\Controllers\Dev\LogAplicacaoController as DevLogAplicacaoController;
 use App\Http\Controllers\Dev\ConfiguracaoController as DevConfiguracaoController;
 use App\Http\Controllers\Dev\LogController as DevLogController;
 use App\Http\Controllers\Dev\PainelController as DevPainelController;
+use App\Http\Controllers\Dev\SaudeController as DevSaudeController;
 use App\Http\Controllers\Dev\TarefaController as DevTarefaController;
 use App\Http\Controllers\CaixaDashboardController;
 use App\Http\Controllers\GestorDashboardController;
@@ -193,26 +203,72 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Área exclusiva do Desenvolvedor — totalmente isolada dos restantes
     // papéis, incluindo administrador (nem um acede às páginas do outro).
-    Route::middleware(['role:desenvolvedor'])->prefix('dev')->name('dev.')->group(function () {
+    Route::middleware(['role:desenvolvedor', 'throttle:120,1', 'dev.auditar'])->prefix('dev')->name('dev.')->group(function () {
+        // Só leitura.
         Route::get('painel', [DevPainelController::class, 'index'])->name('painel');
+        Route::get('saude', [DevSaudeController::class, 'index'])->name('saude');
+        Route::get('auditoria', [DevAuditoriaController::class, 'index'])->name('auditoria');
         Route::get('configuracoes', [DevConfiguracaoController::class, 'index'])->name('configuracoes.index');
-        Route::put('configuracoes/funcionalidades/{funcionalidade}', [DevConfiguracaoController::class, 'actualizarFuncionalidade'])->name('configuracoes.funcionalidade');
-        Route::put('configuracoes/horario', [DevConfiguracaoController::class, 'actualizarHorario'])->name('configuracoes.horario');
-        // POST em vez de PUT: envia ficheiro (logotipo) via multipart/form-data.
-        Route::post('configuracoes/empresa', [DevConfiguracaoController::class, 'actualizarEmpresa'])->name('configuracoes.empresa');
+        Route::get('dados', [DevDadosController::class, 'index'])->name('dados.index');
+        Route::get('dados/{tabela}', [DevDadosController::class, 'tabela'])->name('dados.tabela');
+        Route::get('dados/{tabela}/registo/{id}', [DevDadosController::class, 'registo'])->name('dados.registo');
+        // Alterações de dados: a página mostra sempre o estado; o resto só corre com DEV_ESCRITA=true.
+        Route::get('alteracoes', [DevAlteracoesController::class, 'index'])->name('alteracoes');
+        Route::get('editar/{tabela}/{id}', [DevEdicaoController::class, 'form'])->middleware('dev.escrita')->name('editar');
+        Route::get('integridade', [DevIntegridadeController::class, 'index'])->name('integridade');
+        Route::get('integridade/{chave}', [DevIntegridadeController::class, 'detalhe'])->name('integridade.detalhe');
+        Route::get('analise', [DevIntegridadeController::class, 'analise'])->name('analise');
+        Route::get('filas', [DevFilasController::class, 'index'])->name('filas');
+        Route::get('operacoes', [DevOperacoesController::class, 'index'])->name('operacoes');
+        Route::get('emails', [DevEmailsController::class, 'index'])->name('emails');
+        Route::get('emails/{envio}/ver', [DevEmailsController::class, 'ver'])->name('emails.ver');
+        Route::get('logs/aplicacao', [DevLogAplicacaoController::class, 'index'])->name('logs.aplicacao');
         Route::get('logs/acessos', [DevLogController::class, 'acessos'])->name('logs.acessos');
         Route::get('logs/erros', [DevLogController::class, 'erros'])->name('logs.erros');
-        Route::put('logs/erros/{erro}/resolver', [DevLogController::class, 'marcarResolvido'])->name('logs.erros.resolver');
         Route::get('actividade', [LogController::class, 'index'])->name('logs.actividade');
-        Route::delete('actividade', [LogController::class, 'limpar'])->name('logs.actividade.limpar');
-        Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
-        // Antes do resource: evita que "lixeira" seja capturado pelo
-        // wildcard {user} de DELETE users/{user}.
+        Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::get('users/lixeira', [UserController::class, 'lixeira'])->name('users.lixeira');
-        Route::post('users/lixeira/{id}/restaurar', [UserController::class, 'restaurar'])->name('users.lixeira.restaurar');
-        Route::delete('users/lixeira/{id}', [UserController::class, 'destroyDefinitivo'])->name('users.lixeira.destruir');
-        Route::resource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        // Checklist pessoal e marcar erros como resolvidos: sem risco, sem repetir a senha.
+        Route::put('logs/erros/{erro}/resolver', [DevLogController::class, 'marcarResolvido'])->name('logs.erros.resolver');
         Route::resource('tarefas', DevTarefaController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        // A pré-visualização só LÊ (mostra o que seria afectado): pede a senha mas não precisa de DEV_ESCRITA.
+        Route::post('alteracoes/previa', [DevAlteracoesController::class, 'previa'])->middleware(['password.confirm:password.confirm,900', 'throttle:20,1'])->name('alteracoes.previa');
+
+        Route::middleware(['dev.escrita', 'password.confirm:password.confirm,900', 'throttle:20,1'])->group(function () {
+            Route::post('alteracoes/executar', [DevAlteracoesController::class, 'executar'])->name('alteracoes.executar');
+            Route::post('alteracoes/{snapshot}/desfazer', [DevAlteracoesController::class, 'desfazer'])->name('alteracoes.desfazer');
+            Route::put('editar/{tabela}/{id}', [DevEdicaoController::class, 'guardar'])->name('editar.guardar');
+        });
+
+        // Tudo o que altera dados ou contas: volta a pedir a senha (válida 15 min) e fica na auditoria.
+        Route::middleware(['password.confirm:password.confirm,900'])->group(function () {
+            // Filas, operações do sistema e reenvio de emails (acções reais: a maioria pede também uma palavra escrita).
+            Route::post('filas/falhados/repetir-todos', [DevFilasController::class, 'repetirTodos'])->name('filas.repetir-todos');
+            Route::post('filas/falhados/{uuid}/repetir', [DevFilasController::class, 'repetir'])->name('filas.repetir');
+            Route::delete('filas/falhados/{uuid}', [DevFilasController::class, 'esquecer'])->name('filas.esquecer');
+            Route::delete('filas/falhados', [DevFilasController::class, 'limparFalhados'])->name('filas.limpar-falhados');
+            Route::delete('filas/pendentes/{id}', [DevFilasController::class, 'apagarPendente'])->name('filas.apagar-pendente');
+            Route::delete('filas/pendentes', [DevFilasController::class, 'limparPendentes'])->name('filas.limpar-pendentes');
+            Route::post('operacoes/tarefa', [DevOperacoesController::class, 'executarTarefa'])->name('operacoes.tarefa');
+            Route::post('operacoes/cache', [DevOperacoesController::class, 'limparCache'])->name('operacoes.cache');
+            Route::post('operacoes/manutencao', [DevOperacoesController::class, 'ligarManutencao'])->name('operacoes.manutencao.ligar');
+            Route::delete('operacoes/manutencao', [DevOperacoesController::class, 'desligarManutencao'])->name('operacoes.manutencao.desligar');
+            Route::post('emails/{envio}/reenviar', [DevEmailsController::class, 'reenviar'])->name('emails.reenviar');
+
+            // Exportar dados pessoais: pede a senha, tem limite de pedidos e fica na auditoria.
+            Route::get('dados/{tabela}/exportar', [DevDadosController::class, 'exportar'])->middleware('throttle:6,1')->name('dados.exportar');
+            Route::put('configuracoes/funcionalidades/{funcionalidade}', [DevConfiguracaoController::class, 'actualizarFuncionalidade'])->name('configuracoes.funcionalidade');
+            Route::put('configuracoes/horario', [DevConfiguracaoController::class, 'actualizarHorario'])->name('configuracoes.horario');
+            // POST em vez de PUT: envia ficheiro (logotipo) via multipart/form-data.
+            Route::post('configuracoes/empresa', [DevConfiguracaoController::class, 'actualizarEmpresa'])->name('configuracoes.empresa');
+            Route::delete('actividade', [LogController::class, 'limpar'])->name('logs.actividade.limpar');
+            Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+            Route::post('users/lixeira/{id}/restaurar', [UserController::class, 'restaurar'])->name('users.lixeira.restaurar');
+            Route::delete('users/lixeira/{id}', [UserController::class, 'destroyDefinitivo'])->name('users.lixeira.destruir');
+            Route::resource('users', UserController::class)->only(['store', 'update', 'destroy']);
+        });
     });
 });
 

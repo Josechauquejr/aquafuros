@@ -1,10 +1,12 @@
 import { Head, router, usePage } from "@inertiajs/react";
-import { ChevronDown, Eraser, PlusCircle, Search, ScrollText, SquarePen, Trash2 } from "lucide-react";
+import { Eraser, PlusCircle, Search, ScrollText, SquarePen, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
+import { Campo, Campos, Destaque, Destaques, SeccaoDetalhe } from "@/Components/DataTable/Detalhe";
+import useCartaoDeLinha, { linhaClicavel } from "@/Components/DataTable/useCartaoDeLinha";
 import InlineNotice from "@/Components/InlineNotice";
 import InputLabel from "@/Components/InputLabel";
 import Modal from "@/Components/Modal";
@@ -13,6 +15,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
+import { ExpandableCard } from "@/Components/ui/expandable-card";
 import { cn, formatDateTime } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
@@ -61,11 +64,14 @@ function Alteracoes({ propriedades }) {
 export default function Logs({ registos, tipos, utilizadores, filtros }) {
     const { flash } = usePage().props;
     const [search, setSearch] = useState(filtros.search ?? "");
-    const [expandido, setExpandido] = useState(null);
     const [showLimparModal, setShowLimparModal] = useState(false);
     const [dias, setDias] = useState("180");
 
     const dados = registos.data;
+    const cartao = useCartaoDeLinha(dados);
+    const registoAberto = cartao.linha;
+    const eventoAberto = registoAberto ? (eventoConfig[registoAberto.event] ?? { label: registoAberto.event, tone: "slate" }) : null;
+    const podeReverter = registoAberto?.log_name === "cliente" && registoAberto?.event === "updated" && Object.keys(registoAberto?.properties?.old ?? {}).length > 0;
 
     const aplicarFiltros = (novosFiltros) => {
         router.get("/dev/actividade", { ...filtros, ...novosFiltros }, { preserveState: true, preserveScroll: true, replace: true });
@@ -183,20 +189,10 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                                             icon: ScrollText,
                                         };
                                         const Icon = evento.icon;
-                                        const aberto = expandido === registo.id;
-                                        const temAlteracoes = Object.keys(registo.properties?.attributes ?? {}).length > 0;
-                                        const podeReverter = registo.log_name === "cliente" && registo.event === "updated" && Object.keys(registo.properties?.old ?? {}).length > 0;
 
                                         return (
-                                            <motion.div key={registo.id} variants={itemVariants} className="p-4 sm:px-6">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => temAlteracoes && setExpandido(aberto ? null : registo.id)}
-                                                    className={cn(
-                                                        "flex w-full items-start justify-between gap-3 text-left",
-                                                        temAlteracoes && "cursor-pointer",
-                                                    )}
-                                                >
+                                            <motion.div key={registo.id} variants={itemVariants} {...cartao.propsLinha(registo)} className={cn("p-4 sm:px-6", linhaClicavel)}>
+                                                <div className="flex items-start justify-between gap-3">
                                                     <div className="flex items-start gap-3">
                                                         <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300">
                                                             <Icon className="h-4 w-4" aria-hidden="true" />
@@ -211,29 +207,8 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="flex shrink-0 items-center gap-2">
-                                                        <StatusBadge tone={evento.tone}>{evento.label}</StatusBadge>
-                                                        {temAlteracoes && (
-                                                            <ChevronDown
-                                                                className={cn(
-                                                                    "h-4 w-4 text-slate-400 transition-transform",
-                                                                    aberto && "rotate-180",
-                                                                )}
-                                                                aria-hidden="true"
-                                                            />
-                                                        )}
-                                                    </div>
-                                                </button>
-                                                {aberto && (
-                                                    <>
-                                                        <Alteracoes propriedades={registo.properties} />
-                                                        {podeReverter && (
-                                                            <button type="button" onClick={() => router.post(`/clientes/historico/${registo.id}/reverter`, {}, { preserveScroll: true })} className="mt-3 text-xs font-semibold text-amber-700 underline-offset-2 hover:underline dark:text-amber-300">
-                                                                Repor valores anteriores
-                                                            </button>
-                                                        )}
-                                                    </>
-                                                )}
+                                                    <StatusBadge tone={evento.tone}>{evento.label}</StatusBadge>
+                                                </div>
                                             </motion.div>
                                         );
                                     })}
@@ -272,6 +247,38 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                     </div>
                 </form>
             </Modal>
+            {registoAberto && (
+                <ExpandableCard
+                    open={cartao.aberta}
+                    onOpenChange={(v) => !v && cartao.fechar()}
+                    title={registoAberto.description}
+                    description="Registo de actividade"
+                    footer={
+                        podeReverter ? (
+                            <div className="flex justify-end">
+                                <SecondaryButton type="button" onClick={() => { const id = registoAberto.id; cartao.fechar(); router.post(`/clientes/historico/${id}/reverter`, {}, { preserveScroll: true }); }}>
+                                    Repor valores anteriores
+                                </SecondaryButton>
+                            </div>
+                        ) : null
+                    }
+                >
+                    <Destaques>
+                        <Destaque rotulo="Acção" tom={eventoAberto.tone === "rose" ? "perigo" : eventoAberto.tone === "emerald" ? "sucesso" : "primario"}>{eventoAberto.label}</Destaque>
+                        <Destaque rotulo="Quando">{formatDateTime(registoAberto.created_at)}</Destaque>
+                    </Destaques>
+                    <Campos className="mt-5">
+                        <Campo rotulo="Quem">{registoAberto.causer?.name ?? "Sistema"}</Campo>
+                        <Campo rotulo="Tipo">{tipos[registoAberto.log_name] ?? registoAberto.log_name}</Campo>
+                        <Campo rotulo="Registo afectado">{registoAberto.subject_type ? `${registoAberto.subject_type.split("\\").pop()} #${registoAberto.subject_id}` : null}</Campo>
+                    </Campos>
+                    {Object.keys(registoAberto.properties?.attributes ?? {}).length > 0 && (
+                        <SeccaoDetalhe titulo="O que mudou">
+                            <Alteracoes propriedades={registoAberto.properties} />
+                        </SeccaoDetalhe>
+                    )}
+                </ExpandableCard>
+            )}
         </DevLayout>
     );
 }

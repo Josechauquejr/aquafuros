@@ -4,21 +4,29 @@ import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
+import { Campo, Campos, Destaque, Destaques, MaisDetalhes } from "@/Components/DataTable/Detalhe";
+import useCartaoDeLinha, { linhaClicavel } from "@/Components/DataTable/useCartaoDeLinha";
 import IconButton from "@/Components/IconButton";
 import Pagination from "@/Components/Pagination";
 import FiltroPeriodo from "@/Components/FiltroPeriodo";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
+import { ExpandableCard } from "@/Components/ui/expandable-card";
 import { cn, formatDateTime } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
 const abas = [
     { chave: "acessos", label: "Acessos", href: "/dev/logs/acessos" },
     { chave: "erros", label: "Erros", href: "/dev/logs/erros" },
+    { chave: "aplicacao", label: "Aplicação", href: "/dev/logs/aplicacao" },
 ];
 
 export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }) {
     const [search, setSearch] = useState(filtros.search ?? "");
+    const cartaoAcesso = useCartaoDeLinha(acessos?.data ?? []);
+    const cartaoErro = useCartaoDeLinha(erros?.data ?? []);
+    const acesso = cartaoAcesso.linha;
+    const erroAberto = cartaoErro.linha;
 
     const rota = aba === "erros" ? "/dev/logs/erros" : "/dev/logs/acessos";
 
@@ -120,7 +128,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
                                                 </thead>
                                                 <motion.tbody variants={listVariants} initial="hidden" animate="show" className="divide-y divide-slate-100 dark:divide-slate-800">
                                                     {acessos.data.map((linha) => (
-                                                        <motion.tr key={linha.id} variants={itemVariants}>
+                                                        <motion.tr key={linha.id} variants={itemVariants} {...cartaoAcesso.propsLinha(linha)} className={linhaClicavel}>
                                                             <td className="px-6 py-3 font-medium text-slate-900 dark:text-white">
                                                                 {linha.user?.name ?? "—"}
                                                             </td>
@@ -188,7 +196,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
                                     <AnimatedPanel delay={0.16} className="overflow-hidden">
                                         <motion.div variants={listVariants} initial="hidden" animate="show" className="divide-y divide-slate-100 dark:divide-slate-800">
                                             {erros.data.map((erro) => (
-                                                <motion.div key={erro.id} variants={itemVariants} className="p-4 sm:px-6">
+                                                <motion.div key={erro.id} variants={itemVariants} {...cartaoErro.propsLinha(erro)} className={cn("p-4 sm:px-6", linhaClicavel)}>
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div className="flex items-start gap-3">
                                                             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
@@ -228,6 +236,68 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
                     )}
                 </div>
             </div>
+
+            {acesso && (
+                <ExpandableCard
+                    open={cartaoAcesso.aberta}
+                    onOpenChange={(v) => !v && cartaoAcesso.fechar()}
+                    title={`${acesso.metodo ?? "GET"} ${acesso.url}`}
+                    description="Acesso ao sistema"
+                >
+                    <Destaques>
+                        <Destaque rotulo="Estado" tom={acesso.status_code && acesso.status_code < 400 ? "sucesso" : "perigo"}>{acesso.status_code ?? "—"}</Destaque>
+                        <Destaque rotulo="Duração" tom="primario">{acesso.duracao_ms != null ? `${acesso.duracao_ms} ms` : "—"}</Destaque>
+                    </Destaques>
+                    <Campos className="mt-5">
+                        <Campo rotulo="Utilizador">{acesso.user?.name}</Campo>
+                        <Campo rotulo="Data/hora">{formatDateTime(acesso.created_at)}</Campo>
+                        <Campo rotulo="IP">{acesso.ip}</Campo>
+                        <Campo rotulo="Tempo na base de dados">{acesso.tempo_bd_ms != null ? `${acesso.tempo_bd_ms} ms` : null}</Campo>
+                    </Campos>
+                    <MaisDetalhes>
+                        <Campos>
+                            <Campo rotulo="URL completo" largo>{acesso.url}</Campo>
+                            <Campo rotulo="Dispositivo" largo>{acesso.user_agent}</Campo>
+                        </Campos>
+                    </MaisDetalhes>
+                </ExpandableCard>
+            )}
+
+            {erroAberto && (
+                <ExpandableCard
+                    open={cartaoErro.aberta}
+                    onOpenChange={(v) => !v && cartaoErro.fechar()}
+                    title={erroAberto.mensagem}
+                    description={erroAberto.excepcao}
+                    footer={
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => marcarResolvido(erroAberto)}
+                                className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold uppercase text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                            >
+                                {erroAberto.resolvido ? <RotateCcw className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
+                                {erroAberto.resolvido ? "Marcar como pendente" : "Marcar como resolvido"}
+                            </button>
+                        </div>
+                    }
+                >
+                    <Destaques>
+                        <Destaque rotulo="Estado" tom={erroAberto.resolvido ? "sucesso" : "perigo"}>{erroAberto.resolvido ? "Resolvido" : "Pendente"}</Destaque>
+                        <Destaque rotulo="Quando">{formatDateTime(erroAberto.created_at)}</Destaque>
+                    </Destaques>
+                    <Campos className="mt-5">
+                        <Campo rotulo="Ficheiro" largo>{erroAberto.ficheiro}:{erroAberto.linha}</Campo>
+                        <Campo rotulo="Pedido" largo>{erroAberto.metodo} {erroAberto.url}</Campo>
+                        <Campo rotulo="Utilizador">{erroAberto.user?.name}</Campo>
+                    </Campos>
+                    {erroAberto.trace && (
+                        <MaisDetalhes titulo="Rasto da pilha (trace)">
+                            <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{erroAberto.trace}</pre>
+                        </MaisDetalhes>
+                    )}
+                </ExpandableCard>
+            )}
         </DevLayout>
     );
 }

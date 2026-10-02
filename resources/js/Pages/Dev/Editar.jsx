@@ -9,7 +9,7 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import TextInput from "@/Components/TextInput";
 import { cn } from "@/lib/utils";
 
-const seleccao = "mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+const seleccao = "mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
 export default function Editar({ tabela, id, titulo, campos, valores, palavra }) {
     const inicial = Object.fromEntries(campos.map((c) => [c.nome, valores[c.nome] ?? ""]));

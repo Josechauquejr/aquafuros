@@ -198,7 +198,7 @@ export default function Index({ usuarios, papeis, filtros }) {
                             <select
                                 value={filtros.papel}
                                 onChange={(event) => mudarPapel(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="todos">Todas as funções</option>
                                 {papeis.map((papel) => (
@@ -210,7 +210,7 @@ export default function Index({ usuarios, papeis, filtros }) {
                             <select
                                 value={filtros.estado}
                                 onChange={(event) => mudarEstado(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="todos">Todos os estados</option>
                                 <option value="activo">Activo</option>
@@ -426,7 +426,7 @@ export default function Index({ usuarios, papeis, filtros }) {
                             id="papel"
                             value={form.data.papel}
                             onChange={(event) => form.setData("papel", event.target.value)}
-                            className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                         >
                             {papeis.map((papel) => (
                                 <option key={papel} value={papel}>

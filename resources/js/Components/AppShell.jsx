@@ -27,6 +27,7 @@ import Breadcrumbs from "@/Components/Breadcrumbs";
 import FlashToasts from "@/Components/FlashToasts";
 import NovidadesModal from "@/Components/NovidadesModal";
 import ThemeToggle from "@/Components/ThemeToggle";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 function activo(url, href) {
@@ -74,17 +75,19 @@ function paginaActiva(groups, url) {
     );
 }
 
-const estiloArvore = {
+// Linhas de 44 px no telemóvel (alvo de toque confortável); 36 px com rato.
+const estiloDaArvore = (movel) => ({
+    rowHeight: movel ? 44 : 36,
     color: "hsl(var(--sidebar-foreground))",
     accentColor: "hsl(var(--sidebar-primary))",
     lineColor: "hsl(var(--sidebar-border))",
     width: 260,
     className: "px-1",
-};
+});
 
 // Categoria com subcategorias: o título recolhe/expande, e cada subcategoria é
 // um ramo (BranchedMenu) cujas folhas são as páginas.
-function CategoriaComSubgrupos({ grupo, activa, aberta, alternar }) {
+function CategoriaComSubgrupos({ grupo, activa, aberta, alternar, estilo }) {
     const items = grupo.subgrupos.map((sub) => ({ label: sub.nome, children: sub.items.map(folha) }));
 
     return (
@@ -112,7 +115,7 @@ function CategoriaComSubgrupos({ grupo, activa, aberta, alternar }) {
                             defaultOpen={items.map((_, indice) => indice)}
                             defaultActive={activa}
                             onSelect={(valor) => router.visit(valor)}
-                            {...estiloArvore}
+                            {...estilo}
                         />
                     </motion.div>
                 )}
@@ -126,6 +129,7 @@ function CategoriaComSubgrupos({ grupo, activa, aberta, alternar }) {
 // um ramo por subcategoria. O valor de cada folha é o seu href.
 function MenuArvore({ groups, url, chave }) {
     const activa = paginaActiva(groups, url);
+    const estilo = estiloDaArvore(useIsMobile());
     const categoriaActiva = groups.find((grupo) => itensDoGrupo(grupo).some((item) => item.href === activa))?.categoria;
 
     // Categorias abertas: a da página actual abre sempre; as outras lembram-se do que o utilizador fez.
@@ -161,7 +165,7 @@ function MenuArvore({ groups, url, chave }) {
                 defaultOpen={groups.map((_, indice) => indice)}
                 defaultActive={activa}
                 onSelect={(valor) => router.visit(valor)}
-                {...estiloArvore}
+                {...estilo}
             />
         );
     }
@@ -176,6 +180,7 @@ function MenuArvore({ groups, url, chave }) {
                         activa={activa}
                         aberta={abertas.has(grupo.categoria)}
                         alternar={() => alternar(grupo.categoria)}
+                        estilo={estilo}
                     />
                 ) : (
                     <BranchedMenu
@@ -184,7 +189,7 @@ function MenuArvore({ groups, url, chave }) {
                         defaultOpen={[0]}
                         defaultActive={activa}
                         onSelect={(valor) => router.visit(valor)}
-                        {...estiloArvore}
+                        {...estilo}
                     />
                 ),
             )}

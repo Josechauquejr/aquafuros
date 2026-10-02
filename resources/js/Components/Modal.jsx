@@ -27,7 +27,7 @@ export default function Modal({ show, onClose, title, maxWidth = "md", children 
     return (
         <AnimatePresence>
             {show && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+                <div className="fixed inset-0 z-50 flex items-start justify-center px-4 py-4 sm:items-center sm:py-8">
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -60,7 +60,7 @@ export default function Modal({ show, onClose, title, maxWidth = "md", children 
                                 <X className="h-4 w-4" aria-hidden="true" />
                             </button>
                         </div>
-                        <div className="form-grande max-h-[80vh] overflow-y-auto px-5 py-6 sm:px-8">{children}</div>
+                        <div className="form-grande max-h-[calc(100dvh-8.5rem)] overflow-y-auto overscroll-contain px-5 py-6 sm:max-h-[80vh] sm:px-8">{children}</div>
                     </motion.div>
                 </div>
             )}

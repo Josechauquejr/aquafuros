@@ -640,7 +640,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
                                 id="zona_id"
                                 value={form.data.zona_id}
                                 onChange={(event) => form.setData("zona_id", event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="">{zonas.length === 0 ? "Sem zonas — crie em Zonas" : "Sem zona"}</option>
                                 {zonas.map((zona) => (
@@ -700,7 +700,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
                                 id="tarifa_id"
                                 value={form.data.tarifa_id}
                                 onChange={(event) => form.setData("tarifa_id", event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 {tarifas.map((tarifa) => (
                                     <option key={tarifa.id} value={tarifa.id}>
@@ -716,7 +716,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
                                 id="estado"
                                 value={form.data.estado}
                                 onChange={(event) => form.setData("estado", event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="ativo">Activo</option>
                                 <option value="inativo">Inactivo</option>

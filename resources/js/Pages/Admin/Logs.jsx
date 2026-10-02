@@ -133,7 +133,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                             <select
                                 value={filtros.tipo}
                                 onChange={(event) => aplicarFiltros({ tipo: event.target.value })}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="todos">Todos os tipos</option>
                                 {Object.entries(tipos).map(([valor, label]) => (
@@ -145,7 +145,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                             <select
                                 value={filtros.evento}
                                 onChange={(event) => aplicarFiltros({ evento: event.target.value })}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="todos">Todas as acções</option>
                                 <option value="created">Criado</option>
@@ -155,7 +155,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                             <select
                                 value={filtros.utilizador_id}
                                 onChange={(event) => aplicarFiltros({ utilizador_id: event.target.value })}
-                                className="rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="todos">Todos os utilizadores</option>
                                 {utilizadores.map((u) => (

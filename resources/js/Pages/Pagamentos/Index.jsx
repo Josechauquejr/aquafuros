@@ -430,16 +430,16 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                                             <p className="text-sm text-slate-600 dark:text-slate-300">
                                                 Factura {facturaSeleccionada.numero_factura} · {meses[facturaSeleccionada.mes - 1]}/{facturaSeleccionada.ano}
                                             </p>
-                                            <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
-                                                <div>
+                                            <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3 sm:gap-3">
+                                                <div className="flex items-baseline justify-between gap-3 sm:block">
                                                     <dt className="text-slate-500 dark:text-slate-400">Total</dt>
                                                     <dd className="font-semibold text-slate-900 dark:text-white">{formatMoney(facturaSeleccionada.total_pagar)}</dd>
                                                 </div>
-                                                <div>
+                                                <div className="flex items-baseline justify-between gap-3 sm:block">
                                                     <dt className="text-slate-500 dark:text-slate-400">Já pago</dt>
                                                     <dd className="font-semibold text-slate-900 dark:text-white">{formatMoney(facturaSeleccionada.total_pago ?? 0)}</dd>
                                                 </div>
-                                                <div>
+                                                <div className="flex items-baseline justify-between gap-3 sm:block">
                                                     <dt className="text-slate-500 dark:text-slate-400">Em falta</dt>
                                                     <dd className="font-bold text-cyan-800 dark:text-cyan-300">{formatMoney(emFaltaDe(facturaSeleccionada))}</dd>
                                                 </div>
@@ -574,7 +574,7 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                                 id="metodo_pagamento"
                                 value={form.data.metodo_pagamento}
                                 onChange={(event) => form.setData("metodo_pagamento", event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 {Object.entries(metodoConfig).map(([valor, { label }]) => (
                                     <option key={valor} value={valor}>
@@ -630,7 +630,7 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                             value={adiantamento.data.cliente_id}
                             onChange={(event) => adiantamento.setData("cliente_id", event.target.value)}
                             required
-                            className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                         >
                             <option value="">Escolha o cliente…</option>
                             {clientes.map((c) => (
@@ -651,7 +651,7 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                                 id="metodo_adiantamento"
                                 value={adiantamento.data.metodo_pagamento}
                                 onChange={(event) => adiantamento.setData("metodo_pagamento", event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 {Object.entries(metodoConfig).map(([valor, { label }]) => (
                                     <option key={valor} value={valor}>{label}</option>

@@ -14,7 +14,7 @@ import { ExpandableCard } from "@/Components/ui/expandable-card";
 import { cn, formatDateTime } from "@/lib/utils";
 
 const selectClasses =
-    "h-10 rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+    "h-10 rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 const tomTipo = { factura: "cyan", lembrete_vencimento: "slate", atraso: "amber", atraso_grave: "rose", cobranca: "amber", recibo: "emerald", teste: "slate" };
 
 export default function Index({ envios, tipos, totais, filtros }) {

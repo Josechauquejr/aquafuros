@@ -98,11 +98,11 @@ export default function KpiCard({ label, value, detail, icon: Icon, tone = "cyan
     }
 
     const conteudo = (
-        <div className="flex items-start justify-between p-5">
-            <div>
+        <div className="flex items-start justify-between gap-2 p-4 sm:p-5">
+            <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
-                <div className="mt-3 flex items-center gap-2">
-                    <p className="text-2xl font-bold text-slate-950 dark:text-white">{value}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 sm:mt-3">
+                    <p className="text-xl font-bold text-slate-950 dark:text-white sm:text-2xl">{value}</p>
                     {temVariacao && (
                         <span
                             className={cn(
@@ -124,7 +124,7 @@ export default function KpiCard({ label, value, detail, icon: Icon, tone = "cyan
                 {detail && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{detail}</p>}
             </div>
             {Icon && (
-                <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-md", toneClasses[tone])}>
+                <div className={cn("hidden h-11 w-11 shrink-0 items-center justify-center rounded-md sm:flex", toneClasses[tone])}>
                     <Icon className="h-5 w-5" aria-hidden="true" />
                 </div>
             )}

@@ -50,7 +50,7 @@ export default function SeletorMes({ rota, mesReferencia, extra = {} }) {
                 <select
                     value={valor}
                     onChange={(evento) => ir(evento.target.value)}
-                    className="h-10 min-w-[11rem] rounded-md border-slate-300 bg-white pl-9 pr-8 text-sm font-medium text-slate-900 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    className="h-10 min-w-[11rem] rounded-md border-slate-300 bg-white pl-9 pr-8 text-base font-medium sm:text-sm text-slate-900 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
                     {opcoes.map((opcao) => (
                         <option key={opcao.valor} value={opcao.valor}>

@@ -223,13 +223,16 @@ export default function DataTable({
                                       const corpo = (
                                           <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                                               {selecao && (
-                                                  <input
-                                                      type="checkbox"
-                                                      checked={seleccionados.includes(id)}
-                                                      onChange={() => alternar(id)}
-                                                      className={cn(checkboxClasses, "mt-1")}
-                                                      aria-label="Seleccionar linha"
-                                                  />
+                                                  // Área de toque de 44 px à volta da caixa de 16 px.
+                                                  <label className="-m-3 mr-0 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
+                                                      <input
+                                                          type="checkbox"
+                                                          checked={seleccionados.includes(id)}
+                                                          onChange={() => alternar(id)}
+                                                          className={checkboxClasses}
+                                                          aria-label="Seleccionar linha"
+                                                      />
+                                                  </label>
                                               )}
                                               <div className="min-w-0 flex-1">{cartao(linha)}</div>
                                               {accao && <RowActions {...accao} rotuloMenu={rotuloAccoes?.(linha)} />}

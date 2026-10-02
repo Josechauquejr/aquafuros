@@ -20,7 +20,7 @@ import { PainelFiltros } from "@/Components/DataTable/Toolbar";
 const tipos = { sem_agua: "Sem água", fuga: "Fuga", avaria: "Avaria", contador: "Contador", reclamacao: "Reclamação", outro: "Outro" };
 const estados = { aberta: ["Aberta", "rose"], em_curso: ["Em curso", "amber"], resolvida: ["Resolvida", "emerald"] };
 const selectClasses =
-    "mt-1 block w-full rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+    "mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
 const filtrosConfig = [
     {
@@ -105,7 +105,7 @@ export default function Index({ ocorrencias, zonas, clientes, totais, filtros })
             <Head title="Ocorrências" />
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="grid grid-cols-3 gap-4">
+                    <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <KpiCard label="Abertas" value={totais.abertas} detail="ainda sem ninguém a tratar" icon={AlertTriangle} tone={totais.abertas > 0 ? "rose" : "emerald"} />
                         <KpiCard label="Em curso" value={totais.emCurso} detail="a ser resolvidas" icon={Hammer} tone="amber" />
                         <KpiCard label="Há mais de 48 h" value={totais.maisDe48h} detail="por resolver" icon={Clock} tone={totais.maisDe48h > 0 ? "rose" : "emerald"} />

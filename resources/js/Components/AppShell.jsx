@@ -1,7 +1,8 @@
 import { Link, router, useForm, usePage } from "@inertiajs/react";
 import { ChevronDown, LogOut, User } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
+import { createPortal } from "react-dom";
 import PageHelp from "@/Components/PageHelp";
 import {
     Sidebar,
@@ -33,6 +34,13 @@ function activo(url, href) {
     return href === "/dashboard" || href === "/dev/painel" ? caminho === href : caminho.startsWith(href);
 }
 
+/**
+ * Quando a shell é persistente (ver `layout` em app.js), as páginas continuam a
+ * escrever `<AdminLayout header={...}>`: o cabeçalho vai por portal para este
+ * elemento. `undefined` = não há shell persistente (o layout monta a sua própria).
+ */
+export const CabecalhoContext = createContext(undefined);
+
 function ItemMenu({ item, url }) {
     const { setOpenMobile } = useSidebar();
     const Icone = item.icon;
@@ -40,7 +48,7 @@ function ItemMenu({ item, url }) {
     return (
         <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={activo(url, item.href)} tooltip={item.label}>
-                <Link href={item.href} onClick={() => setOpenMobile(false)}>
+                <Link href={item.href} prefetch="hover" cacheFor={15000} onClick={() => setOpenMobile(false)}>
                     <Icone aria-hidden="true" />
                     <span>{item.label}</span>
                 </Link>
@@ -114,11 +122,10 @@ function CategoriaComSubgrupos({ grupo, activa, aberta, alternar }) {
 }
 
 // Menu em árvore (BranchedMenu). Categorias simples: cada categoria é um ramo e
-// cada página uma folha, tudo num só menu. Categorias com subcategorias: título
-// da categoria + um ramo por subcategoria. O valor de cada folha é o seu href.
+// cada página uma folha. Com subcategorias (Desenvolvedor): título da categoria +
+// um ramo por subcategoria. O valor de cada folha é o seu href.
 function MenuArvore({ groups, url, chave }) {
     const activa = paginaActiva(groups, url);
-    const comSubgrupos = groups.some((grupo) => grupo.subgrupos);
     const categoriaActiva = groups.find((grupo) => itensDoGrupo(grupo).some((item) => item.href === activa))?.categoria;
 
     // Categorias abertas: a da página actual abre sempre; as outras lembram-se do que o utilizador fez.
@@ -143,7 +150,9 @@ function MenuArvore({ groups, url, chave }) {
             return seguinte;
         });
 
-    if (!comSubgrupos) {
+    // Sem subcategorias (Administrador, Gestor, Caixa, Técnico): cada categoria é um
+    // ramo e cada página uma folha, tudo num só menu.
+    if (!groups.some((grupo) => grupo.subgrupos)) {
         const items = groups.map((grupo) => ({ label: grupo.categoria, children: itensDoGrupo(grupo).map(folha) }));
 
         return (
@@ -199,7 +208,7 @@ function MenuLateral({ groups, casa, empresa, chave }) {
 
             <SidebarContent>
                 {/* Sidebar aberta: menu em árvore. Recolhida (só ícones): os botões
-                    com tooltip de sempre, que a árvore não consegue mostrar. */}
+                    com tooltip de sempre (com pré-carregamento), que a árvore não mostra. */}
                 <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
                     <MenuArvore groups={groups} url={url} chave={chave} />
                 </div>
@@ -294,6 +303,7 @@ function MenuConta({ nome }) {
  */
 export default function AppShell({ groups, casa, chaveRecolhido, header, children }) {
     const pagina = usePage();
+    const [cabecalho, setCabecalho] = useState(null);
     const { auth, empresa } = pagina.props;
     const url = pagina.url;
     const [aberta, setAberta] = useState(() => {
@@ -332,23 +342,44 @@ export default function AppShell({ groups, casa, chaveRecolhido, header, childre
                     </div>
                 </div>
 
-                {header && (
-                    <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-                        <div className="px-4 py-6 sm:px-6 lg:px-8">{header}</div>
-                    </header>
-                )}
+                {/* Escondido enquanto vazio: páginas sem cabeçalho não ganham uma faixa. */}
+                <header className="border-b border-slate-200 bg-white has-[>div:empty]:hidden dark:border-slate-800 dark:bg-slate-950">
+                    <div ref={setCabecalho} className="px-4 py-6 sm:px-6 lg:px-8">
+                        {header}
+                    </div>
+                </header>
 
                 <div className="flex-1">
                     <motion.div
                         key={url.split("?")[0]}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
                     >
-                        {children}
+                        <CabecalhoContext.Provider value={cabecalho}>{children}</CabecalhoContext.Provider>
                     </motion.div>
                 </div>
             </SidebarInset>
         </SidebarProvider>
+    );
+}
+
+/**
+ * Corpo comum do AdminLayout/DevLayout. Dentro da shell persistente só leva o
+ * cabeçalho para a ranhura da shell; fora dela (página sem `layout` em app.js)
+ * monta a shell completa à volta da página, como sempre fez.
+ */
+export function ConteudoDaPagina({ Shell, header, children }) {
+    const cabecalho = useContext(CabecalhoContext);
+
+    if (cabecalho === undefined) {
+        return <Shell header={header}>{children}</Shell>;
+    }
+
+    return (
+        <>
+            {cabecalho && header ? createPortal(header, cabecalho) : null}
+            {children}
+        </>
     );
 }

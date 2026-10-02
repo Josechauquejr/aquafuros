@@ -26,7 +26,7 @@ class GmailOAuth
 
     public static function urlRedirecionamento(): string
     {
-        return config('services.google.redirect') ?: url('/admin/email/google/callback');
+        return config('services.google.redirect') ?: url('/dev/email/google/callback');
     }
 
     public static function urlAutorizacao(string $estado): string

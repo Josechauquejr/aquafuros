@@ -21,6 +21,7 @@ class EmailAutomaticoTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+    private User $dev;
 
     private Tarifa $tarifa;
 
@@ -31,6 +32,8 @@ class EmailAutomaticoTest extends TestCase
         $this->seed(RoleSeeder::class);
         $this->admin = User::factory()->create();
         $this->admin->assignRole('administrador');
+        $this->dev = User::factory()->create();
+        $this->dev->assignRole('desenvolvedor');
         $this->tarifa = Tarifa::create(['nome' => 'Doméstica']);
         Mail::fake();
     }
@@ -112,17 +115,18 @@ class EmailAutomaticoTest extends TestCase
         Mail::assertSent(FacturaMail::class, 1);
     }
 
-    public function test_o_administrador_liga_e_desliga_os_automatismos(): void
+    public function test_o_desenvolvedor_liga_e_desliga_os_automatismos(): void
     {
-        $this->actingAs($this->admin)->put('/admin/email/automatico', [
+        $this->actingAs($this->dev)->withSession(['auth.password_confirmed_at' => time()])->put('/dev/email/automatico', [
             'facturar_ao_confirmar' => false, 'enviar_ao_emitir' => true, 'cobranca_automatica' => false,
         ])->assertSessionHasNoErrors();
 
-        $this->get('/admin/email')->assertInertia(fn (Assert $p) => $p
+        $this->get('/dev/email')->assertInertia(fn (Assert $p) => $p
             ->where('automatico.facturar_ao_confirmar', false)->where('automatico.enviar_ao_emitir', true)->where('automatico.cobranca_automatica', false));
 
         $gestor = User::factory()->create();
         $gestor->assignRole('gestor');
-        $this->actingAs($gestor)->put('/admin/email/automatico', ['facturar_ao_confirmar' => true, 'enviar_ao_emitir' => true, 'cobranca_automatica' => true])->assertForbidden();
+        $this->actingAs($this->admin)->put('/dev/email/automatico', ['facturar_ao_confirmar' => true, 'enviar_ao_emitir' => true, 'cobranca_automatica' => true])->assertForbidden();
+        $this->actingAs($gestor)->put('/dev/email/automatico', ['facturar_ao_confirmar' => true, 'enviar_ao_emitir' => true, 'cobranca_automatica' => true])->assertForbidden();
     }
 }

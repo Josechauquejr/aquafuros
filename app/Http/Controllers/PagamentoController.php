@@ -46,10 +46,10 @@ class PagamentoController extends Controller
         $periodo = ListaQuery::periodoOuMes($query, $request, 'pagamentos.pago_em', 'mes');
 
         // Pesquisa difusa: nº do recibo, nº da factura e nome do cliente.
-        $nomes = Cliente::withTrashed()->pluck('nome', 'id');
-        $numerosFactura = Factura::withTrashed()->pluck('numero_factura', 'id');
+        $nomes = filled($search) ? Cliente::withTrashed()->pluck('nome', 'id') : collect();
+        $numerosFactura = filled($search) ? Factura::withTrashed()->pluck('numero_factura', 'id') : collect();
         $idsPesquisa = BuscaDifusa::ids(
-            Pagamento::get(['id', 'numero_recibo', 'factura_id', 'cliente_id']),
+            fn () => Pagamento::get(['id', 'numero_recibo', 'factura_id', 'cliente_id']),
             $search,
             fn ($p) => "{$p->numero_recibo} ".($numerosFactura[$p->factura_id] ?? '').' '.($nomes[$p->cliente_id] ?? ''),
         );

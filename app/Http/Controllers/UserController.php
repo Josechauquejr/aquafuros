@@ -36,7 +36,7 @@ class UserController extends Controller
         $query = User::with('roles')->orderBy('name');
 
         $idsPesquisa = BuscaDifusa::ids(
-            User::get(['id', 'name', 'username', 'email']),
+            fn () => User::get(['id', 'name', 'username', 'email']),
             $search,
             fn ($u) => "{$u->name} {$u->username} {$u->email}",
         );
@@ -186,7 +186,7 @@ class UserController extends Controller
         $periodo = ListaQuery::periodo($query, $request, 'users.deleted_at');
 
         $idsPesquisa = BuscaDifusa::ids(
-            User::onlyTrashed()->get(['id', 'name', 'username', 'email']),
+            fn () => User::onlyTrashed()->get(['id', 'name', 'username', 'email']),
             $search,
             fn ($u) => "{$u->name} {$u->username} {$u->email}",
         );

@@ -59,9 +59,9 @@ class LixeiraController extends Controller
 
         $periodo = ListaQuery::periodo($query, $request, "{$tabela}.deleted_at");
 
-        $nomes = Cliente::withTrashed()->pluck('nome', 'id');
+        $nomes = filled($search) ? Cliente::withTrashed()->pluck('nome', 'id') : collect();
         $idsPesquisa = BuscaDifusa::ids(
-            (clone $query)->get(),
+            fn () => (clone $query)->get(),
             $search,
             fn ($linha) => match ($tipo) {
                 'clientes' => "{$linha->nome} {$linha->numero_cliente} {$linha->bairro}",

@@ -39,7 +39,7 @@ export default function Pagination({ paginador, preserveScroll = true }) {
                             onClick={() => irPara(link.url)}
                             whileTap={link.url ? { scale: 0.97 } : {}}
                             className={cn(
-                                "flex h-8 min-w-[2rem] items-center justify-center rounded-md px-2 text-xs font-medium transition-colors",
+                                "flex h-10 min-w-[2.5rem] items-center justify-center rounded-md px-2 text-sm font-medium transition-colors sm:h-8 sm:min-w-[2rem] sm:text-xs",
                                 link.active
                                     ? "bg-cyan-700 text-white"
                                     : link.url

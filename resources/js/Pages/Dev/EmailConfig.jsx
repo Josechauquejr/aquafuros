@@ -1,6 +1,6 @@
 import { Head, router, useForm } from "@inertiajs/react";
 import { CheckCircle2, Link2, Mail, Send, Unplug } from "lucide-react";
-import AdminLayout from "@/Layouts/AdminLayout";
+import DevLayout from "@/Layouts/DevLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import ExpandableCard from "@/Components/ExpandableCard";
@@ -22,10 +22,10 @@ export default function Index({ configurado, ligado, conta, ligadoEm, redirect, 
     const activo = transporte === "gmail";
 
     return (
-        <AdminLayout
+        <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Administração</p>
+                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
                     <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Email</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Ligação do Gmail para enviar as facturas aos clientes. Autoriza-se uma vez; não é guardada nenhuma palavra-passe.
@@ -68,11 +68,11 @@ export default function Index({ configurado, ligado, conta, ligadoEm, redirect, 
                                     </p>
                                 )}
                                 <div className="flex flex-wrap gap-2 pt-1">
-                                    <AnimatedButton as="a" href="/admin/email/google" variant="secondary">
+                                    <AnimatedButton as="a" href="/dev/email/google" variant="secondary">
                                         <Link2 className="h-4 w-4" aria-hidden="true" />
                                         Voltar a autorizar
                                     </AnimatedButton>
-                                    <AnimatedButton variant="secondary" onClick={() => router.delete("/admin/email/google", { preserveScroll: true })}>
+                                    <AnimatedButton variant="secondary" onClick={() => router.delete("/dev/email/google", { preserveScroll: true })}>
                                         <Unplug className="h-4 w-4" aria-hidden="true" />
                                         Desligar
                                     </AnimatedButton>
@@ -81,7 +81,7 @@ export default function Index({ configurado, ligado, conta, ligadoEm, redirect, 
                         ) : (
                             <div className="mt-4 space-y-3 text-sm text-slate-700 dark:text-slate-300">
                                 <p>Carregue no botão, entre com a conta do Gmail que vai enviar as facturas e aceite o pedido de permissão para enviar emails.</p>
-                                <AnimatedButton as="a" href="/admin/email/google" variant="primary">
+                                <AnimatedButton as="a" href="/dev/email/google" variant="primary">
                                     <Link2 className="h-4 w-4" aria-hidden="true" />
                                     Ligar o Gmail
                                 </AnimatedButton>
@@ -104,7 +104,7 @@ export default function Index({ configurado, ligado, conta, ligadoEm, redirect, 
                         <form
                             onSubmit={(evento) => {
                                 evento.preventDefault();
-                                auto.put("/admin/email/automatico", { preserveScroll: true });
+                                auto.put("/dev/email/automatico", { preserveScroll: true });
                             }}
                             className="mt-4 space-y-3"
                         >
@@ -157,7 +157,7 @@ export default function Index({ configurado, ligado, conta, ligadoEm, redirect, 
                         <form
                             onSubmit={(evento) => {
                                 evento.preventDefault();
-                                teste.post("/admin/email/teste", { preserveScroll: true });
+                                teste.post("/dev/email/teste", { preserveScroll: true });
                             }}
                             className="mt-4 flex flex-wrap items-end gap-3"
                         >
@@ -175,6 +175,6 @@ export default function Index({ configurado, ligado, conta, ligadoEm, redirect, 
                     </ExpandableCard>
                 </div>
             </div>
-        </AdminLayout>
+        </DevLayout>
     );
 }

@@ -1,4 +1,5 @@
 import { AlertTriangle, HelpCircle } from "lucide-react";
+import DangerButton from "@/Components/DangerButton";
 import FuseDanger from "@/Components/FuseDanger";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -10,6 +11,13 @@ const toneConfig = {
         icone: AlertTriangle,
         iconeClasses: "bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400",
         Botao: null,
+    },
+    // Apagar algo de menor risco (um registo que se volta a criar): confirma-se
+    // com um clique, sem esperar o rastilho do "danger".
+    simples: {
+        icone: AlertTriangle,
+        iconeClasses: "bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400",
+        Botao: DangerButton,
     },
     // Sugestão do próximo passo do fluxo (ex.: "factura emitida — pagar
     // agora?") — não é destrutiva, não deve parecer um aviso de perigo.

@@ -142,7 +142,7 @@ export default function Dashboard({ mesReferencia, contadores, leiturasPorConfir
                                     clientesSemLeitura.map((cliente) => (
                                         <motion.div key={cliente.id} variants={itemVariants}>
                                             <Link
-                                                href="/leituras"
+                                                href={`/leituras?cliente=${cliente.id}`}
                                                 className="flex items-center justify-between gap-3 px-6 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
                                             >
                                                 <div>

@@ -1,5 +1,5 @@
-import { Activity, BarChart3, ClipboardList, Cog, Database, ListChecks, Mail, PencilLine, ShieldAlert, Gauge, ScrollText, ShieldCheck, SlidersHorizontal, Terminal, UserCog } from "lucide-react";
-import AppShell from "@/Components/AppShell";
+import { Activity, BarChart3, ClipboardList, Cog, Database, ListChecks, Mail, PencilLine, ShieldAlert, Gauge, ScrollText, ShieldCheck, Settings, SlidersHorizontal, Terminal, UserCog } from "lucide-react";
+import AppShell, { ConteudoDaPagina } from "@/Components/AppShell";
 
 // Área exclusiva do Desenvolvedor — sidebar totalmente separada da do
 // AdminLayout (nenhum item partilhado), reflectindo o isolamento também
@@ -47,6 +47,7 @@ const navGroups = [
             { nome: "Processamento", items: [
                 { label: "Filas e jobs", href: "/dev/filas", icon: ListChecks },
                 { label: "Emails", href: "/dev/emails", icon: Mail },
+                { label: "Configuração de email", href: "/dev/email", icon: Settings },
             ] },
             { nome: "Sistema", items: [
                 { label: "Operações do sistema", href: "/dev/operacoes", icon: Cog },
@@ -66,10 +67,15 @@ const navGroups = [
     },
 ];
 
-export default function DevLayout({ header, children }) {
+// Shell persistente (ver `layout` em app.js): não remonta ao navegar entre páginas.
+export function ShellDev({ header, children }) {
     return (
         <AppShell groups={navGroups} casa="/dev/painel" chaveRecolhido="aquafuros-dev-sidebar-collapsed" header={header}>
             {children}
         </AppShell>
     );
+}
+
+export default function DevLayout({ header, children }) {
+    return <ConteudoDaPagina Shell={ShellDev} header={header}>{children}</ConteudoDaPagina>;
 }

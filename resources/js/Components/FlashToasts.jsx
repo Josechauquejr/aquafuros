@@ -34,6 +34,7 @@ export default function FlashToasts() {
     return (
         <SwipeToast
             key={toast.id}
+            role={toast.erro ? "alert" : "status"}
             title={toast.titulo}
             icon={<HugeiconsIcon icon={toast.erro ? Alert02Icon : CheckmarkCircle02Icon} size={18} strokeWidth={1.8} />}
             fuseColor={toast.erro ? "#f43f5e" : "#10b981"}

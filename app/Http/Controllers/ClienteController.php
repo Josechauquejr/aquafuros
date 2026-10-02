@@ -41,7 +41,7 @@ class ClienteController extends Controller
 
         // Pesquisa difusa: nome, nº, bairro e telefone.
         $idsPesquisa = BuscaDifusa::ids(
-            Cliente::get(['id', 'nome', 'numero_cliente', 'bairro', 'telefone']),
+            fn () => Cliente::get(['id', 'nome', 'numero_cliente', 'bairro', 'telefone']),
             $search,
             fn ($c) => "{$c->nome} {$c->numero_cliente} {$c->bairro} {$c->telefone}",
         );

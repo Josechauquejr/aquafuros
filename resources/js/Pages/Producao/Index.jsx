@@ -1,7 +1,9 @@
 import { Head, router, useForm } from "@inertiajs/react";
 import { Droplets, Plus, Trash2, TrendingDown } from "lucide-react";
+import { useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
+import ConfirmDialog from "@/Components/ConfirmDialog";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import KpiCard from "@/Components/KpiCard";
@@ -18,6 +20,7 @@ const pct = (v) => (v === null || v === undefined ? "—" : `${Number(v).toLocal
 export default function Index({ mesReferencia, registos, perdas, zonas, historico, filtros }) {
     const [ano, mes] = mesReferencia.valor.split("-").map(Number);
     const form = useForm({ mes, ano, zona_id: "", volume_m3: "" });
+    const [paraApagar, setParaApagar] = useState(null);
 
     const guardar = (evento) => {
         evento.preventDefault();
@@ -88,7 +91,7 @@ export default function Index({ mesReferencia, registos, perdas, zonas, historic
                                             <span className="font-medium text-slate-900 dark:text-white">{r.zona?.nome ?? "Sistema todo"}</span>
                                             <span className="flex items-center gap-3">
                                                 <span className="text-slate-700 dark:text-slate-300">{formatVolume(r.volume_m3)}</span>
-                                                <button type="button" onClick={() => router.delete(`/producao/${r.id}`, { preserveScroll: true })} className="text-slate-400 hover:text-rose-600" aria-label="Apagar registo">
+                                                <button type="button" onClick={() => setParaApagar(r)} className="inline-flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-600" aria-label="Apagar registo">
                                                     <Trash2 className="h-4 w-4" aria-hidden="true" />
                                                 </button>
                                             </span>
@@ -127,6 +130,15 @@ export default function Index({ mesReferencia, registos, perdas, zonas, historic
                     />
                 </div>
             </div>
+            <ConfirmDialog
+                show={Boolean(paraApagar)}
+                onClose={() => setParaApagar(null)}
+                tone="simples"
+                title="Apagar registo de produção"
+                description={`O registo de ${paraApagar ? formatVolume(paraApagar.volume_m3) : ""} (${paraApagar?.zona?.nome ?? "Sistema todo"}) deixa de contar para as perdas de água deste mês.`}
+                confirmLabel="Apagar"
+                onConfirm={() => router.delete(`/producao/${paraApagar.id}`, { preserveScroll: true, onFinish: () => setParaApagar(null) })}
+            />
         </AdminLayout>
     );
 }

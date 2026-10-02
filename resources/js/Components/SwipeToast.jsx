@@ -44,6 +44,7 @@ export default function SwipeToast({
   closeButton = false,
   inline = false,
   dismissible = true,
+  role = 'status',
   className = ''
 }) {
   const reduce = useReducedMotion();
@@ -220,6 +221,7 @@ export default function SwipeToast({
 
   return (
     <div
+      role={role}
       className={`group grid w-[min(var(--st-w),100%)] text-[13px] leading-normal [grid-template-rows:1fr] [color:var(--st-ink)] data-[inline=false]:fixed data-[inline=false]:right-8 data-[inline=false]:bottom-[calc(32px+env(safe-area-inset-bottom,0px))] data-[inline=false]:z-[999999999] data-[inline=false]:w-[min(var(--st-w),calc(100vw-64px))] max-[600px]:data-[inline=false]:right-4 max-[600px]:data-[inline=false]:bottom-[calc(16px+env(safe-area-inset-bottom,0px))] max-[600px]:data-[inline=false]:w-[min(var(--st-w),calc(100vw-32px))] data-[inline=true]:[transition:grid-template-rows_var(--st-slide)_cubic-bezier(0.23,1,0.32,1)] data-[inline=true]:starting:[grid-template-rows:0fr] data-[inline=true]:data-[mounted=false]:[grid-template-rows:0fr] data-[inline=true]:data-[phase=closing]:[grid-template-rows:0fr] data-[inline=true]:data-[phase=gone]:[grid-template-rows:0fr] data-[inline=true]:data-[phase=closing]:[transition-duration:calc(var(--st-slide)*0.7)] data-[inline=true]:data-[phase=gone]:[transition-duration:200ms]${className ? ` ${className}` : ''}`}
       data-phase={phase}
       data-inline={inline ? 'true' : 'false'}

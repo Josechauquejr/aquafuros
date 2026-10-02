@@ -95,10 +95,18 @@ class LeituraController extends Controller
         $medias = Leitura::selectRaw('cliente_id, AVG(leitura_actual - leitura_anterior) as media')
             ->groupBy('cliente_id')->pluck('media', 'cliente_id');
 
-        $ultimas = Leitura::orderBy('ano')->orderBy('mes')->get(['cliente_id', 'leitura_actual'])
-            ->groupBy('cliente_id')->map(fn ($grupo) => $grupo->last()->leitura_actual);
+        $activos = Cliente::where('estado', 'ativo')->orderBy('nome')->get(['id', 'nome', 'leitura_inicial']);
 
-        return Cliente::where('estado', 'ativo')->orderBy('nome')->get(['id', 'nome', 'leitura_inicial'])
+        // Última leitura de cada cliente activo (a do mês mais recente), só dessas
+        // linhas — antes lia a tabela de leituras inteira em cada visita.
+        $ultimas = Leitura::whereIn('cliente_id', $activos->pluck('id'))
+            ->whereNotExists(fn ($q) => $q->from('leituras as posterior')
+                ->whereColumn('posterior.cliente_id', 'leituras.cliente_id')
+                ->whereNull('posterior.deleted_at')
+                ->whereRaw('(posterior.ano * 100 + posterior.mes) > (leituras.ano * 100 + leituras.mes)'))
+            ->pluck('leitura_actual', 'cliente_id');
+
+        return $activos
             ->map(fn ($c) => [
                 'id' => $c->id,
                 'nome' => $c->nome,

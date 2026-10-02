@@ -1,6 +1,6 @@
 import { usePage } from "@inertiajs/react";
 import { Banknote, Bell, BellRing, Droplets, FileText, Hammer, HandCoins, House, Mail, MapPin, PieChart, QrCode, Settings, SlidersHorizontal, Trash2, Users, Waves } from "lucide-react";
-import AppShell from "@/Components/AppShell";
+import AppShell, { ConteudoDaPagina } from "@/Components/AppShell";
 
 const navGroups = [
     { categoria: "Geral", items: [
@@ -22,7 +22,6 @@ const navGroups = [
     { categoria: "Email", items: [
         { label: "Emails de cobrança", href: "/notificacoes", icon: BellRing, roles: ["administrador", "gestor"] },
         { label: "Emails enviados", href: "/emails", icon: Mail, roles: ["administrador", "gestor"] },
-        { label: "Configuração de email", href: "/admin/email", icon: Settings, roles: ["administrador"] },
     ] },
     { categoria: "Administração", items: [
         { label: "KPIs", href: "/admin/kpis", icon: PieChart, roles: ["administrador", "gestor"] },
@@ -36,7 +35,12 @@ function gruposVisiveis(roles) {
     return navGroups.map((grupo) => ({ ...grupo, items: grupo.items.filter((item) => !item.roles || item.roles.some((papel) => roles.includes(papel))) })).filter((grupo) => grupo.items.length > 0);
 }
 
-export default function AdminLayout({ header, children }) {
+// Shell persistente (ver `layout` em app.js): não remonta ao navegar entre páginas.
+export function ShellAdmin({ header, children }) {
     const { auth } = usePage().props;
     return <AppShell groups={gruposVisiveis(auth.roles ?? [])} casa="/dashboard" chaveRecolhido="aquafuros-sidebar-collapsed" header={header}>{children}</AppShell>;
+}
+
+export default function AdminLayout({ header, children }) {
+    return <ConteudoDaPagina Shell={ShellAdmin} header={header}>{children}</ConteudoDaPagina>;
 }

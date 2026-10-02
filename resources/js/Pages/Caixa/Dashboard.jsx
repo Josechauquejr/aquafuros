@@ -49,7 +49,7 @@ export default function Dashboard({ resumoHoje, ultimosPagamentos, facturasEmAbe
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                        <AnimatedButton as={Link} href="/pagamentos/fecho-caixa" target="_blank" variant="secondary">
+                        <AnimatedButton as={Link} href="/pagamentos/fecho-caixa" variant="secondary">
                             <Lock className="h-4 w-4" aria-hidden="true" />
                             Fecho de caixa
                         </AnimatedButton>
@@ -136,7 +136,7 @@ export default function Dashboard({ resumoHoje, ultimosPagamentos, facturasEmAbe
                                         return (
                                             <motion.div key={factura.id} variants={itemVariants}>
                                                 <Link
-                                                    href="/pagamentos"
+                                                    href={`/pagamentos?factura_id=${factura.id}`}
                                                     className="flex items-center justify-between gap-3 px-6 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
                                                 >
                                                     <div>

@@ -206,9 +206,11 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
     const abrirNovo = (facturaIdPreseleccionada) => {
         setEditando(null);
         setFacturaFixada(Boolean(facturaIdPreseleccionada));
+        // Sem factura de origem não se pré-selecciona nenhuma: a 1.ª da lista seria
+        // de um cliente qualquer e um Enter distraído registava o pagamento no cliente errado.
         const preseleccionada = facturaIdPreseleccionada
             ? facturasEmAberto.find((f) => String(f.id) === String(facturaIdPreseleccionada))
-            : facturasEmAberto[0];
+            : undefined;
         form.reset();
         form.setData({
             factura_id: preseleccionada?.id ?? "",
@@ -336,7 +338,7 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                        <AnimatedButton as={Link} href="/pagamentos/fecho-caixa" target="_blank" variant="secondary">
+                        <AnimatedButton as={Link} href="/pagamentos/fecho-caixa" variant="secondary">
                             <Lock className="h-4 w-4" aria-hidden="true" />
                             Fecho de caixa
                         </AnimatedButton>
@@ -603,7 +605,7 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                         <SecondaryButton type="button" onClick={() => setShowModal(false)}>
                             Cancelar
                         </SecondaryButton>
-                        <PrimaryButton type="submit" disabled={form.processing || (!editando && facturasEmAberto.length === 0)}>
+                        <PrimaryButton type="submit" disabled={form.processing || (!editando && (facturasEmAberto.length === 0 || !form.data.factura_id))}>
                             {editando ? "Guardar alterações" : "Registar pagamento"}
                         </PrimaryButton>
                     </div>

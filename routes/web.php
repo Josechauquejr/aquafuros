@@ -7,6 +7,7 @@ use App\Http\Controllers\Dev\AlteracoesController as DevAlteracoesController;
 use App\Http\Controllers\Dev\AuditoriaController as DevAuditoriaController;
 use App\Http\Controllers\Dev\DadosController as DevDadosController;
 use App\Http\Controllers\Dev\EdicaoController as DevEdicaoController;
+use App\Http\Controllers\Dev\EmailConfigController as DevEmailConfigController;
 use App\Http\Controllers\Dev\EmailsController as DevEmailsController;
 use App\Http\Controllers\Dev\FilasController as DevFilasController;
 use App\Http\Controllers\Dev\IntegridadeController as DevIntegridadeController;
@@ -35,7 +36,6 @@ use App\Http\Controllers\NovidadeController;
 use App\Http\Controllers\OcorrenciaController;
 use App\Http\Controllers\ProducaoController;
 use App\Http\Controllers\ZonaController;
-use App\Http\Controllers\EmailConfigController;
 use App\Http\Controllers\EmailEnviadoController;
 use App\Http\Controllers\NotificacaoSistemaController;
 use Inertia\Inertia;
@@ -179,14 +179,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['role:administrador'])->group(function () {
         Route::resource('zonas', ZonaController::class)->only(['index', 'store', 'update', 'destroy']);
-
-        // Ligação do Gmail para enviar as facturas por email.
-        Route::get('admin/email', [EmailConfigController::class, 'index'])->name('email.index');
-        Route::get('admin/email/google', [EmailConfigController::class, 'ligar'])->name('email.ligar');
-        Route::get('admin/email/google/callback', [EmailConfigController::class, 'callback'])->name('email.callback');
-        Route::delete('admin/email/google', [EmailConfigController::class, 'desligar'])->name('email.desligar');
-        Route::put('admin/email/automatico', [EmailConfigController::class, 'automatico'])->name('email.automatico');
-        Route::post('admin/email/teste', [EmailConfigController::class, 'testar'])->name('email.testar');
     });
 
     Route::middleware(['role:gestor'])->prefix('gestor')->name('gestor.')->group(function () {
@@ -222,6 +214,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('operacoes', [DevOperacoesController::class, 'index'])->name('operacoes');
         Route::get('emails', [DevEmailsController::class, 'index'])->name('emails');
         Route::get('emails/{envio}/ver', [DevEmailsController::class, 'ver'])->name('emails.ver');
+
+        // Ligação do Gmail e envio automático (configuração técnica: só o desenvolvedor).
+        Route::get('email', [DevEmailConfigController::class, 'index'])->name('email');
+        Route::get('email/google', [DevEmailConfigController::class, 'ligar'])->name('email.ligar');
+        Route::get('email/google/callback', [DevEmailConfigController::class, 'callback'])->name('email.callback');
         Route::get('logs/aplicacao', [DevLogAplicacaoController::class, 'index'])->name('logs.aplicacao');
         Route::get('logs/acessos', [DevLogController::class, 'acessos'])->name('logs.acessos');
         Route::get('logs/erros', [DevLogController::class, 'erros'])->name('logs.erros');
@@ -256,6 +253,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('operacoes/manutencao', [DevOperacoesController::class, 'ligarManutencao'])->name('operacoes.manutencao.ligar');
             Route::delete('operacoes/manutencao', [DevOperacoesController::class, 'desligarManutencao'])->name('operacoes.manutencao.desligar');
             Route::post('emails/{envio}/reenviar', [DevEmailsController::class, 'reenviar'])->name('emails.reenviar');
+            Route::delete('email/google', [DevEmailConfigController::class, 'desligar'])->name('email.desligar');
+            Route::put('email/automatico', [DevEmailConfigController::class, 'automatico'])->name('email.automatico');
+            Route::post('email/teste', [DevEmailConfigController::class, 'testar'])->name('email.testar');
 
             // Exportar dados pessoais: pede a senha, tem limite de pedidos e fica na auditoria.
             Route::get('dados/{tabela}/exportar', [DevDadosController::class, 'exportar'])->middleware('throttle:6,1')->name('dados.exportar');

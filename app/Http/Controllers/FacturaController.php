@@ -139,9 +139,9 @@ class FacturaController extends Controller
         $periodo = ListaQuery::periodoOuMes($query, $request, 'facturas.created_at');
 
         // Pesquisa difusa: nº da factura e nome do cliente.
-        $nomes = Cliente::withTrashed()->pluck('nome', 'id');
+        $nomes = filled($search) ? Cliente::withTrashed()->pluck('nome', 'id') : collect();
         $idsPesquisa = BuscaDifusa::ids(
-            Factura::get(['id', 'numero_factura', 'cliente_id']),
+            fn () => Factura::get(['id', 'numero_factura', 'cliente_id']),
             $search,
             fn ($f) => $f->numero_factura.' '.($nomes[$f->cliente_id] ?? ''),
         );

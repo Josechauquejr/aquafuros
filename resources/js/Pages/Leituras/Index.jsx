@@ -226,6 +226,20 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
         setShowModal(true);
     };
 
+    // Chegou do Painel do Técnico ("Clientes sem leitura"): abre logo o formulário
+    // com esse cliente escolhido, em vez de o obrigar a procurá-lo outra vez.
+    useEffect(() => {
+        const id = new URLSearchParams(window.location.search).get("cliente");
+        if (!id) return;
+        window.history.replaceState(null, "", window.location.pathname);
+        if (!clientes.some((c) => String(c.id) === id)) return;
+        setEditando(null);
+        form.setData({ ...formVazio, cliente_id: Number(id) });
+        form.clearErrors();
+        setShowModal(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const abrirEdicao = (leitura) => {
         setEditando(leitura);
         form.setData({

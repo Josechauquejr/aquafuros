@@ -19,6 +19,7 @@ class GmailTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+    private User $dev;
 
     protected function setUp(): void
     {
@@ -27,18 +28,21 @@ class GmailTest extends TestCase
         $this->seed(RoleSeeder::class);
         $this->admin = User::factory()->create();
         $this->admin->assignRole('administrador');
-        config(['services.google.client_id' => 'id-teste', 'services.google.client_secret' => 'segredo-teste', 'services.google.redirect' => 'http://127.0.0.1:8000/admin/email/google/callback']);
+        $this->dev = User::factory()->create();
+        $this->dev->assignRole('desenvolvedor');
+        config(['services.google.client_id' => 'id-teste', 'services.google.client_secret' => 'segredo-teste', 'services.google.redirect' => 'http://127.0.0.1:8000/dev/email/google/callback']);
         Storage::fake('local');
         Cache::flush();
     }
 
-    public function test_so_o_administrador_acede_e_o_pedido_vai_para_a_google_com_o_scope_certo(): void
+    public function test_so_o_desenvolvedor_acede_e_o_pedido_vai_para_a_google_com_o_scope_certo(): void
     {
         $gestor = User::factory()->create();
         $gestor->assignRole('gestor');
-        $this->actingAs($gestor)->get('/admin/email')->assertForbidden();
+        $this->actingAs($gestor)->get('/dev/email')->assertForbidden();
+        $this->actingAs($this->admin)->get('/dev/email')->assertForbidden();
 
-        $resposta = $this->actingAs($this->admin)->get('/admin/email/google');
+        $resposta = $this->actingAs($this->dev)->get('/dev/email/google');
         $resposta->assertRedirectContains('https://accounts.google.com/o/oauth2/v2/auth');
 
         $url = $resposta->headers->get('Location');
@@ -46,7 +50,7 @@ class GmailTest extends TestCase
         $this->assertSame('id-teste', $q['client_id']);
         $this->assertSame('offline', $q['access_type']);
         $this->assertStringContainsString('gmail.send', $q['scope']);
-        $this->assertSame('http://127.0.0.1:8000/admin/email/google/callback', $q['redirect_uri']);
+        $this->assertSame('http://127.0.0.1:8000/dev/email/google/callback', $q['redirect_uri']);
         $this->assertSame(session('gmail_oauth_state'), $q['state']);
     }
 
@@ -57,9 +61,9 @@ class GmailTest extends TestCase
             'www.googleapis.com/oauth2/v2/userinfo' => Http::response(['email' => 'aquafuros.su.lda@gmail.com']),
         ]);
 
-        $this->actingAs($this->admin)->withSession(['gmail_oauth_state' => 'abc'])
-            ->get('/admin/email/google/callback?code=codigo&state=abc')
-            ->assertRedirect('/admin/email')->assertSessionHas('status');
+        $this->actingAs($this->dev)->withSession(['gmail_oauth_state' => 'abc'])
+            ->get('/dev/email/google/callback?code=codigo&state=abc')
+            ->assertRedirect('/dev/email')->assertSessionHas('status');
 
         $ligacao = GmailOAuth::ligacao();
         $this->assertSame('rf1', $ligacao['refresh_token']);
@@ -67,16 +71,16 @@ class GmailTest extends TestCase
         // não fica em claro no disco
         $this->assertStringNotContainsString('rf1', Storage::disk('local')->get('gmail_oauth.json'));
 
-        $this->get('/admin/email')->assertInertia(fn ($p) => $p->where('ligado', true)->where('conta', 'aquafuros.su.lda@gmail.com')->where('configurado', true));
+        $this->get('/dev/email')->assertInertia(fn ($p) => $p->where('ligado', true)->where('conta', 'aquafuros.su.lda@gmail.com')->where('configurado', true));
     }
 
     public function test_callback_com_estado_errado_ou_recusado_nao_liga(): void
     {
         Http::fake();
 
-        $this->actingAs($this->admin)->withSession(['gmail_oauth_state' => 'abc'])
-            ->get('/admin/email/google/callback?code=x&state=outro')->assertSessionHas('error');
-        $this->get('/admin/email/google/callback?error=access_denied')->assertSessionHas('error');
+        $this->actingAs($this->dev)->withSession(['gmail_oauth_state' => 'abc'])
+            ->get('/dev/email/google/callback?code=x&state=outro')->assertSessionHas('error');
+        $this->get('/dev/email/google/callback?error=access_denied')->assertSessionHas('error');
 
         Http::assertNothingSent();
         $this->assertNull(GmailOAuth::ligacao());
@@ -86,8 +90,8 @@ class GmailTest extends TestCase
     {
         Http::fake(['oauth2.googleapis.com/token' => Http::response(['access_token' => 'ac1'])]);
 
-        $this->actingAs($this->admin)->withSession(['gmail_oauth_state' => 'abc'])
-            ->get('/admin/email/google/callback?code=x&state=abc')->assertSessionHas('error');
+        $this->actingAs($this->dev)->withSession(['gmail_oauth_state' => 'abc'])
+            ->get('/dev/email/google/callback?code=x&state=abc')->assertSessionHas('error');
         $this->assertNull(GmailOAuth::ligacao());
     }
 
@@ -133,7 +137,7 @@ class GmailTest extends TestCase
     {
         Storage::disk('local')->put('gmail_oauth.json', \Illuminate\Support\Facades\Crypt::encryptString(json_encode(['refresh_token' => 'rf1', 'email' => 'a@b.c'])));
 
-        $this->actingAs($this->admin)->delete('/admin/email/google')->assertSessionHas('status');
+        $this->actingAs($this->dev)->withSession(['auth.password_confirmed_at' => time()])->delete('/dev/email/google')->assertSessionHas('status');
 
         $this->assertNull(GmailOAuth::ligacao());
     }

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Cliente;
+use Closure;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -32,16 +33,21 @@ class BuscaDifusa
      * Ids das linhas que correspondem à pesquisa, da melhor para a pior.
      * `null` quando não há pesquisa (nada a filtrar).
      *
-     * @param  Collection<int, mixed>  $linhas  modelos/objectos com `id`
+     * @param  Collection<int, mixed>|Closure(): Collection<int, mixed>  $linhas  modelos/objectos com `id`;
+     *                                                                           uma função só corre se houver pesquisa (não lê a tabela à toa)
      * @param  callable(mixed): string  $texto  texto pesquisável de cada linha
      * @return array<int, int|string>|null
      */
-    public static function ids(Collection $linhas, ?string $pesquisa, callable $texto): ?array
+    public static function ids(Collection|Closure $linhas, ?string $pesquisa, callable $texto): ?array
     {
         $tokens = array_values(array_filter(explode(' ', self::normalizar($pesquisa))));
 
         if ($tokens === []) {
             return null;
+        }
+
+        if ($linhas instanceof Closure) {
+            $linhas = $linhas();
         }
 
         $pontuadas = [];
@@ -62,7 +68,7 @@ class BuscaDifusa
     /** Ids dos clientes (incluindo os da lixeira) cujo nome corresponde à pesquisa. */
     public static function idsClientes(?string $pesquisa): ?array
     {
-        return self::ids(Cliente::withTrashed()->get(['id', 'nome']), $pesquisa, fn ($c) => $c->nome);
+        return self::ids(fn () => Cliente::withTrashed()->get(['id', 'nome']), $pesquisa, fn ($c) => $c->nome);
     }
 
     /** Soma das distâncias por palavra pesquisada; `null` se alguma não corresponder. */

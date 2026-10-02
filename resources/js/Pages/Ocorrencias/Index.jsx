@@ -7,6 +7,7 @@ import AnimatedPanel from "@/Components/AnimatedPanel";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import KpiCard from "@/Components/KpiCard";
+import ConfirmDialog from "@/Components/ConfirmDialog";
 import Modal from "@/Components/Modal";
 import Pagination from "@/Components/Pagination";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -54,6 +55,7 @@ export default function Index({ ocorrencias, zonas, clientes, totais, filtros })
     const ehAdmin = auth.roles?.includes("administrador") ?? false;
     const [novaAberta, setNovaAberta] = useState(false);
     const [aResolver, setAResolver] = useState(null);
+    const [paraApagar, setParaApagar] = useState(null);
     const form = useForm({ tipo: "sem_agua", descricao: "", cliente_id: "", zona_id: "" });
     const resolver = useForm({ accao: "resolver", resolucao: "" });
 
@@ -164,7 +166,7 @@ export default function Index({ ocorrencias, zonas, clientes, totais, filtros })
                                                     </SecondaryButton>
                                                 )}
                                                 {ehAdmin && (
-                                                    <button type="button" onClick={() => router.delete(`/ocorrencias/${o.id}`, { preserveScroll: true })} className="px-2 text-slate-400 hover:text-rose-600" aria-label="Apagar ocorrência">
+                                                    <button type="button" onClick={() => setParaApagar(o)} className="px-2 text-slate-400 hover:text-rose-600" aria-label="Apagar ocorrência">
                                                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                                                     </button>
                                                 )}
@@ -248,6 +250,15 @@ export default function Index({ ocorrencias, zonas, clientes, totais, filtros })
                     </div>
                 </form>
             </Modal>
+            <ConfirmDialog
+                show={Boolean(paraApagar)}
+                onClose={() => setParaApagar(null)}
+                tone="simples"
+                title="Apagar ocorrência"
+                description="A ocorrência e o seu histórico deixam de aparecer. Quer mesmo apagá-la?"
+                confirmLabel="Apagar"
+                onConfirm={() => router.delete(`/ocorrencias/${paraApagar.id}`, { preserveScroll: true, onFinish: () => setParaApagar(null) })}
+            />
         </AdminLayout>
     );
 }

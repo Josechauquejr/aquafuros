@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\CodigoEmail;
 use App\Support\Eventos;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -39,6 +40,12 @@ class User extends Authenticatable implements MustVerifyEmail
             'is_active' => 'boolean',
             'email_verified_at' => 'datetime',
         ];
+    }
+
+    /** A verificação do email é por código de 6 dígitos (não pelo link assinado do Laravel). */
+    public function sendEmailVerificationNotification(): void
+    {
+        CodigoEmail::enviar($this->email, CodigoEmail::VERIFICACAO);
     }
 
     public function leituras()

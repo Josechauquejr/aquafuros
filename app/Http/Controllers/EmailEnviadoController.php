@@ -21,6 +21,8 @@ class EmailEnviadoController extends Controller
         'cobranca' => 'Cobrança',
         'recibo' => 'Recibo de pagamento',
         'teste' => 'Email de teste',
+        'codigo_verificacao' => 'Código de verificação',
+        'codigo_recuperacao' => 'Código de recuperação',
     ];
 
     public function index(Request $request)

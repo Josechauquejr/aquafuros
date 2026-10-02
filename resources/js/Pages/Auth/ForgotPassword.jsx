@@ -19,8 +19,8 @@ export default function ForgotPassword() {
             <Head title="Recuperar senha" />
 
             <div className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-                Esqueceu a senha? Sem problema. Indique o seu email e enviamos um link
-                para a repor.
+                Esqueceu a senha? Sem problema. Indique o seu email e enviamos um código
+                de 6 dígitos para a repor.
             </div>
 
             {flash.status && (
@@ -47,7 +47,7 @@ export default function ForgotPassword() {
 
                 <div className="mt-4 flex items-center justify-end">
                     <PrimaryButton disabled={processing}>
-                        Enviar link de recuperação
+                        Enviar código
                     </PrimaryButton>
                 </div>
             </form>

@@ -3,25 +3,28 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\CodigoEmail;
 use Illuminate\Auth\Events\Verified;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class VerifyEmailController extends Controller
 {
-    /**
-     * Mark the authenticated user's email address as verified.
-     */
-    public function __invoke(EmailVerificationRequest $request): RedirectResponse
+    /** Confirma o código de 6 dígitos e marca o email como verificado. */
+    public function __invoke(Request $request): RedirectResponse
     {
-        if ($request->user()->hasVerifiedEmail()) {
-            return redirect()->intended(route('dashboard', absolute: false).'?verified=1');
+        $user = $request->user();
+
+        if (! $user->hasVerifiedEmail()) {
+            $request->validate(['code' => ['required']]);
+
+            CodigoEmail::confirmar($user->email, CodigoEmail::VERIFICACAO, (string) $request->input('code'));
+
+            if ($user->markEmailAsVerified()) {
+                event(new Verified($user));
+            }
         }
 
-        if ($request->user()->markEmailAsVerified()) {
-            event(new Verified($request->user()));
-        }
-
-        return redirect()->intended(route('dashboard', absolute: false).'?verified=1');
+        return redirect()->intended(route('dashboard', absolute: false))->with('status', 'Email verificado com sucesso.');
     }
 }

@@ -14,14 +14,15 @@ use Illuminate\Support\Facades\Mail;
 class RegistoEmail
 {
     /**
-     * @param  array{tipo: string, cliente_id: ?int, factura_id?: ?int, origem?: string, enviado_por?: ?int}  $meta
+     * @param  array{tipo: string, cliente_id?: ?int, factura_id?: ?int, origem?: string, enviado_por?: ?int, sem_corpo?: bool}  $meta
      */
     public static function enviar(Mailable $mail, string $para, array $meta): EnvioEmail
     {
         $assunto = $mail->envelope()->subject;
 
         try {
-            $corpo = $mail->render();
+            // Emails com segredos (códigos) não guardam o corpo.
+            $corpo = ($meta['sem_corpo'] ?? false) ? null : $mail->render();
         } catch (\Throwable) {
             $corpo = null; // o corpo é só para consulta: nunca impede o envio
         }

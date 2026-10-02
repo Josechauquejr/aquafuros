@@ -1,48 +1,38 @@
-import { Head, useForm, usePage } from "@inertiajs/react";
+import { Head, Link, useForm, usePage } from "@inertiajs/react";
 import GuestLayout from "@/Layouts/GuestLayout";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import PrimaryButton from "@/Components/PrimaryButton";
 import TextInput from "@/Components/TextInput";
 
-export default function VerifyEmail() {
+export default function VerifyResetCode({ email }) {
     const { flash } = usePage().props;
-    const { data, setData, post, processing, errors, reset } = useForm({ code: "" });
-    const resend = useForm({});
-    const logout = useForm({});
+    const { data, setData, post, processing, errors, reset } = useForm({ email, code: "" });
+    const resend = useForm({ email });
 
     const submit = (event) => {
         event.preventDefault();
-        post("/verify-email", { onFinish: () => reset("code") });
+        post("/forgot-password/code", { onFinish: () => reset("code") });
     };
 
     const submitResend = (event) => {
         event.preventDefault();
-        resend.post("/email/verification-notification");
-    };
-
-    const submitLogout = (event) => {
-        event.preventDefault();
-        logout.post("/logout");
+        resend.post("/forgot-password");
     };
 
     return (
         <GuestLayout>
-            <Head title="Verificação de email" />
+            <Head title="Código de recuperação" />
 
             <div className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-                Enviámos um código de 6 dígitos para o seu email. Introduza-o abaixo
-                para confirmar o endereço. O código vale 15 minutos.
+                Introduza o código de 6 dígitos que enviámos para{" "}
+                <strong className="text-slate-700 dark:text-slate-200">{email}</strong>.
+                O código vale 15 minutos.
             </div>
 
             {flash.status && (
                 <div className="mb-4 text-sm font-medium text-green-600 dark:text-green-400">
                     {flash.status}
-                </div>
-            )}
-            {flash.error && (
-                <div className="mb-4 text-sm font-medium text-rose-600 dark:text-rose-400">
-                    {flash.error}
                 </div>
             )}
 
@@ -60,11 +50,11 @@ export default function VerifyEmail() {
                     autoFocus
                     onChange={(event) => setData("code", event.target.value.replace(/\D/g, ""))}
                 />
-                <InputError message={errors.code} className="mt-2" />
+                <InputError message={errors.code || errors.email} className="mt-2" />
 
                 <div className="mt-4 flex items-center justify-end">
                     <PrimaryButton disabled={processing || data.code.length !== 6}>
-                        Verificar
+                        Continuar
                     </PrimaryButton>
                 </div>
             </form>
@@ -80,14 +70,12 @@ export default function VerifyEmail() {
                     </button>
                 </form>
 
-                <form onSubmit={submitLogout}>
-                    <button
-                        type="submit"
-                        className="rounded-md text-sm text-slate-500 underline hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:text-slate-400 dark:hover:text-white"
-                    >
-                        Terminar sessão
-                    </button>
-                </form>
+                <Link
+                    href="/login"
+                    className="rounded-md text-sm text-slate-500 underline hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                >
+                    Voltar ao início de sessão
+                </Link>
             </div>
         </GuestLayout>
     );

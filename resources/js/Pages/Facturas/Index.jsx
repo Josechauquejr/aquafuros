@@ -64,7 +64,7 @@ const tipoConfig = {
 const periodoOrdinal = (p) => Number(p.ano) * 12 + Number(p.mes);
 
 // Valores que o servidor assume quando o parâmetro não vem no URL.
-const padroes = { periodo: "todos", estado: "todos", sort: "factura", dir: "desc" };
+const padroes = { periodo: "todos", estado: "todos", com_multa: "0", sort: "factura", dir: "desc" };
 
 const consumoDe = (factura) =>
     factura.leitura ? Number(factura.leitura.leitura_actual) - Number(factura.leitura.leitura_anterior) : null;
@@ -368,6 +368,16 @@ export default function Index({
                     { valor: "paga", rotulo: "Paga" },
                     { valor: "vencida", rotulo: "Vencida" },
                     ...(ehAdministrador ? [{ valor: "anulada", rotulo: "Anulada" }] : []),
+                ],
+            },
+            {
+                chave: "com_multa",
+                rotulo: "Multas",
+                tipo: "select",
+                padrao: "0",
+                opcoes: [
+                    { valor: "0", rotulo: "Todas" },
+                    { valor: "1", rotulo: "Com multa" },
                 ],
             },
             {

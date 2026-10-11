@@ -129,6 +129,7 @@ class FacturaController extends Controller
         $search = $request->query('search');
         $estado = $request->query('estado');
         $mesAno = $request->query('mes_ano'); // "mes/ano", vindo do resumo mensal
+        $comMulta = $request->query('com_multa') === '1';
 
         $estadosPermitidos = ['pendente', 'parcial', 'paga', 'vencida'];
         if ($request->user()?->hasRole('administrador')) {
@@ -157,6 +158,10 @@ class FacturaController extends Controller
             $query->where('facturas.estado', '!=', 'anulada');
         }
 
+        if ($comMulta) {
+            $query->where('facturas.multa', '>', 0);
+        }
+
         if (is_string($mesAno) && preg_match('#^(\d{1,2})/(\d{4})$#', $mesAno, $m) && checkdate((int) $m[1], 1, (int) $m[2])) {
             // mês de emissão — o mesmo critério do resumo mensal e dos painéis
             $inicioMes = Carbon::create((int) $m[2], (int) $m[1], 1)->startOfMonth();
@@ -165,7 +170,7 @@ class FacturaController extends Controller
             $mesAno = null;
         }
 
-        return [...$periodo, 'search' => $search ?? '', 'estado' => $estado, 'mes_ano' => $mesAno];
+        return [...$periodo, 'search' => $search ?? '', 'estado' => $estado, 'mes_ano' => $mesAno, 'com_multa' => $comMulta ? '1' : '0'];
     }
 
     /**

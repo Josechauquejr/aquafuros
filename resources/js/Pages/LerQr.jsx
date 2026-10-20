@@ -25,7 +25,7 @@ export default function LerQr() {
         const interpretarTexto = (texto) => {
             try {
                 const url = new URL(texto);
-                const match = url.pathname.match(/\/verificar\/(factura|pagamento)\/(\d+)/);
+                const match = url.pathname.match(/\/verificar\/(factura|pagamento)\/([A-Z0-9-]+)/i);
                 if (!match) return null;
                 const [, tipo, id] = match;
                 return tipo === "factura" ? `/facturas/${id}/imprimir` : `/pagamentos/${id}/imprimir`;

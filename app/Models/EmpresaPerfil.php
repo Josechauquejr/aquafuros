@@ -19,7 +19,7 @@ class EmpresaPerfil extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['nome', 'nuit', 'localizacao', 'logotipo_path'])
+            ->logOnly(['nome', 'nuit', 'localizacao', 'logotipo_path', 'mpesa_numero', 'mpesa_titular', 'emola_numero', 'emola_titular'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('empresa_perfil');
@@ -27,7 +27,7 @@ class EmpresaPerfil extends Model
 
     protected $table = 'empresa_perfil';
 
-    protected $fillable = ['nome', 'nuit', 'localizacao', 'logotipo_path'];
+    protected $fillable = ['nome', 'nuit', 'localizacao', 'logotipo_path', 'mpesa_numero', 'mpesa_titular', 'emola_numero', 'emola_titular'];
 
     /**
      * Sempre a mesma linha (id 1) — cria-a com os valores por omissão se
@@ -50,6 +50,10 @@ class EmpresaPerfil extends Model
             'nuit' => $this->nuit,
             'localizacao' => $this->localizacao,
             'logotipoUrl' => $this->logotipo_url,
+            'mpesa_numero' => $this->mpesa_numero,
+            'mpesa_titular' => $this->mpesa_titular,
+            'emola_numero' => $this->emola_numero,
+            'emola_titular' => $this->emola_titular,
         ];
     }
 }

@@ -54,6 +54,7 @@ const estadoFacturaConfig = {
     pendente: { label: "Por pagar", tone: "amber" },
     parcial: { label: "Parcial", tone: "cyan" },
     anulada: { label: "Anulada", tone: "slate" },
+    transferida: { label: "Transferida", tone: "slate" },
 };
 
 const tipoConfig = {
@@ -77,14 +78,15 @@ const estaVencida = (factura) =>
 
 function FacturaLink({ factura }) {
     return (
-        <a
-            href={`/facturas/${factura.id}/imprimir`}
-            target="_blank"
-            rel="noopener noreferrer"
+        <Link
+            href={`/facturas/${factura.numero_factura}/imprimir`}
+            prefetch="hover"
+            cacheFor="5m"
+            cacheTags="factura"
             className="whitespace-nowrap font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
         >
             {factura.numero_factura}
-        </a>
+        </Link>
     );
 }
 
@@ -99,21 +101,18 @@ function EmFalta({ factura }) {
     );
 }
 
-// Quando é que há multa — a regra do cálculo (BillingService): ao emitir a
-// factura SEGUINTE de um cliente, se a dívida em aberto dele já chegou ao
-// limiar de corte da tarifa, a nova factura inclui a percentagem de multa
-// da tarifa sobre essa dívida. Não depende da data de vencimento.
 function ExplicacaoMulta({ factura }) {
     const tarifa = factura.cliente?.tarifa;
-    if (!tarifa) return null;
+    if (!tarifa || !estaVencida(factura)) return null;
 
     const percentagem = formatNumero(Number(tarifa.percentagem_multa) * 100, 0);
+    const prevista = Number(factura.multa_prevista ?? 0);
 
     return (
-        <Explicacao tom="info" titulo="Quando há multa?" className="mt-4">
-            A multa só é cobrada na próxima factura deste cliente: se nessa altura a dívida em aberto for de{" "}
-            {formatMoney(tarifa.limiar_corte)} ou mais, essa factura inclui {percentagem}% dessa dívida como multa.
-            Esta factura, por si só, não gera multa por passar do vencimento.
+        <Explicacao tom={prevista > 0 ? "aviso" : "info"} titulo={prevista > 0 ? "Multa por atraso" : "Sem multa aplicável"} className="mt-4">
+            {prevista > 0
+                ? `Multa prevista: ${formatMoney(prevista)} (${percentagem}% do saldo em atraso elegível). A multa é obrigatória e está incluída no montante a pagar.`
+                : `A multa de ${percentagem}% aplica-se depois do vencimento e faz parte do saldo a pagar. Não pode ser excluída pelo caixa.`}
         </Explicacao>
     );
 }
@@ -132,6 +131,8 @@ function explicarEstado(factura) {
                 titulo: "Anulada",
                 texto: `Foi cancelada por ${factura.anulada_por?.name ?? "—"} em ${formatDate(factura.anulada_em)}${factura.motivo_anulacao ? `. Motivo: ${factura.motivo_anulacao}` : ""}. Já não conta como dívida e não pode receber pagamentos.`,
             };
+        case "transferida":
+            return { tom: "neutro", titulo: "Saldo transferido", texto: `O saldo desta factura foi consolidado na factura ${factura.factura_seguinte?.numero_factura ?? "seguinte"}. Consulte a factura seguinte para efectuar o pagamento.` };
         case "parcial":
             return factura.esta_vencida
                 ? { tom: "perigo", titulo: "Parcial e vencida", texto: `Já foi paga em parte, mas o prazo terminou em ${vencimento} e ainda faltam ${falta}. Pode continuar a ser paga aos poucos até ficar totalmente paga.` }
@@ -244,7 +245,7 @@ const detalheFactura = {
         return (
             <>
                 <Destaques>
-                    <Destaque rotulo="Total a pagar">{formatMoney(factura.total_pagar)}</Destaque>
+                    <Destaque rotulo="Valor desta factura">{formatMoney(factura.total_pagar)}</Destaque>
                     {emAberto ? (
                         <Destaque rotulo="Em falta" tom={factura.esta_vencida ? "perigo" : "primario"}>
                             {formatMoney(factura.em_falta)}
@@ -270,22 +271,28 @@ const detalheFactura = {
                             <span className="text-rose-600 dark:text-rose-400">{formatMoney(factura.multa)}</span>
                         </Campo>
                     )}
+                    {Number(factura.multa_prevista) > 0 && (
+                        <Campo rotulo="Multa por atraso (a confirmar no pagamento)" largo>
+                            <span className="text-rose-600 dark:text-rose-400">{formatMoney(factura.multa_prevista)}</span>
+                        </Campo>
+                    )}
                 </Campos>
 
                 {emAberto && <ExplicacaoMulta factura={factura} />}
 
                 {factura.pagamentos?.length > 0 && (
-                    <SeccaoDetalhe titulo="Pagamentos recebidos" icone={Banknote}>
+                    <SeccaoDetalhe titulo="Pagamentos aplicados a esta factura" icone={Banknote}>
                         <ul className="divide-y divide-border rounded-xl border border-border">
                             {factura.pagamentos.map((pagamento) => (
                                 <li key={pagamento.id} className="flex items-center justify-between gap-3 px-4 py-3">
                                     <span>
-                                        <span className="font-medium text-foreground">{pagamento.numero_recibo}</span>
+                                        <Link href={`/pagamentos/${pagamento.numero_recibo}/imprimir`} className="font-medium text-primary hover:underline">{pagamento.numero_recibo}</Link>
                                         <span className="block text-sm text-muted-foreground">
-                                            {formatDateTime(pagamento.created_at)}
+                                            {formatDateTime(pagamento.pago_em ?? pagamento.created_at)}
                                         </span>
+                                        {pagamento.valor_recibo != null && Math.abs(Number(pagamento.valor_recibo) - Number(pagamento.valor_pago)) > 0.005 && <span className="mt-1 block text-xs text-muted-foreground">Recibo total: {formatMoney(pagamento.valor_recibo)}. O restante foi aplicado a outras facturas.</span>}
                                     </span>
-                                    <span className="font-semibold text-foreground">{formatMoney(pagamento.valor_pago)}</span>
+                                    <span className="shrink-0 text-right"><span className="block font-semibold text-foreground">{formatMoney(pagamento.valor_pago)}</span><span className="block text-xs text-muted-foreground">Aplicado nesta factura</span></span>
                                 </li>
                             ))}
                         </ul>
@@ -297,8 +304,12 @@ const detalheFactura = {
                         <Campo rotulo="Tipo">{tipoConfig[factura.tipo]?.label ?? tipoConfig.consumo.label}</Campo>
                         <Campo rotulo="Consumo">{consumo !== null ? formatVolume(consumo) : null}</Campo>
                         <Campo rotulo="Valor do consumo">{formatMoney(factura.valor_consumo)}</Campo>
-                        <Campo rotulo={factura.divida_anterior_incluida ? "Dívida anterior (incluída)" : "Dívida anterior (informativa)"}>{formatMoney(factura.divida_anterior)}</Campo>
+                        <Campo rotulo="Saldo anterior actual">{formatMoney(factura.cobranca?.saldo_anterior_actual ?? factura.divida_anterior)}</Campo>
+                        {factura.cobranca && <Campo rotulo="Total na emissão">{formatMoney(factura.cobranca.total_emitido)}</Campo>}
+                        {factura.cobranca && <Campo rotulo="Saldo actual, incluindo anteriores">{formatMoney(factura.cobranca.saldo_actual)}</Campo>}
+                        {Number(factura.cobranca?.multas_anteriores_actual ?? factura.multa_anterior) > 0 && <Campo rotulo="Multas anteriores em aberto">{formatMoney(factura.cobranca?.multas_anteriores_actual ?? factura.multa_anterior)}</Campo>}
                         <Campo rotulo="Multa">{formatMoney(factura.multa)}</Campo>
+                        {factura.factura_seguinte && <Campo rotulo="Saldo apresentado anteriormente em"><FacturaLink factura={factura.factura_seguinte} /></Campo>}
                         <Campo rotulo="Emitida em">{formatDateTime(factura.created_at)}</Campo>
                         <Campo rotulo="Emitida por">{factura.gerada_por?.name}</Campo>
                         <Campo rotulo="Email">{factura.cliente?.email}</Campo>
@@ -322,6 +333,7 @@ export default function Index({
     primeirasLeituras = {},
     consumosAnteriores = {},
     facturasAnteriores = {},
+    facturasIniciaisEditaveis = {},
     qrUrls = {},
     resumoMensal: resumoMensalProp,
     emailAutomatico = false,
@@ -329,12 +341,14 @@ export default function Index({
     mesReferencia,
     filtros,
     facturaAlvo = null,
+    facturaAlvoInicialEditavel = false,
     accaoAlvo = null,
 }) {
     const { flash, auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador") ?? false;
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
+    const [editandoInicial, setEditandoInicial] = useState(false);
     const [comparacao, setComparacao] = useState(null);
     const [paraAnular, setParaAnular] = useState(null);
     const [leituraSelecionada, setLeituraSelecionada] = useState(leiturasDisponiveis[0]?.id ?? "");
@@ -347,7 +361,7 @@ export default function Index({
     const pdfRef = useRef(null);
     const ultimaFacturaTratadaRef = useRef(null);
 
-    const form = useForm({ divida_anterior: "", multa: "", estado: "pendente" });
+    const form = useForm({ divida_anterior: "", multa: "", valor_consumo: "", estado: "pendente" });
     const loteForm = useForm({ mes: "", ano: "", enviar_email: emailAutomatico });
     const [paraEnviar, setParaEnviar] = useState(null);
     const anularForm = useForm({ motivo_anulacao: "" });
@@ -473,9 +487,11 @@ export default function Index({
 
     const abrirEdicao = (factura) => {
         setEditando(factura);
+        setEditandoInicial(Boolean(facturasIniciaisEditaveis[factura.id] || (facturaAlvo?.id === factura.id && facturaAlvoInicialEditavel)));
         form.setData({
             divida_anterior: factura.divida_anterior,
             multa: factura.multa,
+            valor_consumo: factura.valor_consumo,
             estado: factura.estado,
         });
         form.clearErrors();
@@ -495,7 +511,7 @@ export default function Index({
 
     const submitEdicao = (event) => {
         event.preventDefault();
-        form.put(`/facturas/${editando.id}`, { onSuccess: () => setShowModal(false) });
+        form.put(`/facturas/${editando.numero_factura}`, { onSuccess: () => setShowModal(false) });
     };
 
     const abrirAnulacao = (factura) => {
@@ -507,7 +523,7 @@ export default function Index({
     const confirmarAnulacao = (event) => {
         event?.preventDefault();
         if (!paraAnular) return;
-        anularForm.delete(`/facturas/${paraAnular.id}`, {
+        anularForm.delete(`/facturas/${paraAnular.numero_factura}`, {
             preserveScroll: true,
             onSuccess: () => setParaAnular(null),
         });
@@ -590,7 +606,7 @@ export default function Index({
     const accoesFactura = (factura) => {
         const numero = factura.numero_factura;
         const emAberto = ["pendente", "parcial"].includes(factura.estado);
-        const imprimir = { icone: Printer, rotulo: "Imprimir", href: `/facturas/${factura.id}/imprimir`, target: "_blank" };
+        const imprimir = { icone: Printer, rotulo: "Imprimir", href: `/facturas/${factura.numero_factura}/imprimir` };
         const aDescarregar = aDescarregarId === factura.id;
 
         return {
@@ -923,7 +939,8 @@ export default function Index({
             >
                 {editando && (
                     <form onSubmit={submitEdicao} className="space-y-4">
-                        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+                        {editandoInicial && <div><InputLabel htmlFor="valor_consumo" value="Valor da factura inicial" /><TextInput id="valor_consumo" type="number" min="0" step="0.01" value={form.data.valor_consumo} onChange={(event) => form.setData("valor_consumo", event.target.value)} className="mt-1 block w-full" /><p className="mt-1 text-xs text-slate-500">Só editável antes de existir uma leitura registada para este cliente.</p></div>}
+                        <div hidden={editandoInicial} className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
                             Valor do consumo: <strong>{formatMoney(editando.valor_consumo)}</strong> (calculado
                             a partir da leitura — não editável directamente).
                         </div>
@@ -975,7 +992,7 @@ export default function Index({
                         <div className="rounded-md border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-semibold text-cyan-900 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-100">
                             Novo total a pagar:{" "}
                             {formatMoney(
-                                Number(editando.valor_consumo) +
+                                Number(editandoInicial ? form.data.valor_consumo : editando.valor_consumo) +
                                     (editando.divida_anterior_incluida ? Number(form.data.divida_anterior) || 0 : 0) +
                                     (Number(form.data.multa) || 0),
                             )}
@@ -1186,7 +1203,7 @@ export default function Index({
                 show={Boolean(paraEnviar)}
                 onClose={() => setParaEnviar(null)}
                 onConfirm={() => {
-                    router.post(`/facturas/${paraEnviar.id}/email`, {}, { preserveScroll: true, onFinish: () => setParaEnviar(null) });
+                    router.post(`/facturas/${paraEnviar.numero_factura}/email`, {}, { preserveScroll: true, onFinish: () => setParaEnviar(null) });
                 }}
                 tone="primary"
                 title="Enviar factura por email"

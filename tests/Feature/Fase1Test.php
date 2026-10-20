@@ -64,12 +64,12 @@ class Fase1Test extends TestCase
         $this->assertEquals(350, $nova->divida_anterior);       // informativa
         $this->assertFalse($nova->divida_anterior_incluida);
 
-        // o cliente deve 350 + 700 = 1050 — não 1400
-        $this->assertEquals(1050, $this->ana->fresh()->saldoEmAberto());
+        // Principal anterior 350 + multa vencida 35 + consumo novo 700.
+        $this->assertEquals(1085, $this->ana->fresh()->saldoEmAberto());
 
         $this->get('/admin/kpis')->assertInertia(fn (Assert $p) => $p
-            ->where('mes.totalFacturado', 700 + 350) // F-OLD também foi emitida este mês (created_at agora)
-            ->where('clientes.dividaTotal', 350));     // só F-OLD está vencida
+            ->where('mes.totalFacturado', 700 + 350 + 35)
+            ->where('clientes.dividaTotal', 385)); // Só F-OLD está vencida, incluindo a sua multa.
     }
 
     public function test_facturas_antigas_que_incluiam_a_divida_descontam_na_facturacao(): void

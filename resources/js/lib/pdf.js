@@ -29,6 +29,7 @@ async function gerarPdfDeElementos(elementos, formato) {
         import("html2canvas"),
         import("jspdf"),
     ]);
+    await document.fonts.ready;
 
     const paginaLargura = formato === "58mm" ? 58 : 210;
     const paginaAltura = formato === "58mm" ? 174 : 297;
@@ -53,9 +54,11 @@ async function gerarPdfDeElementos(elementos, formato) {
         const escalaPxParaMm = paginaLargura / canvas.width;
         const alturaImagemMm = canvas.height * escalaPxParaMm;
 
-        if (alturaImagemMm <= paginaAltura) {
+        // O canvas arredonda dimensões para píxeis inteiros. Uma folha A4
+        // pode exceder 297 mm por uma fracção e criar uma página vazia.
+        if (alturaImagemMm <= paginaAltura + 0.5) {
             if (!primeiraPaginaDoPdf) pdf.addPage([paginaLargura, paginaAltura]);
-            pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, paginaLargura, alturaImagemMm);
+            pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, paginaLargura, Math.min(alturaImagemMm, paginaAltura));
             primeiraPaginaDoPdf = false;
             continue;
         }

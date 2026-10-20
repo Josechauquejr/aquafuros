@@ -40,8 +40,9 @@ class FacturacaoSeeder extends Seeder
         ];
 
         $billing = app(BillingService::class);
-        $numeroFactura = 30;
-        $numeroRecibo = 120;
+        $numeroFacturaPorMes = [];
+        $numeroLeituraPorMes = [];
+        $numeroRecibo = 0;
         $ano = 2026;
         $indiceCaixa = 0;
 
@@ -53,6 +54,7 @@ class FacturacaoSeeder extends Seeder
                 $leituraActual = $leituraAnterior + $consumo;
 
                 $leitura = Leitura::create([
+                    'numero_leitura' => sprintf('LEI-%04d%02d-%04d', $ano, $mes, ($numeroLeituraPorMes[$mes] = ($numeroLeituraPorMes[$mes] ?? 0) + 1)),
                     'cliente_id' => $cliente->id,
                     'mes' => $mes,
                     'ano' => $ano,
@@ -66,7 +68,7 @@ class FacturacaoSeeder extends Seeder
                 $calculo = $billing->calcular($leitura, $cliente);
 
                 $factura = Factura::create([
-                    'numero_factura' => sprintf('FAT-%d-%04d', $ano, $numeroFactura++),
+                    'numero_factura' => sprintf('FAT-%04d%02d-%04d', $ano, $mes, ($numeroFacturaPorMes[$mes] = ($numeroFacturaPorMes[$mes] ?? 0) + 1)),
                     'cliente_id' => $cliente->id,
                     'leitura_id' => $leitura->id,
                     'mes' => $mes,
@@ -90,7 +92,7 @@ class FacturacaoSeeder extends Seeder
                     $indiceCaixa++;
 
                     Pagamento::create([
-                        'numero_recibo' => sprintf('REC-%d-%04d', $ano, $numeroRecibo++),
+                        'numero_recibo' => sprintf('REC-%04d%02d-%04d', now()->year, now()->month, ++$numeroRecibo),
                         'factura_id' => $factura->id,
                         'cliente_id' => $cliente->id,
                         'valor_pago' => $valorPago,

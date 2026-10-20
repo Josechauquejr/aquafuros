@@ -33,6 +33,10 @@ export default function Configuracoes({ funcionalidades, horario, empresa }) {
         nuit: empresa.nuit ?? "",
         localizacao: empresa.localizacao ?? "",
         logotipo: null,
+        mpesa_numero: empresa.mpesa_numero ?? "",
+        mpesa_titular: empresa.mpesa_titular ?? "",
+        emola_numero: empresa.emola_numero ?? "",
+        emola_titular: empresa.emola_titular ?? "",
     });
     const [previaLogotipo, setPrevisaLogotipo] = useState(null);
     const inputLogotipoRef = useRef(null);
@@ -167,6 +171,24 @@ export default function Configuracoes({ funcionalidades, horario, empresa }) {
                                 </div>
                                 <InputError message={empresaForm.errors.logotipo} className="mt-1" />
                             </div>
+
+                            <fieldset className="space-y-3 border-t border-slate-200 pt-4 dark:border-slate-800">
+                                <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-200">Meios de pagamento das facturas</legend>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    {[
+                                        ["mpesa_numero", "Número M-Pesa"],
+                                        ["mpesa_titular", "Titular M-Pesa"],
+                                        ["emola_numero", "Número E-Mola"],
+                                        ["emola_titular", "Titular E-Mola"],
+                                    ].map(([campo, label]) => (
+                                        <div key={campo}>
+                                            <InputLabel htmlFor={campo} value={label} />
+                                            <TextInput id={campo} value={empresaForm.data[campo]} onChange={(event) => empresaForm.setData(campo, event.target.value)} className="mt-1 block w-full" />
+                                            <InputError message={empresaForm.errors[campo]} className="mt-1" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </fieldset>
 
                             <PrimaryButton type="submit" disabled={empresaForm.processing}>
                                 Guardar dados da empresa

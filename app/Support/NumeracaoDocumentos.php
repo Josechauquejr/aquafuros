@@ -17,7 +17,7 @@ class NumeracaoDocumentos
      */
     public static function proximoNumero(Builder $query, string $coluna, string $formato): string
     {
-        $max = $query->get()->reduce(function ($carry, $registo) use ($coluna) {
+        $max = $query->withoutEagerLoads()->get([$coluna])->reduce(function ($carry, $registo) use ($coluna) {
             preg_match('/(\d+)$/', $registo->{$coluna}, $m);
 
             return max($carry, (int) ($m[1] ?? 0));

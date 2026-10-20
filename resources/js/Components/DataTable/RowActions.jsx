@@ -35,6 +35,9 @@ export default function RowActions({ principal, menu = [], rotuloMenu }) {
                     <Link
                         href={principal.href}
                         target={principal.target}
+                        prefetch={principal.target ? false : "hover"}
+                        cacheFor="5m"
+                        cacheTags="registos"
                         title={principal.rotulo ?? texto}
                         aria-label={principal.rotulo ?? texto}
                         className={classes}
@@ -70,7 +73,7 @@ export default function RowActions({ principal, menu = [], rotuloMenu }) {
                                     disabled={item.disabled}
                                     title={item.disabled ? item.motivo : undefined}
                                     onClick={item.onClick}
-                                    {...(navega ? { href: item.href, target: item.target } : {})}
+                                    {...(navega ? { href: item.href, target: item.target, prefetch: item.target ? false : "hover", cacheFor: "5m", cacheTags: "registos" } : {})}
                                 >
                                     {Icone && <Icone className="h-4 w-4" aria-hidden="true" />}
                                     {item.rotulo}

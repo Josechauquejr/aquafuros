@@ -3,7 +3,7 @@ import "@fontsource/figtree/latin-400.css";
 import "@fontsource/figtree/latin-500.css";
 import "@fontsource/figtree/latin-600.css";
 import "@fontsource/figtree/latin-700.css";
-import { createInertiaApp } from "@inertiajs/react";
+import { createInertiaApp, router } from "@inertiajs/react";
 import { MotionConfig } from "motion/react";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
@@ -38,6 +38,11 @@ const shouldUseDark = storedTheme === "dark" || (storedTheme === "system" && pre
 
 document.documentElement.classList.toggle("dark", shouldUseDark);
 document.documentElement.style.colorScheme = shouldUseDark ? "dark" : "light";
+
+// Não reutilizar páginas pré-carregadas depois de uma gravação ou acção de sessão.
+router.on("before", (event) => {
+    if (event.detail.visit.method !== "get") router.flushAll();
+});
 
 createInertiaApp({
     layout: shellDaPagina,

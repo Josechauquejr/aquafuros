@@ -260,7 +260,7 @@ export default function Index({ linhas, clientesEmail, totais, zonas, filtros })
             <ConfirmDialog
                 show={Boolean(paraEmail)}
                 onClose={() => setParaEmail(null)}
-                onConfirm={() => router.post(`/cobranca/clientes/${paraEmail.cliente.id}/email`, {}, { preserveScroll: true, onFinish: () => { setParaEmail(null); setClienteEmailId(""); } })}
+                onConfirm={() => router.post(`/cobranca/clientes/${paraEmail.cliente.numero_cliente}/email`, {}, { preserveScroll: true, onFinish: () => { setParaEmail(null); setClienteEmailId(""); } })}
                 tone="primary"
                 title="Enviar email de cobrança"
                 confirmLabel="Enviar"

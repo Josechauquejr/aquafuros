@@ -129,9 +129,9 @@ function FacturaPorPagar({ factura }) {
                 <Link href={`/pagamentos?factura_id=${factura.id}`} className={botaoPagar}>
                     Pagar
                 </Link>
-                <a href={`/facturas/${factura.id}/imprimir`} target="_blank" rel="noopener noreferrer" className={ligacao}>
+                <Link href={`/facturas/${factura.numero_factura}/imprimir`} prefetch="hover" cacheFor="5m" cacheTags="factura" className={ligacao}>
                     Ver factura
-                </a>
+                </Link>
                 {factura.estado === "pendente" && (
                     <Link href={`/facturas?editar=${factura.id}`} className={ligacao}>
                         Editar
@@ -161,6 +161,9 @@ const detalheCliente = {
 
         return (
             <>
+                <Link href={`/clientes/${cliente.numero_cliente}`} prefetch="hover" cacheFor="5m" cacheTags="ficha-cliente" className="mb-4 inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    Ver ficha completa do cliente <span aria-hidden="true">→</span>
+                </Link>
                 <Destaques>
                     <Destaque
                         rotulo="Dívida em aberto"
@@ -225,14 +228,15 @@ const detalheCliente = {
                                     {facturas.map((f) => (
                                         <tr key={f.id}>
                                             <td className="px-3 py-2 font-medium">
-                                                <a
-                                                    href={`/facturas/${f.id}/imprimir`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
+                                                <Link
+                                                    href={`/facturas/${f.numero_factura}/imprimir`}
+                                                    prefetch="hover"
+                                                    cacheFor="5m"
+                                                    cacheTags="factura"
                                                     className="whitespace-nowrap text-primary hover:underline"
                                                 >
                                                     {f.numero_factura}
-                                                </a>
+                                                </Link>
                                             </td>
                                             <td className="px-3 py-2 text-muted-foreground">
                                                 {meses[f.mes - 1]}/{f.ano}
@@ -454,7 +458,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
         event.preventDefault();
 
         if (editando) {
-            form.put(`/clientes/${editando.id}`, { onSuccess: fecharModalCliente });
+            form.put(`/clientes/${editando.numero_cliente}`, { onSuccess: fecharModalCliente });
         } else {
             form.post("/clientes", { onSuccess: fecharModalCliente });
         }
@@ -462,12 +466,13 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
 
     const confirmarEliminacao = () => {
         if (!paraEliminar) return;
-        router.delete(`/clientes/${paraEliminar.id}`, { onFinish: () => setParaEliminar(null), preserveScroll: true });
+        router.delete(`/clientes/${paraEliminar.numero_cliente}`, { onFinish: () => setParaEliminar(null), preserveScroll: true });
     };
 
     const accoesCliente = (cliente) => ({
         principal: { icone: Eye, rotulo: `Ver dados de ${cliente.nome}`, curto: "Ver dados", expandir: true },
         menu: [
+            { icone: FileText, rotulo: "Abrir ficha completa", href: `/clientes/${cliente.numero_cliente}` },
             { icone: Pencil, rotulo: "Editar", onClick: () => abrirEdicao(cliente) },
             {
                 icone: Trash2,

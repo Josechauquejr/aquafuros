@@ -1,11 +1,13 @@
 import { Head, Link, usePage } from "@inertiajs/react";
-import { ArrowLeft, Droplets, Printer } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { ArrowLeft, Printer } from "lucide-react";
 import { useRef } from "react";
 import AnimatedButton from "@/Components/AnimatedButton";
 import BotaoDescarregarPdf from "@/Components/print/BotaoDescarregarPdf";
 import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/FormatoImpressaoToggle";
 import ReciboTermico58mm from "@/Components/print/ReciboTermico58mm";
+import CabecalhoDocumento from "@/Components/print/CabecalhoDocumento";
+import RodapeDocumento from "@/Components/print/RodapeDocumento";
+import DiscriminacaoRecibo from "@/Components/print/DiscriminacaoRecibo";
 import useFormatoImpressao from "@/hooks/useFormatoImpressao";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -76,31 +78,7 @@ export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
                 ref={conteudoRef}
                 className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm print:border-0 print:shadow-none"
             >
-                <div className="flex items-start justify-between border-b border-slate-300 pb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-cyan-700 text-white">
-                            {empresa?.logotipoUrl ? (
-                                <img
-                                    src={empresa.logotipoUrl}
-                                    alt={empresa.nome}
-                                    crossOrigin="anonymous"
-                                    className="h-full w-full object-contain"
-                                />
-                            ) : (
-                                <Droplets className="h-6 w-6" aria-hidden="true" />
-                            )}
-                        </div>
-                        <div>
-                            <p className="text-lg font-bold">{empresa?.nome ?? "Aquafuros"}</p>
-                            {empresa?.nuit && <p className="text-xs text-slate-500">NUIT: {empresa.nuit}</p>}
-                            {empresa?.localizacao && <p className="text-xs text-slate-500">{empresa.localizacao}</p>}
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-xl font-bold uppercase tracking-wide">Recibo de Pagamento</p>
-                        <p className="text-sm text-slate-600">{pagamento.numero_recibo}</p>
-                    </div>
-                </div>
+                <CabecalhoDocumento empresa={empresa} titulo="Recibo de pagamento" numero={pagamento.numero_recibo} />
 
                 <div className="mt-6 grid grid-cols-2 gap-6 text-sm">
                     <div>
@@ -113,7 +91,7 @@ export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
                     </div>
                     <div className="text-right">
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pagamento</p>
-                        <p className="mt-1 font-semibold">{formatDateTime(pagamento.created_at)}</p>
+                        <p className="mt-1 font-semibold">{formatDateTime(pagamento.pago_em ?? pagamento.created_at)}</p>
                         <p className="text-slate-600">Recebido por {pagamento.recebido_por?.name ?? "—"}</p>
                         <p className="text-slate-600">
                             {metodoLabels[pagamento.metodo_pagamento] ?? pagamento.metodo_pagamento}
@@ -143,6 +121,10 @@ export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
                         </div>
 
                         {leitura && (
+                            <p className="mt-3 text-sm font-semibold">N.º da leitura: {leitura.numero_leitura ?? "—"}</p>
+                        )}
+
+                        {leitura && (
                             <table className="mt-4 w-full border-collapse text-sm">
                                 <thead>
                                     <tr className="border-b border-slate-300 text-left text-xs uppercase text-slate-500">
@@ -169,8 +151,8 @@ export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
                         )}
 
                         <div className="mt-3 flex justify-between text-sm text-slate-600">
-                            <span>Total da factura</span>
-                            <span>{formatCurrency(factura.total_pagar)}</span>
+                            <span>Total da factura na emissão</span>
+                            <span>{formatCurrency(factura.emissao_original?.total_pagar ?? factura.total_pagar)}</span>
                         </div>
                     </div>
                 )}
@@ -179,19 +161,10 @@ export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
                     <span className="text-sm font-semibold text-cyan-900">Valor pago</span>
                     <span className="text-xl font-bold text-cyan-900">{formatCurrency(pagamento.valor_pago)}</span>
                 </div>
+                <DiscriminacaoRecibo pagamento={pagamento} />
 
-                <div className="mt-10 flex items-center justify-between gap-4 border-t border-slate-300 pt-4">
-                    <p className="text-xs text-slate-400">
-                        Documento gerado electronicamente pelo sistema Aquafuros — sem necessidade de assinatura.
-                        <br />
-                        Desenvolvido pela RJM Consultórios e Serviços — José Zeferino Chaúque Júnior
-                    </p>
-                    {qrUrl && (
-                        <div className="flex shrink-0 flex-col items-center gap-1">
-                            <QRCodeSVG value={qrUrl} size={72} level="M" />
-                            <p className="text-[9px] text-slate-400">Verificar autenticidade</p>
-                        </div>
-                    )}
+                <div className="mt-10">
+                    <RodapeDocumento qrUrl={qrUrl} />
                 </div>
             </div>
             )}

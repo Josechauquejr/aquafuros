@@ -25,37 +25,18 @@ import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import KpiCard from "@/Components/KpiCard";
 import ResumoMes from "@/Components/ResumoMes";
-import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
-import PagamentoMultiplo from "@/Components/PagamentoMultiplo";
+import RegistarPagamento from "@/Components/RegistarPagamento";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
-import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
 import { cn, formatDateTime, formatMoney } from "@/lib/utils";
-
-const meses = [
-    "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-    "Jul", "Ago", "Set", "Out", "Nov", "Dez",
-];
 
 const metodoConfig = {
     dinheiro: { label: "Dinheiro", icon: Banknote, tone: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300" },
     banco: { label: "Transferência bancária", icon: Landmark, tone: "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300" },
     mpesa: { label: "M-Pesa", icon: Smartphone, tone: "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300" },
     "e-mola": { label: "e-Mola", icon: Smartphone, tone: "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300" },
-};
-
-// O que falta pagar de uma factura (as parciais podem ser pagas várias vezes).
-const emFaltaDe = (factura) => Number(factura.em_falta ?? factura.total_pagar);
-
-const formVazio = { factura_id: "", valor_pago: "", metodo_pagamento: "dinheiro", referencia_pagamento: "", data_pagamento: "", usar_credito: false, guardar_excesso: false };
-
-// AAAA-MM-DD na data local (toISOString daria a data em UTC).
-const dataLocal = (deslocamentoDias = 0) => {
-    const d = new Date();
-    d.setDate(d.getDate() - deslocamentoDias);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
 // Valores que o servidor assume quando o parâmetro não vem no URL.
@@ -88,14 +69,15 @@ function MetodoBadge({ metodo: chave }) {
 
 function FacturaLink({ factura }) {
     return (
-        <a
-            href={`/facturas/${factura.id}/imprimir`}
-            target="_blank"
-            rel="noopener noreferrer"
+        <Link
+            href={`/facturas/${factura.numero_factura}/imprimir`}
+            prefetch="hover"
+            cacheFor="5m"
+            cacheTags="factura"
             className="whitespace-nowrap font-medium text-cyan-700 hover:underline dark:text-cyan-300"
         >
             {factura.numero_factura}
-        </a>
+        </Link>
     );
 }
 
@@ -107,7 +89,7 @@ const colunas = [
         render: (pagamento) => (
             <>
                 <p className="font-semibold text-slate-900 dark:text-white">{pagamento.numero_recibo}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(pagamento.created_at)}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(pagamento.pago_em ?? pagamento.created_at)}</p>
             </>
         ),
     },
@@ -136,7 +118,7 @@ const cartaoPagamento = (pagamento) => (
             <p className="truncate text-sm text-slate-600 dark:text-slate-300">
                 {pagamento.cliente?.nome ?? "Cliente removido"}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(pagamento.created_at)}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(pagamento.pago_em ?? pagamento.created_at)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-slate-900 dark:text-white">{formatMoney(pagamento.valor_pago)}</span>
@@ -161,7 +143,10 @@ const detalhePagamento = {
             </Destaques>
             <Campos className="mt-5">
                 <Campo rotulo="Factura">{pagamento.factura && <FacturaLink factura={pagamento.factura} />}</Campo>
-                <Campo rotulo="Data e hora">{formatDateTime(pagamento.created_at)}</Campo>
+                <Campo rotulo="Data do pagamento">{formatDateTime(pagamento.pago_em ?? pagamento.created_at)}</Campo>
+                {(pagamento.imputacoes ?? []).map(parcela => <Campo key={parcela.id} rotulo={`Aplicado a ${parcela.factura?.numero_factura ?? "factura de origem"}`}>
+                    Principal: {formatMoney(parcela.valor_principal)} · Multa: {formatMoney(parcela.valor_multa)}
+                </Campo>)}
             </Campos>
             <MaisDetalhes>
                 <Campos>
@@ -174,23 +159,17 @@ const detalhePagamento = {
     ),
 };
 
-export default function Index({ pagamentos, facturasEmAberto, clientes = [], creditos = {}, metricas, resumoMes, mesReferencia, diasRetroactivos = 7, filtros }) {
+export default function Index({ pagamentos, facturasEmAberto, clientes = [], creditos = {}, dataActual, metricas, resumoMes, mesReferencia, filtros }) {
     const { auth, flash } = usePage().props;
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
-    // Chegou com uma factura escolhida (link "Receber"): mostra só essa, não a lista toda.
-    const [facturaFixada, setFacturaFixada] = useState(false);
+    const [facturaInicial, setFacturaInicial] = useState("");
     const [paraEstornar, setParaEstornar] = useState(null);
-    const [multiploAberto, setMultiploAberto] = useState(false);
+    const [clienteInicial, setClienteInicial] = useState("");
     const [loteParaEstornar, setLoteParaEstornar] = useState(null);
     const [adiantamentoAberto, setAdiantamentoAberto] = useState(false);
     const adiantamento = useForm({ cliente_id: "", valor: "", metodo_pagamento: "dinheiro", referencia_pagamento: "", nota: "" });
-    // Pagar várias facturas só faz sentido se algum cliente tiver 2 ou mais em aberto.
-    const podePagarVarias = Object.values(
-        facturasEmAberto.reduce((acc, f) => ({ ...acc, [f.cliente_id]: (acc[f.cliente_id] ?? 0) + 1 }), {}),
-    ).some((quantidade) => quantidade >= 2);
-
-    const form = useForm(formVazio);
+    const form = useForm({ metodo_pagamento: "dinheiro", referencia_pagamento: "" });
     const ehAdministrador = auth.roles?.includes("administrador") ?? false;
 
     const metrics = [
@@ -205,22 +184,8 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
 
     const abrirNovo = (facturaIdPreseleccionada) => {
         setEditando(null);
-        setFacturaFixada(Boolean(facturaIdPreseleccionada));
-        // Sem factura de origem não se pré-selecciona nenhuma: a 1.ª da lista seria
-        // de um cliente qualquer e um Enter distraído registava o pagamento no cliente errado.
-        const preseleccionada = facturaIdPreseleccionada
-            ? facturasEmAberto.find((f) => String(f.id) === String(facturaIdPreseleccionada))
-            : undefined;
-        form.reset();
-        form.setData({
-            factura_id: preseleccionada?.id ?? "",
-            valor_pago: preseleccionada ? emFaltaDe(preseleccionada) : "",
-            metodo_pagamento: "dinheiro",
-            referencia_pagamento: "",
-            usar_credito: false,
-            guardar_excesso: false,
-        });
-        form.clearErrors();
+        setClienteInicial("");
+        setFacturaInicial(facturaIdPreseleccionada ?? "");
         setShowModal(true);
     };
 
@@ -228,6 +193,12 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
     // — pré-selecciona essa factura e abre logo o formulário de pagamento.
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
+        const clienteId = params.get("cliente_id");
+        if (clienteId && facturasEmAberto.some(f => String(f.cliente_id) === clienteId)) {
+            setClienteInicial(clienteId);
+            setShowModal(true);
+            return;
+        }
         const facturaId = params.get("factura_id");
         if (facturaId && facturasEmAberto.some((f) => String(f.id) === facturaId)) {
             abrirNovo(facturaId);
@@ -245,26 +216,10 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
         setShowModal(true);
     };
 
-    const selecionarFactura = (id) => {
-        const factura = facturasEmAberto.find((f) => String(f.id) === String(id));
-        form.setData((data) => ({ ...data, factura_id: id, valor_pago: factura ? emFaltaDe(factura) : data.valor_pago }));
-    };
-
-    const facturaSeleccionada = facturasEmAberto.find((f) => String(f.id) === String(form.data.factura_id));
-    const creditoDoCliente = facturaSeleccionada ? Number(creditos[facturaSeleccionada.cliente_id] ?? 0) : 0;
-    const emFaltaAposCredito = facturaSeleccionada
-        ? emFaltaDe(facturaSeleccionada) - (form.data.usar_credito ? Math.min(creditoDoCliente, emFaltaDe(facturaSeleccionada)) : 0)
-        : 0;
-    const excessoPrevisto = facturaSeleccionada ? Number(form.data.valor_pago || 0) - emFaltaAposCredito : 0;
-
     const submit = (event) => {
         event.preventDefault();
 
-        if (editando) {
-            form.put(`/pagamentos/${editando.id}`, { onSuccess: () => setShowModal(false) });
-        } else {
-            form.post("/pagamentos", { onSuccess: () => setShowModal(false) });
-        }
+        form.put(`/pagamentos/${editando.numero_recibo}`, { onSuccess: () => setShowModal(false) });
     };
 
     const confirmarEstornoLote = () => {
@@ -274,15 +229,14 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
 
     const confirmarEstorno = () => {
         if (!paraEstornar) return;
-        router.delete(`/pagamentos/${paraEstornar.id}`, { onFinish: () => setParaEstornar(null), preserveScroll: true });
+        router.delete(`/pagamentos/${paraEstornar.numero_recibo}`, { onFinish: () => setParaEstornar(null), preserveScroll: true });
     };
 
     const accoesPagamento = (pagamento) => ({
         principal: {
             icone: Printer,
             curto: "Imprimir", rotulo: "Imprimir recibo",
-            href: `/pagamentos/${pagamento.id}/imprimir`,
-            target: "_blank",
+            href: `/pagamentos/${pagamento.numero_recibo}/imprimir`,
         },
         menu: [
             { icone: Eye, rotulo: "Ver detalhe", expandir: true },
@@ -352,15 +306,6 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                             <Wallet className="h-4 w-4" aria-hidden="true" />
                             Receber adiantamento
                         </AnimatedButton>
-                        <AnimatedButton
-                            variant="secondary"
-                            onClick={() => setMultiploAberto(true)}
-                            disabled={!podePagarVarias}
-                            title={podePagarVarias ? undefined : "Nenhum cliente tem 2 ou mais facturas em aberto"}
-                        >
-                            <Layers className="h-4 w-4" aria-hidden="true" />
-                            Pagar várias facturas
-                        </AnimatedButton>
                         <AnimatedButton variant="primary" onClick={() => abrirNovo()} disabled={facturasEmAberto.length === 0}>
                             <Plus className="h-4 w-4" aria-hidden="true" />
                             Registar pagamento
@@ -410,163 +355,23 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                 </div>
             </div>
 
-            <Modal
-                show={showModal}
+            {showModal && !editando && <RegistarPagamento
+                facturasEmAberto={facturasEmAberto}
+                creditos={creditos}
+                metodos={metodoConfig}
+                facturaInicial={facturaInicial}
+                clienteInicial={clienteInicial}
+                dataActual={dataActual}
                 onClose={() => setShowModal(false)}
-                title={editando ? `Editar pagamento ${editando.numero_recibo}` : "Registar pagamento"}
+            />}
+
+            <Modal
+                show={showModal && Boolean(editando)}
+                onClose={() => { if (!form.processing) setShowModal(false); }}
+                title={`Editar pagamento ${editando?.numero_recibo ?? ""}`}
                 maxWidth="lg"
             >
                 <form onSubmit={submit} className="space-y-4">
-                    {!editando && (
-                        <>
-                            <div>
-                                <InputLabel htmlFor="busca_factura" value="Factura em aberto" />
-                                {facturasEmAberto.length > 0 ? (
-                                    facturaFixada && facturaSeleccionada ? (
-                                        <div className="mt-1 rounded-lg border border-cyan-200 bg-cyan-50 p-4 dark:border-cyan-900 dark:bg-cyan-950/30">
-                                            <p className="text-lg font-semibold text-slate-950 dark:text-white">
-                                                {facturaSeleccionada.cliente?.nome ?? "Cliente removido"}
-                                            </p>
-                                            <p className="text-sm text-slate-600 dark:text-slate-300">
-                                                Factura {facturaSeleccionada.numero_factura} · {meses[facturaSeleccionada.mes - 1]}/{facturaSeleccionada.ano}
-                                            </p>
-                                            <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3 sm:gap-3">
-                                                <div className="flex items-baseline justify-between gap-3 sm:block">
-                                                    <dt className="text-slate-500 dark:text-slate-400">Total</dt>
-                                                    <dd className="font-semibold text-slate-900 dark:text-white">{formatMoney(facturaSeleccionada.total_pagar)}</dd>
-                                                </div>
-                                                <div className="flex items-baseline justify-between gap-3 sm:block">
-                                                    <dt className="text-slate-500 dark:text-slate-400">Já pago</dt>
-                                                    <dd className="font-semibold text-slate-900 dark:text-white">{formatMoney(facturaSeleccionada.total_pago ?? 0)}</dd>
-                                                </div>
-                                                <div className="flex items-baseline justify-between gap-3 sm:block">
-                                                    <dt className="text-slate-500 dark:text-slate-400">Em falta</dt>
-                                                    <dd className="font-bold text-cyan-800 dark:text-cyan-300">{formatMoney(emFaltaDe(facturaSeleccionada))}</dd>
-                                                </div>
-                                            </dl>
-                                            <button
-                                                type="button"
-                                                onClick={() => setFacturaFixada(false)}
-                                                className="mt-3 text-sm font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
-                                            >
-                                                Escolher outra factura
-                                            </button>
-                                        </div>
-                                    ) : (
-                                    <div className="mt-1">
-                                        <ListaPesquisavel
-                                            itens={facturasEmAberto}
-                                            valorSeleccionado={form.data.factura_id}
-                                            onSeleccionar={(factura) => selecionarFactura(factura.id)}
-                                            obterId={(factura) => factura.id}
-                                            obterOrdenacao={(factura) => factura.cliente?.nome ?? "Cliente removido"}
-                                            obterTexto={(factura) => `${factura.cliente?.nome ?? ""} ${factura.numero_factura}`}
-                                            placeholder="Pesquisar por cliente ou número de factura..."
-                                            vazioTexto="Nenhuma factura encontrada."
-                                            renderItem={(factura) => (
-                                                <>
-                                                    <div className="min-w-0">
-                                                        <p className="truncate font-medium text-slate-900 dark:text-white">
-                                                            {factura.cliente?.nome ?? "Cliente removido"}
-                                                        </p>
-                                                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                                                            {factura.numero_factura} · {meses[factura.mes - 1]}/{factura.ano}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex shrink-0 flex-col items-end gap-1">
-                                                        <span className="font-semibold text-slate-900 dark:text-white">
-                                                            {formatMoney(emFaltaDe(factura))}
-                                                        </span>
-                                                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                                                            {factura.estado === "parcial" ? "em falta" : "a pagar"}
-                                                        </span>
-                                                        <StatusBadge tone={factura.estado === "parcial" ? "cyan" : "amber"}>
-                                                            {factura.estado === "parcial" ? "Parcial" : "Pendente"}
-                                                        </StatusBadge>
-                                                    </div>
-                                                </>
-                                            )}
-                                        />
-                                    </div>
-                                    )
-                                ) : (
-                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                        Não há facturas pendentes ou parciais para registar pagamento.
-                                    </p>
-                                )}
-                                <InputError message={form.errors.factura_id} className="mt-1" />
-                            </div>
-
-                            <div>
-                                <InputLabel htmlFor="valor_pago" value="Valor pago" />
-                                <TextInput
-                                    id="valor_pago"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    required={!form.data.usar_credito}
-                                    value={form.data.valor_pago}
-                                    onChange={(event) => form.setData("valor_pago", event.target.value)}
-                                    className="mt-1 block w-full"
-                                />
-                                {facturaSeleccionada && (
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                        Em falta: {formatMoney(emFaltaDe(facturaSeleccionada))}. Pode pagar só uma parte — o resto fica em
-                                        aberto para um próximo pagamento.
-                                    </p>
-                                )}
-                                <InputError message={form.errors.valor_pago} className="mt-1" />
-
-                                {facturaSeleccionada && creditoDoCliente > 0 && (
-                                    <label className="mt-3 flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
-                                        <input
-                                            type="checkbox"
-                                            checked={form.data.usar_credito}
-                                            onChange={(event) => form.setData("usar_credito", event.target.checked)}
-                                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
-                                        />
-                                        <span>
-                                            Usar o crédito do cliente (<strong>{formatMoney(creditoDoCliente)}</strong>) primeiro — abate{" "}
-                                            {formatMoney(Math.min(creditoDoCliente, emFaltaDe(facturaSeleccionada)))} sem receber dinheiro.
-                                        </span>
-                                    </label>
-                                )}
-                                {facturaSeleccionada && excessoPrevisto > 0.005 && (
-                                    <label className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                                        <input
-                                            type="checkbox"
-                                            checked={form.data.guardar_excesso}
-                                            onChange={(event) => form.setData("guardar_excesso", event.target.checked)}
-                                            className="mt-0.5 h-4 w-4 rounded border-amber-400 text-cyan-600 focus:ring-cyan-500"
-                                        />
-                                        <span>
-                                            O cliente entrega mais {formatMoney(excessoPrevisto)} do que deve. Guardar este excesso como crédito para as próximas facturas.
-                                        </span>
-                                    </label>
-                                )}
-                            </div>
-                        </>
-                    )}
-
-                    {!editando && (
-                        <div>
-                            <InputLabel htmlFor="data_pagamento" value="Data do pagamento" />
-                            <TextInput
-                                id="data_pagamento"
-                                type="date"
-                                value={form.data.data_pagamento || dataLocal()}
-                                min={dataLocal(diasRetroactivos)}
-                                max={dataLocal()}
-                                onChange={(event) => form.setData("data_pagamento", event.target.value)}
-                                className="mt-1 block w-full sm:w-56"
-                            />
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                Hoje, salvo se o dinheiro foi pago antes (ex.: transferência confirmada mais tarde) — até {diasRetroactivos} dia(s) atrás.
-                            </p>
-                            <InputError message={form.errors.data_pagamento} className="mt-1" />
-                        </div>
-                    )}
-
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
                             <InputLabel htmlFor="metodo_pagamento" value="Método de pagamento" />
@@ -576,12 +381,9 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                                 onChange={(event) => form.setData("metodo_pagamento", event.target.value)}
                                 className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
-                                {Object.entries(metodoConfig).map(([valor, { label }]) => (
-                                    <option key={valor} value={valor}>
-                                        {label}
-                                    </option>
-                                ))}
+                                {Object.entries(metodoConfig).map(([valor, { label }]) => <option key={valor} value={valor}>{label}</option>)}
                             </select>
+                            <InputError message={form.errors.metodo_pagamento} className="mt-1" />
                         </div>
                         <div>
                             <InputLabel htmlFor="referencia_pagamento" value="Referência (opcional)" />
@@ -592,26 +394,16 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                                 className="mt-1 block w-full"
                                 placeholder="Ex: MP-88213"
                             />
+                            <InputError message={form.errors.referencia_pagamento} className="mt-1" />
                         </div>
                     </div>
-
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {editando
-                            ? "Por integridade financeira, apenas método e referência podem ser alterados."
-                            : `Recebido por ${auth.user?.name ?? "utilizador actual"}.`}
-                    </p>
-
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Por integridade financeira, apenas método e referência podem ser alterados.</p>
                     <div className="flex justify-end gap-3 pt-2">
-                        <SecondaryButton type="button" onClick={() => setShowModal(false)}>
-                            Cancelar
-                        </SecondaryButton>
-                        <PrimaryButton type="submit" disabled={form.processing || (!editando && (facturasEmAberto.length === 0 || !form.data.factura_id))}>
-                            {editando ? "Guardar alterações" : "Registar pagamento"}
-                        </PrimaryButton>
+                        <SecondaryButton type="button" onClick={() => setShowModal(false)} disabled={form.processing}>Cancelar</SecondaryButton>
+                        <PrimaryButton type="submit" disabled={form.processing}>Guardar alterações</PrimaryButton>
                     </div>
                 </form>
             </Modal>
-
             <Modal show={adiantamentoAberto} onClose={() => setAdiantamentoAberto(false)} title="Receber adiantamento" maxWidth="md">
                 <form
                     onSubmit={(evento) => {
@@ -669,14 +461,6 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
                     </div>
                 </form>
             </Modal>
-
-            <PagamentoMultiplo
-                show={multiploAberto}
-                onClose={() => setMultiploAberto(false)}
-                facturasEmAberto={facturasEmAberto}
-                metodos={metodoConfig}
-                diasRetroactivos={diasRetroactivos}
-            />
 
             <ConfirmDialog
                 show={Boolean(paraEstornar)}

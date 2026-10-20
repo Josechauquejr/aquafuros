@@ -69,7 +69,7 @@ class Fase2Test extends TestCase
         $this->assertSame($this->admin->id, $outra->fresh()->confirmado_por);
     }
 
-    public function test_pagamento_pode_ter_data_anterior_dentro_do_limite(): void
+    public function test_pagamento_pode_ter_qualquer_data_passada_e_recusa_o_futuro(): void
     {
         $f = $this->factura('F-1', 500);
         $ontem = now()->subDay()->toDateString();
@@ -80,11 +80,12 @@ class Fase2Test extends TestCase
 
         $this->assertSame($ontem, Pagamento::first()->pago_em->toDateString());
 
-        // futuro e demasiado antigo são recusados
+        // Datas futuras são recusadas; meses anteriores podem ser regularizados.
         $this->post('/pagamentos', ['factura_id' => $f->id, 'valor_pago' => 10, 'metodo_pagamento' => 'dinheiro', 'data_pagamento' => now()->addDay()->toDateString()])
             ->assertSessionHasErrors('data_pagamento');
         $this->post('/pagamentos', ['factura_id' => $f->id, 'valor_pago' => 10, 'metodo_pagamento' => 'dinheiro', 'data_pagamento' => now()->subDays(30)->toDateString()])
-            ->assertSessionHasErrors('data_pagamento');
+            ->assertSessionHasNoErrors();
+        $this->assertSame(now()->subDays(30)->toDateString(), Pagamento::latest('id')->first()->pago_em->toDateString());
 
         // com o limite alargado já passa
         Configuracao::definir('pagamento_dias_retroactivos', 60);

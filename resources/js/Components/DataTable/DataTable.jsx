@@ -66,7 +66,7 @@ function AccoesDoCartao({ accao, fechar }) {
 
                 if (item.href) {
                     return (
-                        <Link key={item.rotulo} href={item.href} target={item.target} className={estilo(item.tone)}>
+                        <Link key={item.rotulo} href={item.href} target={item.target} prefetch={item.target ? false : "hover"} cacheFor="5m" cacheTags="registos" className={estilo(item.tone)}>
                             {conteudo}
                         </Link>
                     );

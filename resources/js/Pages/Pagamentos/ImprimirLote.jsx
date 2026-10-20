@@ -1,6 +1,7 @@
 import { Head, Link, usePage } from "@inertiajs/react";
-import { ArrowLeft, Droplets, Printer } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { ArrowLeft, Printer } from "lucide-react";
+import CabecalhoDocumento from "@/Components/print/CabecalhoDocumento";
+import RodapeDocumento from "@/Components/print/RodapeDocumento";
 import { useRef } from "react";
 import AnimatedButton from "@/Components/AnimatedButton";
 import BotaoDescarregarPdfLote from "@/Components/print/BotaoDescarregarPdfLote";
@@ -30,7 +31,18 @@ const estadoFacturaConfig = {
 
 function chunk(array, size) {
     const result = [];
-    for (let i = 0; i < array.length; i += size) result.push(array.slice(i, i + size));
+    let grupo = [];
+    for (const pagamento of array) {
+        if ((pagamento.imputacoes?.length ?? 0) > 1) {
+            if (grupo.length) result.push(grupo);
+            grupo = [];
+            result.push([pagamento]);
+        } else {
+            grupo.push(pagamento);
+            if (grupo.length === size) { result.push(grupo); grupo = []; }
+        }
+    }
+    if (grupo.length) result.push(grupo);
     return result;
 }
 
@@ -42,39 +54,9 @@ function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl, empresa }) {
     const estadoFactura = factura ? estadoFacturaConfig[factura.estado] : null;
 
     return (
-        <div className="flex h-[90mm] flex-col justify-between p-4 text-slate-900" style={{ breakInside: "avoid" }}>
+        <div className="flex min-h-[90mm] flex-col justify-between p-4 text-slate-900" style={{ breakInside: "avoid" }}>
             <div>
-                <div className="flex items-start justify-between border-b border-slate-300 pb-2">
-                    <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border-2 border-cyan-700 text-cyan-700">
-                            {empresa?.logotipoUrl ? (
-                                <img
-                                    src={empresa.logotipoUrl}
-                                    alt={empresa.nome}
-                                    crossOrigin="anonymous"
-                                    className="h-full w-full object-contain"
-                                />
-                            ) : (
-                                <Droplets className="h-4 w-4" aria-hidden="true" />
-                            )}
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold leading-none">{empresa?.nome ?? "Aquafuros"}</p>
-                            <p className="text-[10px] text-slate-500">
-                                {empresa?.nuit ? `NUIT: ${empresa.nuit}` : "Recibo de Pagamento"}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-sm font-bold uppercase leading-none">{pagamento.numero_recibo}</p>
-                        {estadoFactura && (
-                            <span className={`mt-1 inline-block rounded border px-2 py-0.5 text-[10px] font-bold ${estadoFactura.classes}`}>
-                                {estadoFactura.label}
-                            </span>
-                        )}
-                    </div>
-                </div>
-
+                <CabecalhoDocumento empresa={empresa} compacto titulo="Recibo de pagamento" numero={pagamento.numero_recibo} />
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                     <div>
                         <p className="font-semibold">{pagamento.cliente?.nome ?? "Cliente removido"}</p>
@@ -82,7 +64,7 @@ function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl, empresa }) {
                         <p className="text-slate-500">Tel: {pagamento.cliente?.telefone || "—"}</p>
                     </div>
                     <div className="text-right">
-                        <p>{formatDateTime(pagamento.created_at)}</p>
+                        <p>{formatDateTime(pagamento.pago_em ?? pagamento.created_at)}</p>
                         <p className="text-slate-500">Recebido por {pagamento.recebido_por?.name ?? "—"}</p>
                         <p className="text-slate-500">
                             {pagamento.cliente?.bairro || pagamento.cliente?.endereco || "—"}
@@ -102,6 +84,11 @@ function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl, empresa }) {
                                 </span>
                             )}
                         </div>
+                        {estadoFactura && (
+                            <p className="mt-1 text-[10px] text-slate-500">
+                                Estado da factura: <span className="font-semibold text-slate-700">{estadoFactura.label}</span>
+                            </p>
+                        )}
                         {leitura && (
                             <p className="mt-0.5 text-slate-500">
                                 Leitura: {Number(leitura.leitura_anterior).toFixed(1)} →{" "}
@@ -119,14 +106,17 @@ function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl, empresa }) {
                     </span>
                     {pagamento.referencia_pagamento ? ` — ${pagamento.referencia_pagamento}` : ""}
                 </p>
+                <div className="mt-2 flex items-center justify-between border-t border-slate-300 pt-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Valor pago</span>
+                    <span className="text-base font-bold text-slate-900">{formatCurrency(pagamento.valor_pago)}</span>
+                </div>
+                {(pagamento.imputacoes ?? []).map(parcela => <p key={parcela.id} className="mt-1 text-[10px] text-slate-600">
+                    {parcela.factura?.numero_factura} · Principal: {formatCurrency(parcela.valor_principal)} · Multa: {formatCurrency(parcela.valor_multa)}
+                </p>)}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-300 pt-2">
-                <span className="text-[10px] text-slate-400">RJM Consultórios e Serviços</span>
-                <div className="flex items-center gap-2">
-                    {qrUrl && <QRCodeSVG value={qrUrl} size={32} level="M" />}
-                    <span className="text-base font-bold">{formatCurrency(pagamento.valor_pago)}</span>
-                </div>
+            <div>
+                <RodapeDocumento compacto qrUrl={qrUrl} />
             </div>
         </div>
     );

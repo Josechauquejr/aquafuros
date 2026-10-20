@@ -18,7 +18,7 @@ class VerificacoesIntegridade
     private const AMOSTRA = 100;
 
     /** Soma dos pagamentos activos (não estornados) de uma factura. */
-    private const PAGO = '(select coalesce(sum(p.valor_pago), 0) from pagamentos p where p.factura_id = facturas.id and p.deleted_at is null)';
+    private const PAGO = '(select coalesce(sum(p.valor_pago), 0) from pagamentos_aplicados p where p.factura_id = facturas.id and p.deleted_at is null)';
 
     /** @return array<string, array{titulo: string, descricao: string, gravidade: string, tabela: string, consulta: \Closure, formato: \Closure}> */
     public static function todas(): array
@@ -90,9 +90,9 @@ class VerificacoesIntegridade
             ],
             'facturas_total_nao_bate' => [
                 'titulo' => 'Total da factura não bate com as parcelas', 'gravidade' => 'alto', 'tabela' => 'facturas',
-                'descricao' => 'Numa factura de consumo, o total deve ser consumo + multa (mais a dívida anterior só nas facturas antigas que a incluíam).',
+                'descricao' => 'Numa factura de consumo, o total deve ser consumo + multa actual + multas anteriores + dívida anterior quando incluída.',
                 'consulta' => fn () => DB::table('facturas')->whereNull('deleted_at')->where('tipo', 'consumo')
-                    ->whereRaw('abs(total_pagar - (valor_consumo + multa + (case when divida_anterior_incluida then divida_anterior else 0 end))) > 0.01')
+                    ->whereRaw('abs(total_pagar - (valor_consumo + saldo_inicial + multa + multa_anterior + (case when divida_anterior_incluida then divida_anterior else 0 end))) > 0.01')
                     ->select('id', 'numero_factura', 'total_pagar', 'valor_consumo', 'multa'),
                 'formato' => fn ($r) => "Factura {$r->numero_factura}: total {$dinheiro($r->total_pagar)} ≠ consumo {$dinheiro($r->valor_consumo)} + multa {$dinheiro($r->multa)}",
             ],

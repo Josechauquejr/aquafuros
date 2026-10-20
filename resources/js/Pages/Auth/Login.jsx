@@ -99,7 +99,7 @@ export default function Login() {
                             className="rounded border-slate-300 text-cyan-700 shadow-sm focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900"
                         />
                         <span className="ms-2 text-sm text-slate-600 dark:text-slate-300">
-                            Lembrar-me
+                            Manter sessão activa
                         </span>
                     </label>
 

@@ -44,7 +44,7 @@ export default function ReciboTermico58mm({ pagamento, primeiraLeitura, qrUrl })
             <Linha />
 
             <p className="text-center font-bold">{pagamento.numero_recibo}</p>
-            <p className="text-center">{formatDateTime(pagamento.created_at)}</p>
+            <p className="text-center">{formatDateTime(pagamento.pago_em ?? pagamento.created_at)}</p>
             <Linha />
 
             <p>Cliente: {pagamento.cliente?.nome ?? "Cliente removido"}</p>
@@ -61,6 +61,7 @@ export default function ReciboTermico58mm({ pagamento, primeiraLeitura, qrUrl })
                     </p>
                     {leitura && (
                         <>
+                            <p>N.º da leitura: {leitura.numero_leitura ?? "—"}</p>
                             <p>
                                 Leitura: {Number(leitura.leitura_anterior).toFixed(1)} → {Number(leitura.leitura_actual).toFixed(1)}
                                 {primeiraLeitura ? " (inicial)" : ""}
@@ -85,6 +86,11 @@ export default function ReciboTermico58mm({ pagamento, primeiraLeitura, qrUrl })
 
             <p className="text-center font-bold">VALOR PAGO</p>
             <p className="text-center text-sm font-bold">{formatCurrency(pagamento.valor_pago)}</p>
+            {(pagamento.imputacoes ?? []).map(parcela => <div key={parcela.id} className="mt-2 text-[11px]">
+                <p className="font-bold">{parcela.factura?.numero_factura}</p>
+                <p>Principal: {formatCurrency(parcela.valor_principal)}</p>
+                <p>Multa: {formatCurrency(parcela.valor_multa)}</p>
+            </div>)}
             <Linha />
 
             {qrUrl && (

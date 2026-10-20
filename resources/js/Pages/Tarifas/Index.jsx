@@ -41,7 +41,7 @@ const regras = [
     },
     {
         titulo: "Multa por atraso",
-        descricao: "Só é cobrada quando se emite a factura seguinte de um cliente cuja dívida em aberto já atingiu o limiar de corte da sua tarifa: essa factura inclui a percentagem de multa da tarifa sobre a dívida. Não depende do prazo de pagamento.",
+        descricao: "Depois do vencimento, é calculada uma vez sobre o principal em atraso, segundo a percentagem da tarifa. No pagamento, o caixa pode recebê-la ou deixá-la em aberto para ser transferida para a factura seguinte.",
         icon: Percent,
     },
     {

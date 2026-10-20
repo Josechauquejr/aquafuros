@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Factura;
+use App\Models\EmpresaPerfil;
 use App\Models\Leitura;
 use App\Services\BillingService;
 use App\Support\NumeracaoDocumentos;
@@ -39,6 +40,7 @@ class FacturaController extends Controller
             'geradaPor' => fn ($q) => $q->withTrashed(),
             'anuladaPor' => fn ($q) => $q->withTrashed(),
             'pagamentos',
+            'facturaSeguinte',
             'ultimoEnvio',
         ]);
 
@@ -52,7 +54,7 @@ class FacturaController extends Controller
             'total' => fn ($q, $d) => $q->orderBy('facturas.total_pagar', $d),
             // Por pagar → parcial → paga → anulada
             'estado' => fn ($q, $d) => $q->orderByRaw(
-                "CASE facturas.estado WHEN 'pendente' THEN 0 WHEN 'parcial' THEN 1 WHEN 'paga' THEN 2 ELSE 3 END {$d}",
+                "CASE facturas.estado WHEN 'pendente' THEN 0 WHEN 'parcial' THEN 1 WHEN 'transferida' THEN 2 WHEN 'paga' THEN 3 ELSE 4 END {$d}",
             )->orderByDesc('facturas.created_at'),
         ], 'factura', 'desc');
 
@@ -60,6 +62,8 @@ class FacturaController extends Controller
         $facturas->getCollection()->each(function (Factura $factura) {
             $factura->total_pago = $factura->totalPago();
             $factura->em_falta = $factura->emFalta();
+            $factura->multa_prevista = $factura->multaAtrasoPrevista();
+            $factura->prepararDocumento();
         });
 
         return Inertia::render('Facturas/Index', [
@@ -72,6 +76,9 @@ class FacturaController extends Controller
             ),
             'facturasAnteriores' => collect($facturas->items())->mapWithKeys(
                 fn ($factura) => [$factura->id => $this->facturaAnterior($factura)],
+            ),
+            'facturasIniciaisEditaveis' => collect($facturas->items())->mapWithKeys(
+                fn ($factura) => [$factura->id => $this->podeEditarFacturaInicial($factura)],
             ),
             'qrUrls' => collect($facturas->items())->mapWithKeys(
                 fn ($factura) => [$factura->id => $this->qrUrl($factura)],
@@ -110,9 +117,15 @@ class FacturaController extends Controller
         if ($factura) {
             $factura->total_pago = $factura->totalPago();
             $factura->em_falta = $factura->emFalta();
+            $factura->multa_prevista = $factura->multaAtrasoPrevista();
+            $factura->prepararDocumento();
         }
 
-        return ['facturaAlvo' => $factura, 'accaoAlvo' => $factura ? $accao : null];
+        return [
+            'facturaAlvo' => $factura,
+            'accaoAlvo' => $factura ? $accao : null,
+            'facturaAlvoInicialEditavel' => $factura ? $this->podeEditarFacturaInicial($factura) : false,
+        ];
     }
 
     /**
@@ -131,7 +144,7 @@ class FacturaController extends Controller
         $mesAno = $request->query('mes_ano'); // "mes/ano", vindo do resumo mensal
         $comMulta = $request->query('com_multa') === '1';
 
-        $estadosPermitidos = ['pendente', 'parcial', 'paga', 'vencida'];
+        $estadosPermitidos = ['pendente', 'parcial', 'paga', 'transferida', 'vencida'];
         if ($request->user()?->hasRole('administrador')) {
             $estadosPermitidos[] = 'anulada';
         }
@@ -268,23 +281,47 @@ class FacturaController extends Controller
             return back()->with('error', 'Só é possível editar facturas pendentes, sem pagamentos registados.');
         }
 
+        if ($factura->pagamentos()->exists()) {
+            return back()->with('error', 'Esta factura já tem pagamentos registados e não pode ser editada.');
+        }
+
+        $inicialEditavel = $this->podeEditarFacturaInicial($factura);
         $data = $request->validate([
             'divida_anterior' => 'nullable|numeric|min:0',
             'multa' => 'required|numeric|min:0',
+            'valor_consumo' => $inicialEditavel ? 'required|numeric|min:0' : 'nullable|numeric|min:0',
             'estado' => 'required|in:pendente,paga,parcial,anulada',
         ]);
+
+        if (array_key_exists('valor_consumo', $data)
+            && ! $inicialEditavel
+            && (float) $data['valor_consumo'] !== (float) $factura->valor_consumo) {
+            return back()->with('error', 'O valor do consumo só pode ser alterado na factura inicial do cliente, antes da primeira leitura.');
+        }
+        $data['valor_consumo'] = $inicialEditavel ? (float) ($data['valor_consumo'] ?? $factura->valor_consumo) : $factura->valor_consumo;
 
         // Só as facturas antigas (dívida incluída no total) deixam editar a dívida anterior.
         if (! $factura->divida_anterior_incluida || ! isset($data['divida_anterior'])) {
             $data['divida_anterior'] = $factura->divida_anterior;
         }
 
-        $data['total_pagar'] = $factura->valor_consumo + $data['multa']
+        $data['total_pagar'] = $data['valor_consumo'] + (float) $factura->saldo_inicial + $data['multa'] + (float) $factura->multa_anterior
             + ($factura->divida_anterior_incluida ? $data['divida_anterior'] : 0);
 
         $factura->update($data);
 
         return redirect()->route('facturas.index')->with('status', 'Factura actualizada com sucesso.');
+    }
+
+    /** Facturas de consumo ainda sem leitura podem ser corrigidas antes do primeiro registo de leitura. */
+    private function podeEditarFacturaInicial(Factura $factura): bool
+    {
+        $cliente = $factura->cliente()->withTrashed()->first();
+
+        return $cliente !== null
+            && $factura->tipo !== 'ligacao'
+            && $factura->leitura_id === null
+            && ! $cliente->leituras()->withTrashed()->exists();
     }
 
     /**
@@ -383,6 +420,8 @@ class FacturaController extends Controller
             'geradaPor' => fn ($q) => $q->withTrashed(),
             'pagamentos' => fn ($q) => $q->orderBy('created_at'),
         ]);
+        $factura->multa_prevista = $factura->multaAtrasoPrevista();
+        $factura->prepararDocumento();
 
         return Inertia::render('Facturas/Imprimir', [
             'factura' => $factura,
@@ -408,6 +447,7 @@ class FacturaController extends Controller
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'leitura' => fn ($q) => $q->withTrashed(),
             'geradaPor' => fn ($q) => $q->withTrashed(),
+            'pagamentos',
         ]);
 
         if (! empty($data['ids'])) {
@@ -425,6 +465,10 @@ class FacturaController extends Controller
         }
 
         $facturas = $query->orderBy('numero_factura')->get();
+        $facturas->each(function (Factura $factura) {
+            $factura->multa_prevista = $factura->multaAtrasoPrevista();
+            $factura->prepararDocumento();
+        });
 
         // Nada para imprimir (ex.: filtros sem resultados): não abre uma folha vazia.
         if ($facturas->isEmpty()) {
@@ -448,6 +492,7 @@ class FacturaController extends Controller
         );
 
         return Inertia::render('Facturas/ImprimirLote', [
+            'empresa' => EmpresaPerfil::atual()->toArray(),
             'facturas' => $facturas,
             'primeirasLeituras' => $primeirasLeituras,
             'consumosAnteriores' => $consumosAnteriores,
@@ -527,6 +572,6 @@ class FacturaController extends Controller
      */
     private function qrUrl(Factura $factura): string
     {
-        return URL::signedRoute('verificacao.factura', ['factura' => $factura->id]);
+        return URL::signedRoute('verificacao.factura', ['factura' => $factura]);
     }
 }

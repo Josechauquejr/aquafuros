@@ -59,8 +59,8 @@ export function SeccaoDetalhe({ titulo, icone: Icone, children, className }) {
 export function MaisDetalhes({ titulo = "Mais detalhes", children, className }) {
     return (
         <details className={cn("group mt-6 rounded-xl border border-border", className)}>
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
-                {titulo}
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-2"><span>{titulo}</span><span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Ver</span></span>
                 <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
             </summary>
             <div className="border-t border-border p-4">{children}</div>

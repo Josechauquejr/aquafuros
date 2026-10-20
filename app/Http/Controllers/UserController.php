@@ -11,6 +11,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -85,17 +86,27 @@ class UserController extends Controller
 
         $senha = Str::password(12);
 
-        $user = User::create([
-            'name' => $data['name'],
-            'username' => $data['username'],
-            'email' => $data['email'],
-            'telefone' => $data['telefone'] ?? null,
-            'is_active' => $data['is_active'] ?? true,
-            'password' => Hash::make($senha),
-            'email_verified_at' => now(),
-        ]);
+        try {
+            $user = DB::transaction(function () use ($data, $senha) {
+                $user = User::create([
+                    'name' => $data['name'],
+                    'username' => $data['username'],
+                    'email' => $data['email'],
+                    'telefone' => $data['telefone'] ?? null,
+                    'is_active' => $data['is_active'] ?? true,
+                    'password' => Hash::make($senha),
+                    'email_verified_at' => now(),
+                ]);
 
-        $user->syncRoles([$data['papel']]);
+                $user->syncRoles([$data['papel']]);
+
+                return $user->fresh(['roles']);
+            });
+        } catch (QueryException $exception) {
+            report($exception);
+
+            return back()->withInput()->with('error', 'Não foi possível guardar o utilizador. Verifique a ligação à base de dados e tente novamente.');
+        }
 
         return redirect()->route('dev.users.index')
             ->with('status', "Utilizador {$user->name} criado com sucesso.")

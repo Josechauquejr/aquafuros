@@ -49,7 +49,7 @@ function ItemMenu({ item, url }) {
     return (
         <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={activo(url, item.href)} tooltip={item.label}>
-                <Link href={item.href} prefetch="hover" cacheFor={15000} onClick={() => setOpenMobile(false)}>
+                <Link href={item.href} prefetch="hover" cacheFor="5m" onClick={() => setOpenMobile(false)}>
                     <Icone aria-hidden="true" />
                     <span>{item.label}</span>
                 </Link>
@@ -252,6 +252,7 @@ function MenuConta({ nome }) {
 
     const terminarSessao = (evento) => {
         evento.preventDefault();
+        router.flushAll();
         logout.post("/logout");
     };
 

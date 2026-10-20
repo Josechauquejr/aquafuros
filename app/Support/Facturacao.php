@@ -19,10 +19,21 @@ class Facturacao
 {
     public static function emitir(Leitura $leitura, int $geradaPor): Factura
     {
-        $calculo = app(BillingService::class)->calcular($leitura, $leitura->cliente);
+        return DB::transaction(function () use ($leitura, $geradaPor) {
+        $cliente = $leitura->cliente()->with('tarifa')->lockForUpdate()->firstOrFail();
+        $anteriores = Factura::where('cliente_id', $cliente->id)
+            ->whereIn('estado', ['pendente', 'parcial'])
+            ->lockForUpdate()->get();
 
-        return Factura::create([
-            'numero_factura' => self::proximoNumero($leitura->ano),
+        // Cada multa permanece na factura vencida que lhe deu origem.
+        foreach ($anteriores as $anterior) {
+            $anterior->loadMissing('cliente.tarifa');
+            $anterior->registarMultaAtraso();
+        }
+
+        $calculo = app(BillingService::class)->calcular($leitura, $cliente);
+        $factura = Factura::create([
+            'numero_factura' => self::proximoNumero($leitura->ano, $leitura->mes),
             'cliente_id' => $leitura->cliente_id,
             'leitura_id' => $leitura->id,
             'tipo' => 'consumo',
@@ -34,20 +45,34 @@ class Facturacao
             'divida_anterior' => $calculo['divida_anterior'],
             'divida_anterior_incluida' => false,
             'multa' => $calculo['multa'],
+            'multa_anterior' => 0,
             'total_pagar' => $calculo['total_pagar'],
             'estado' => 'pendente',
             'gerada_por' => $geradaPor,
+            'emissao_original' => [
+                'valor_consumo' => $calculo['valor_consumo'],
+                'divida_anterior' => $calculo['divida_anterior'],
+                'divida_anterior_incluida' => true,
+                'multa_anterior' => $calculo['multa_anterior'],
+                'multa' => $calculo['multa'],
+                'total_pagar' => $calculo['total_emitido'],
+                'pagamentos_anteriores_ids' => $cliente->pagamentos()->pluck('id')->all(),
+            ],
         ]);
+        $factura->origensSaldo()->sync($cliente->facturas()->where('id', '!=', $factura->id)->where('estado', '!=', 'anulada')->pluck('id'));
+
+        return $factura;
+        });
     }
 
-    public static function proximoNumero(int $ano): string
+    public static function proximoNumero(int $ano, int $mes): string
     {
         // withTrashed(): uma factura anulada e movida para a lixeira ainda
         // ocupa o número — ignorá-la geraria um número duplicado.
         return NumeracaoDocumentos::proximoNumero(
-            Factura::withTrashed()->where('numero_factura', 'like', "FAT-{$ano}-%"),
+            Factura::withTrashed()->where('numero_factura', 'like', sprintf('FAT-%04d%02d-', $ano, $mes).'%'),
             'numero_factura',
-            "FAT-{$ano}-%04d",
+            sprintf('FAT-%04d%02d-', $ano, $mes).'%04d',
         );
     }
 

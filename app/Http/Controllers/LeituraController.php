@@ -150,6 +150,7 @@ class LeituraController extends Controller
         }
 
         $nova = Leitura::create([
+            'numero_leitura' => $this->proximoNumeroLeitura($data['ano'], $data['mes']),
             'cliente_id' => $data['cliente_id'],
             'mes' => $data['mes'],
             'ano' => $data['ano'],
@@ -168,6 +169,15 @@ class LeituraController extends Controller
         }
 
         return back()->with('status', 'Leitura registada com sucesso.');
+    }
+
+    private function proximoNumeroLeitura(int $ano, int $mes): string
+    {
+        return \App\Support\NumeracaoDocumentos::proximoNumero(
+            Leitura::withTrashed()->where('numero_leitura', 'like', sprintf('LEI-%04d%02d-', $ano, $mes).'%'),
+            'numero_leitura',
+            sprintf('LEI-%04d%02d-', $ano, $mes).'%04d',
+        );
     }
 
     /**
@@ -347,7 +357,7 @@ class LeituraController extends Controller
                 $valor = app(BillingService::class)->valorConsumo($leitura, $leitura->cliente);
                 $factura->update([
                     'valor_consumo' => $valor,
-                    'total_pagar' => round($valor + (float) $factura->multa + ($factura->divida_anterior_incluida ? (float) $factura->divida_anterior : 0), 2),
+                    'total_pagar' => round($valor + (float) $factura->saldo_inicial + (float) $factura->multa + ($factura->divida_anterior_incluida ? (float) $factura->divida_anterior : 0), 2),
                 ]);
             }
 

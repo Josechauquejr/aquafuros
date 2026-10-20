@@ -237,7 +237,7 @@ class PagamentoMultiploTest extends TestCase
         $velha = $this->factura($this->ana, 'F-0', 400, $anterior->month);
         $velha->forceFill(['created_at' => $anterior->copy()->addDays(2), 'data_vencimento' => now()->subDays(45)])->saveQuietly();
 
-        $this->actingAs($this->caixa)->post('/pagamentos', ['factura_id' => $f->id, 'valor_pago' => 1000, 'metodo_pagamento' => 'mpesa']);
+        $this->actingAs($this->caixa)->post('/pagamentos', ['factura_id' => $f->id, 'valor_pago' => 1000, 'metodo_pagamento' => 'mpesa', 'incluir_multa' => true]);
         $this->post('/pagamentos', ['factura_id' => $velha->id, 'valor_pago' => 100, 'metodo_pagamento' => 'dinheiro']);
 
         $this->get('/admin/kpis')->assertInertia(fn (Assert $p) => $p
@@ -249,7 +249,7 @@ class PagamentoMultiploTest extends TestCase
             ->where('cobranca.tempoMedioPagamentoDias', 0)
             ->where('facturacao.pesoMulta', 10)
             ->where('antiguidadeDivida.2.quantidade', 1) // F-0: 45 dias de atraso, 300 em falta
-            ->where('antiguidadeDivida.2.valor', 300)
+            ->where('antiguidadeDivida.2.valor', 340) // Principal 300 + multa vencida 40.
             ->where('clientes.concentracaoTop10', 100));
 
         $csv = $this->get('/admin/kpis/exportar')->streamedContent();

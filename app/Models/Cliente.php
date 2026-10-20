@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Eventos;
+use App\Models\Concerns\UsesHumanRouteKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
@@ -12,6 +13,9 @@ class Cliente extends Model
 {
     use SoftDeletes;
     use LogsActivity;
+    use UsesHumanRouteKey;
+
+    protected string $humanRouteKey = 'numero_cliente';
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -92,6 +96,17 @@ class Cliente extends Model
             $facturas->sum(fn ($f) => max(0, (float) $f->total_pagar - $f->pagamentos->sum('valor_pago'))),
             2,
         );
+    }
+
+    /** Multas já avaliadas que ainda fazem parte do saldo em aberto. */
+    public function saldoMultasEmAberto(): float
+    {
+        $facturas = $this->facturas()
+            ->whereIn('estado', ['pendente', 'parcial'])
+            ->with('pagamentos')
+            ->get();
+
+        return round($facturas->sum(fn ($f) => $f->multaEmFalta()), 2);
     }
 
     /**

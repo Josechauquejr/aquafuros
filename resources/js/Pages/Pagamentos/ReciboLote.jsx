@@ -1,4 +1,5 @@
 import { Head, Link, usePage } from "@inertiajs/react";
+import DiscriminacaoRecibo from "@/Components/print/DiscriminacaoRecibo";
 import { ArrowLeft, Droplets, Printer } from "lucide-react";
 import AnimatedButton from "@/Components/AnimatedButton";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
@@ -62,7 +63,7 @@ export default function ReciboLote({ pagamentos, total }) {
                     </div>
                     <div className="text-right">
                         <p className="text-xl font-bold uppercase tracking-wide">Recibo</p>
-                        <p className="text-sm text-slate-600">{pagamentos.length} facturas pagas</p>
+                        <p className="text-sm text-slate-600">{new Set(pagamentos.map(p => p.factura_id)).size} factura(s) com pagamento</p>
                         <p className="text-sm text-slate-600">{formatDate(primeiro.pago_em ?? primeiro.created_at)}</p>
                     </div>
                 </div>
@@ -94,17 +95,22 @@ export default function ReciboLote({ pagamentos, total }) {
                             <tr key={p.id} className="border-b border-slate-100">
                                 <td className="py-2">{p.factura?.numero_factura}</td>
                                 <td className="py-2">{p.factura ? `${meses[p.factura.mes - 1]}/${p.factura.ano}` : "—"}</td>
-                                <td className="py-2">{p.numero_recibo}</td>
+                                <td className="py-2">{p.numero_recibo}{p.origem_credito && <span className="block text-xs text-slate-500">Crédito do cliente</span>}</td>
                                 <td className="py-2 text-right">{formatCurrency(p.valor_pago)}</td>
                             </tr>
                         ))}
                         <tr>
-                            <td colSpan={3} className="py-3 text-base font-bold">Total recebido</td>
+                            <td colSpan={3} className="py-3 text-base font-bold">Total aplicado às facturas</td>
                             <td className="py-3 text-right text-base font-bold">{formatCurrency(total)}</td>
                         </tr>
+                        {pagamentos.some(p => p.origem_credito) && <>
+                            <tr><td colSpan={3} className="py-1 text-slate-600">Crédito do cliente utilizado</td><td className="py-1 text-right">{formatCurrency(pagamentos.filter(p => p.origem_credito).reduce((soma, p) => soma + Number(p.valor_pago), 0))}</td></tr>
+                            <tr><td colSpan={3} className="py-1 text-slate-600">Dinheiro recebido aplicado às facturas</td><td className="py-1 text-right">{formatCurrency(pagamentos.filter(p => !p.origem_credito).reduce((soma, p) => soma + Number(p.valor_pago), 0))}</td></tr>
+                        </>}
                     </tbody>
                 </table>
 
+                {pagamentos.map(p => <DiscriminacaoRecibo key={p.id} pagamento={p} />)}
                 <p className="mt-6 text-xs text-slate-500">
                     Recebido por {primeiro.recebido_por?.name ?? "—"} em {formatDateTime(primeiro.created_at)}.
                 </p>

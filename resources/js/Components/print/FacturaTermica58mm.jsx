@@ -1,6 +1,7 @@
 import { usePage } from "@inertiajs/react";
 import { QRCodeSVG } from "qrcode.react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
+import { moedaDocumento as formatCurrency, resumoDocumento, estadoDocumento, telefonePagamento } from "@/lib/facturaDocumento";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -12,6 +13,7 @@ const estadoLabels = {
     pendente: "PENDENTE",
     parcial: "PARCIAL",
     anulada: "ANULADA",
+    transferida: "TRANSFERIDA",
 };
 
 const Linha = () => <div className="my-1.5 border-t border-dashed border-black" />;
@@ -23,6 +25,7 @@ const Linha = () => <div className="my-1.5 border-t border-dashed border-black" 
  */
 export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAnterior, qrUrl }) {
     const { empresa } = usePage().props;
+    const resumo = resumoDocumento(factura);
     const ehLigacao = factura.tipo === "ligacao";
     const leitura = factura.leitura;
     const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
@@ -61,12 +64,15 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
                 <>
                     <p>Período: {meses[factura.mes - 1]}/{factura.ano}</p>
                     {leitura && (
+                        <p>N.º da leitura: {leitura.numero_leitura ?? "—"}</p>
+                    )}
+                    {leitura && (
                         <p>
                             Leitura: {Number(leitura.leitura_anterior).toFixed(1)} → {Number(leitura.leitura_actual).toFixed(1)}
                             {primeiraLeitura ? " (inicial)" : ""}
                         </p>
                     )}
-                    {consumo !== null && <p>Consumo actual: {consumo.toFixed(2)} m3</p>}
+            {consumo !== null && <p>Consumo actual: {consumo.toFixed(2)} m3</p>}
                     <p>
                         Consumo mês ant.:{" "}
                         {consumoAnterior !== null && consumoAnterior !== undefined
@@ -78,29 +84,44 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
             <Linha />
 
             <div className="flex justify-between">
-                <span>Valor consumo</span>
-                <span>{formatCurrency(factura.valor_consumo)}</span>
+                    <span>Valor consumo</span>
+                <span>{formatCurrency(resumo.consumoEmitido)}</span>
             </div>
             {ehTarifaMinima && (
                 <p className="text-[9px] font-normal">
                     Tarifa mínima até {Number(tarifa.consumo_minimo_m3).toFixed(0)} m³
                 </p>
             )}
-            {factura.divida_anterior_incluida && (
+            {resumo.anterior > 0 && (
                 <div className="flex justify-between">
                     <span>Dívida anterior</span>
-                    <span>{formatCurrency(factura.divida_anterior)}</span>
+                    <span>{formatCurrency(resumo.anterior)}</span>
+                </div>
+            )}
+            {resumo.penalizacoesAnteriores > 0 && (
+                <div className="flex justify-between">
+                    <span>Multas anteriores (incluídas)</span>
+                    <span>{formatCurrency(resumo.penalizacoesAnteriores)}</span>
                 </div>
             )}
             <div className="flex justify-between">
-                <span>Multa</span>
-                <span>{formatCurrency(factura.multa)}</span>
+                <span>Multa na emissão</span>
+                <span>{formatCurrency(resumo.multaEmitida)}</span>
             </div>
+            <p>Total na emissão: {formatCurrency(resumo.totalEmitido)}</p>
+            {resumo.pago > 0 && <p>Pagamentos posteriores: {formatCurrency(resumo.pago)}</p>}
+            {resumo.ajustesPosteriores !== 0 && <p>Penalizações e ajustes posteriores: {formatCurrency(resumo.ajustesPosteriores)}</p>}
+            {resumo.multasPrevistas > 0 && (
+                <div className="flex justify-between">
+                    <span>Multa prevista (a confirmar)</span>
+                    <span>{formatCurrency(resumo.multasPrevistas)}</span>
+                </div>
+            )}
             <Linha />
 
-            <p className="text-center font-bold">TOTAL A PAGAR</p>
-            <p className="text-center text-sm font-bold">{formatCurrency(factura.total_pagar)}</p>
-            {!factura.divida_anterior_incluida && Number(factura.divida_anterior) > 0 && (
+            <p className="text-center font-bold">SALDO ACTUAL A PAGAR</p>
+            <p className="text-center text-sm font-bold">{formatCurrency(resumo.aPagar)}</p>
+            {!factura.cobranca && !factura.divida_anterior_incluida && Number(factura.divida_anterior) > 0 && (
                 <>
                     <Linha />
                     <div className="flex justify-between">
@@ -113,16 +134,17 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
                     </p>
                 </>
             )}
+            {resumo.origens.map(origem => <p key={origem.id} className="mt-1 text-[10px]">{origem.numero_factura}: {formatCurrency(origem.principal)} + multa {formatCurrency(origem.multa)}</p>)}
             <Linha />
 
             <p className="text-center">
-                Estado: <span className="border border-black px-1 font-bold">{estadoLabels[factura.estado]}</span>
+                Estado: <span className="border border-black px-1 font-bold">{estadoDocumento(factura).label}</span>
             </p>
             <Linha />
 
             <p className="font-bold">Formas de pagamento:</p>
-            <p>E-Mola: 876781920 - José Chauque</p>
-            <p>M-Pesa: 853754024 - José Chaúque</p>
+            {empresa?.mpesa_numero && <p>M-Pesa: {telefonePagamento(empresa.mpesa_numero)}{empresa.mpesa_titular ? ` - ${empresa.mpesa_titular}` : ""}</p>}
+            {empresa?.emola_numero && <p>E-Mola: {telefonePagamento(empresa.emola_numero)}{empresa.emola_titular ? ` - ${empresa.emola_titular}` : ""}</p>}
             <Linha />
 
             {qrUrl && (
@@ -134,7 +156,7 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
             )}
 
             <p className="text-center leading-snug">
-                RJM Consultórios e Serviços
+                Software desenvolvido por RJM CONSULTORIA LDA
                 <br />
                 Documento sem necessidade de assinatura
             </p>

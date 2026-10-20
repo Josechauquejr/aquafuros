@@ -113,7 +113,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('facturas/email-lote', [FacturaController::class, 'enviarEmailLote'])->name('facturas.email-lote');
         Route::get('facturas/imprimir-lote', [FacturaController::class, 'imprimirLote'])->name('facturas.imprimir-lote');
         Route::get('clientes/{cliente}/imprimir', [ClienteController::class, 'imprimir'])->name('clientes.imprimir');
-        Route::resource('clientes', ClienteController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('clientes', ClienteController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
+        Route::get('cliente/{cliente}', fn (\App\Models\Cliente $cliente) => redirect()->route('clientes.show', $cliente))
+            ->name('cliente.show.legacy');
         Route::post('clientes/zonas', [ZonaController::class, 'store'])->name('clientes.zonas.store');
         Route::post('clientes/historico/{activity}/reverter', [ClienteController::class, 'reverter'])->name('clientes.historico.reverter');
         Route::resource('facturas', FacturaController::class)->only(['index', 'store', 'update', 'destroy']);

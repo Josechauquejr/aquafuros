@@ -1,258 +1,99 @@
 import { usePage } from "@inertiajs/react";
-import { Droplets } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
+import { avisoPenalizacao, estadoDocumento, mesesFactura, moedaDocumento, periodoOrigem, resumoDocumento, volumeDocumento } from "@/lib/facturaDocumento";
+import CabecalhoDocumento from "@/Components/print/CabecalhoDocumento";
+import { MeiosPagamentoFactura, MontanteFactura, RodapeFactura } from "@/Components/print/FacturaElementos";
 
-const meses = [
-    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
+function LinhaValor({ descricao, valor, destaque = false }) {
+    return <tr className={`border-b border-slate-200 last:border-0 ${destaque ? "font-semibold text-slate-900" : "text-slate-600"}`}>
+        <td className="py-1.5 pr-4">{descricao}</td>
+        <td className="whitespace-nowrap py-1.5 text-right tabular-nums">{moedaDocumento(valor)}</td>
+    </tr>;
+}
 
-const estadoConfig = {
-    paga: { label: "PAGA", classes: "border-emerald-600 text-emerald-700" },
-    pendente: { label: "PENDENTE", classes: "border-amber-600 text-amber-700" },
-    parcial: { label: "PARCIALMENTE PAGA", classes: "border-cyan-600 text-cyan-700" },
-    anulada: { label: "ANULADA", classes: "border-slate-400 text-slate-500" },
-};
-
-/**
- * Vista completa da factura em formato A4 — usada tanto na página de
- * impressão individual como no download rápido a partir da lista, para que
- * o PDF descarregado fique sempre idêntico ao que é impresso.
- */
 export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, qrUrl }) {
     const { empresa } = usePage().props;
-    const estado = estadoConfig[factura.estado];
-    const ehLigacao = factura.tipo === "ligacao";
+    const estado = estadoDocumento(factura);
+    const resumo = resumoDocumento(factura);
     const leitura = factura.leitura;
-    const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
     const tarifa = factura.cliente?.tarifa;
-    const ehTarifaMinima = consumo !== null && tarifa && consumo <= Number(tarifa.consumo_minimo_m3);
-    const variacao =
-        consumo !== null && consumoAnterior !== null && consumoAnterior !== undefined && consumoAnterior > 0
-            ? ((consumo - consumoAnterior) / consumoAnterior) * 100
-            : null;
+    const ligacao = factura.tipo === "ligacao";
+    const prazo = factura.data_vencimento ? new Date(factura.data_vencimento).toLocaleDateString("pt-PT", { day: "2-digit", month: "long", year: "numeric" }) : null;
 
     return (
-        <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-base text-slate-900 shadow-sm print:border-0 print:shadow-none">
-            <div className="flex items-start justify-between border-b border-slate-300 pb-6">
-                <div className="flex items-center gap-3">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-cyan-700 text-white">
-                        {empresa?.logotipoUrl ? (
-                            <img
-                                src={empresa.logotipoUrl}
-                                alt={empresa.nome}
-                                crossOrigin="anonymous"
-                                className="h-full w-full object-contain"
-                            />
-                        ) : (
-                            <Droplets className="h-8 w-8" aria-hidden="true" />
-                        )}
-                    </div>
-                    <div>
-                        <p className="text-xl font-bold leading-tight">{empresa?.nome ?? "Aquafuros"}</p>
-                        {empresa?.nuit && <p className="text-sm text-slate-500">NUIT: {empresa.nuit}</p>}
-                        {empresa?.localizacao && <p className="text-sm text-slate-500">{empresa.localizacao}</p>}
-                    </div>
-                </div>
-                <div className="text-right">
-                    <p className="text-2xl font-bold uppercase tracking-wide">Factura</p>
-                    {ehLigacao && (
-                        <p className="text-sm font-semibold uppercase text-amber-700">Taxa de ligação de água</p>
-                    )}
-                    <p className="text-base text-slate-600">{factura.numero_factura}</p>
-                    <span className={`mt-2 inline-block rounded border px-3 py-1 text-sm font-bold ${estado.classes}`}>
-                        {estado.label}
-                    </span>
-                </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-6 text-base">
+        <article className="mx-auto w-full max-w-[210mm] space-y-2.5 border border-slate-200 bg-white p-[12mm] text-[14px] leading-snug text-slate-900 shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+            <CabecalhoDocumento textoMaior empresa={empresa} titulo="Factura" numero={factura.numero_factura} estado={estado.label} estadoClasses={estado.classes} />
+            <section className="grid grid-cols-2 gap-8">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dados do cliente</p>
-                    <p className="mt-1 text-lg font-semibold">{factura.cliente?.nome ?? "Cliente removido"}</p>
-                    <p className="text-slate-600">Nº de cliente: {factura.cliente?.numero_cliente}</p>
-                    <p className="text-slate-600">Telefone: {factura.cliente?.telefone || "—"}</p>
-                    <p className="text-slate-600">Endereço: {factura.cliente?.endereco || "—"}</p>
-                    <p className="text-slate-600">Bairro: {factura.cliente?.bairro || "—"}</p>
-                    <p className="text-slate-600">Tarifa: {factura.cliente?.tarifa?.nome ?? "—"}</p>
-                    {factura.cliente?.data_adesao && (
-                        <p className="text-slate-600">Cliente desde: {formatDate(factura.cliente.data_adesao)}</p>
-                    )}
+                    <h2 className="text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Dados do cliente</h2>
+                    <p className="mt-1 text-lg font-semibold leading-snug">{factura.cliente?.nome ?? "Cliente removido"}</p>
+                    <p className="mt-1 text-slate-600">N.º de cliente: {factura.cliente?.numero_cliente ?? "—"}</p>
+                    <p className="text-slate-600">Contacto: {factura.cliente?.telefone || "—"}</p>
+                    <p className="text-slate-600">Endereço: {[factura.cliente?.endereco, factura.cliente?.bairro].filter(Boolean).join(" · ") || "—"}</p>
+                    <p className="text-slate-600">Categoria tarifária: {tarifa?.nome ?? "—"}</p>
+                    {factura.cliente?.data_adesao && <p className="text-slate-600">Data de adesão: {formatDate(factura.cliente.data_adesao)}</p>}
                 </div>
                 <div className="text-right">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Período de facturação
-                    </p>
-                    <p className="mt-1 text-lg font-semibold">{meses[factura.mes - 1]} de {factura.ano}</p>
-                    <p className="text-slate-600">Emitida em {formatDateTime(factura.created_at)}</p>
-                    <p className="text-slate-600">Gerada por {factura.gerada_por?.name ?? "—"}</p>
+                    <h2 className="text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Dados da factura</h2>
+                    <p className="mt-1 text-lg font-semibold">{mesesFactura[factura.mes - 1]} de {factura.ano}</p>
+                    <p className="mt-1 text-slate-600">Emissão: {formatDate(factura.created_at)}</p>
+                    <p className="font-semibold text-slate-700">Vencimento: {formatDate(factura.data_vencimento)}</p>
+                    <p className="text-slate-600">Factura: {factura.numero_factura}</p>
+                    {leitura?.numero_leitura && <p className="text-slate-600">Leitura: {leitura.numero_leitura}</p>}
+                    {factura.cliente?.numero_contador && <p className="text-slate-600">Contador: {factura.cliente.numero_contador}</p>}
                 </div>
-            </div>
-
-            {ehLigacao ? (
-                <div className="mt-8 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                    Taxa única cobrada no início de um novo contrato de fornecimento de água — não está associada
-                    a nenhuma leitura de consumo.
+            </section>
+            {ligacao ? <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600">Taxa de ligação de água. Encargo único associado ao início do contrato de fornecimento.</p> : <section>
+                <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Registo de consumo de água</h2>
+                <div className="grid grid-cols-3 gap-3">
+                    {[
+                        ["Leitura anterior", leitura?.leitura_anterior, false],
+                        ["Leitura actual", leitura?.leitura_actual, false],
+                        ["Consumo apurado", resumo.consumo, true],
+                    ].map(([label, valor, destaque]) => <div key={label} className={`rounded-md border px-3 py-2 ${destaque ? "border-cyan-200 bg-cyan-50 text-cyan-900" : "border-slate-200 bg-slate-50"}`}>
+                        <p className="text-[12px] text-slate-600">{label}</p>
+                        <p className="mt-1 whitespace-nowrap text-2xl font-semibold tabular-nums">{volumeDocumento(valor)}</p>
+                    </div>)}
                 </div>
-            ) : (
-                <div className="mt-8">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Leitura do contador</p>
-                    <table className="mt-2 w-full border-collapse text-base">
-                        <thead>
-                            <tr className="border-b border-slate-300 text-left text-xs uppercase text-slate-500">
-                                <th className="py-2">Leitura anterior</th>
-                                <th className="py-2">Leitura actual</th>
-                                <th className="py-2 text-right">Consumo actual</th>
-                                <th className="py-2 text-right">Consumo mês anterior</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td className="py-2">
-                                    {leitura ? Number(leitura.leitura_anterior).toFixed(2) : "—"}
-                                    {primeiraLeitura && (
-                                        <span className="ml-2 text-xs text-slate-500">(leitura inicial)</span>
-                                    )}
-                                </td>
-                                <td className="py-2">{leitura ? Number(leitura.leitura_actual).toFixed(2) : "—"}</td>
-                                <td className="py-2 text-right text-lg font-bold text-cyan-800">
-                                    {consumo !== null ? `${consumo.toFixed(2)} m³` : "—"}
-                                </td>
-                                <td className="py-2 text-right text-slate-600">
-                                    {consumoAnterior !== null && consumoAnterior !== undefined
-                                        ? `${Number(consumoAnterior).toFixed(2)} m³`
-                                        : "— (sem período anterior)"}
-                                    {variacao !== null && (
-                                        <span className={variacao >= 0 ? "ml-1 text-rose-600" : "ml-1 text-emerald-600"}>
-                                            ({variacao >= 0 ? "+" : ""}
-                                            {variacao.toFixed(0)}%)
-                                        </span>
-                                    )}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                {(primeiraLeitura || consumoAnterior != null) && <p className="mt-2 text-[11px] text-slate-600">
+                    {primeiraLeitura ? "Leitura anterior correspondente à leitura inicial do contrato." : `Consumo do período anterior: ${volumeDocumento(consumoAnterior)}.`}
+                </p>}
+            </section>}
+            <section>
+                <h2 className="mb-1 text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Discriminação da factura</h2>
+                <table className="w-full border-collapse"><tbody>
+                    <LinhaValor descricao={ligacao ? "Taxa de ligação de água" : "Valor do consumo do período"} valor={resumo.consumoEmitido} />
+                    {resumo.tarifaMinima && !ligacao && <tr className="border-b border-slate-200"><td colSpan={2} className="pb-2 pt-1 text-[11px] text-slate-600">Tarifa mínima de {moedaDocumento(tarifa.taxa_minima)}, aplicável ao consumo até {volumeDocumento(tarifa.consumo_minimo_m3)}.</td></tr>}
+                    {resumo.anterior > 0 && <LinhaValor descricao="Saldo anterior em dívida (sem penalizações)" valor={resumo.anterior} />}
+                    {resumo.penalizacoesAnteriores > 0 && <LinhaValor descricao="Penalizações anteriores" valor={resumo.penalizacoesAnteriores} />}
+                    <LinhaValor descricao="Penalização na emissão" valor={resumo.multaEmitida} />
+                    <LinhaValor descricao="Total na emissão" valor={resumo.totalEmitido} destaque />
+                    {resumo.multasAnterioresPosteriores !== 0 && <LinhaValor descricao="Penalizações anteriores apuradas após emissão" valor={resumo.multasAnterioresPosteriores} />}
+                    {resumo.multaPeriodoPosterior !== 0 && <LinhaValor descricao="Penalização do período apurada após emissão" valor={resumo.multaPeriodoPosterior} />}
+                    {resumo.outrosAjustamentosPosteriores !== 0 && <LinhaValor descricao="Outros encargos ou ajustamentos posteriores" valor={resumo.outrosAjustamentosPosteriores} />}
+                    {resumo.pago > 0 && <LinhaValor descricao="Pagamentos registados após a emissão" valor={-resumo.pago} />}
+                </tbody></table>
+                {!factura.cobranca && !factura.divida_anterior_incluida && Number(factura.divida_anterior) > 0 && <p className="mt-2 text-[11px] text-slate-600">Saldo anterior de {moedaDocumento(factura.divida_anterior)} apresentado a título informativo. Cobrado nas facturas correspondentes; não incluído nesta factura.</p>}
+                {factura.estado === "transferida" && <p className="mt-2 text-[11px] text-slate-600">Saldo transferido para uma factura posterior. Este documento não deve ser pago separadamente.</p>}
+                {resumo.origens.length > 0 && <div className="mt-2 rounded border border-slate-200 px-3 py-2 text-[11px] text-slate-600">
+                    <p className="font-semibold text-slate-800">Facturas anteriores ainda em aberto</p>
+                    {resumo.origens.map(origem => <p key={origem.id}>{origem.numero_factura} · {periodoOrigem(origem)}: {moedaDocumento(origem.principal)} de principal + {moedaDocumento(origem.multa)} de multa.</p>)}
+                </div>}
+            </section>
+            <section className="flex items-center justify-between gap-4 rounded-lg bg-cyan-800 px-5 py-3 text-white" style={{ breakInside: "avoid" }}>
+                <div>
+                    <h2 className="text-[12px] font-semibold uppercase tracking-widest text-cyan-100">Saldo actual a pagar</h2>
+                    {prazo && <p className="mt-1 text-[12px] text-cyan-50">Prazo de pagamento: {prazo}.</p>}
                 </div>
-            )}
-
-            <div className="mt-8 grid grid-cols-2 gap-4">
-                <div className="rounded-md border border-cyan-200 bg-cyan-50 p-4 text-center">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-cyan-800">Consumo actual</p>
-                    <p className="mt-1 text-3xl font-bold text-cyan-900">
-                        {consumo !== null ? `${consumo.toFixed(2)} m³` : "—"}
-                    </p>
-                </div>
-                <div className="rounded-md border border-cyan-700 bg-cyan-700 p-4 text-center text-white">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-cyan-100">Total a pagar</p>
-                    <p className="mt-1 text-3xl font-bold">{formatCurrency(factura.total_pagar)}</p>
-                </div>
-            </div>
-
-            <div className="mt-8">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Valores</p>
-                <table className="mt-2 w-full border-collapse text-base">
-                    <tbody>
-                        <tr className={ehTarifaMinima ? "" : "border-b border-slate-200"}>
-                            <td className="py-2 text-slate-600">Valor do consumo</td>
-                            <td className="py-2 text-right">{formatCurrency(factura.valor_consumo)}</td>
-                        </tr>
-                        {ehTarifaMinima && (
-                            <tr className="border-b border-slate-200">
-                                <td colSpan={2} className="pb-2 text-xs text-slate-500">
-                                    Tarifa mínima aplicada — consumo até {Number(tarifa.consumo_minimo_m3).toFixed(0)} m³
-                                    cobra sempre {formatCurrency(tarifa.taxa_minima)}.
-                                </td>
-                            </tr>
-                        )}
-                        {factura.divida_anterior_incluida && (
-                            <tr className="border-b border-slate-200">
-                                <td className="py-2 text-slate-600">Dívida anterior</td>
-                                <td className="py-2 text-right">{formatCurrency(factura.divida_anterior)}</td>
-                            </tr>
-                        )}
-                        <tr className="border-b border-slate-200">
-                            <td className="py-2 text-slate-600">Multa</td>
-                            <td className="py-2 text-right">{formatCurrency(factura.multa)}</td>
-                        </tr>
-                        <tr>
-                            <td className="py-3 text-lg font-bold">Total a pagar</td>
-                            <td className="py-3 text-right text-lg font-bold">
-                                {formatCurrency(factura.total_pagar)}
-                            </td>
-                        </tr>
-                        {!factura.divida_anterior_incluida && Number(factura.divida_anterior) > 0 && (
-                            <>
-                                <tr className="border-t border-slate-200">
-                                    <td className="py-2 text-slate-600">
-                                        Dívida de facturas anteriores
-                                        <span className="block text-[10px]">(já constam nessas facturas; não se soma a esta)</span>
-                                    </td>
-                                    <td className="py-2 text-right">{formatCurrency(factura.divida_anterior)}</td>
-                                </tr>
-                                <tr>
-                                    <td className="py-2 font-semibold">Total em dívida do cliente</td>
-                                    <td className="py-2 text-right font-semibold">
-                                        {formatCurrency(Number(factura.total_pagar) + Number(factura.divida_anterior))}
-                                    </td>
-                                </tr>
-                            </>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="mt-8 rounded-md border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Formas de pagamento</p>
-                <div className="mt-2 grid grid-cols-2 gap-4 text-base">
-                    <p className="text-slate-700">
-                        <span className="font-semibold">E-Mola:</span> 876 781 920 — José Chauque
-                    </p>
-                    <p className="text-slate-700">
-                        <span className="font-semibold">M-Pesa:</span> 853 754 024 — José Chaúque
-                    </p>
-                </div>
-            </div>
-
-            {factura.pagamentos?.length > 0 && (
-                <div className="mt-8">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Pagamentos recebidos
-                    </p>
-                    <table className="mt-2 w-full border-collapse text-base">
-                        <thead>
-                            <tr className="border-b border-slate-300 text-left text-xs uppercase text-slate-500">
-                                <th className="py-2">Recibo</th>
-                                <th className="py-2">Data</th>
-                                <th className="py-2 text-right">Valor</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {factura.pagamentos.map((p) => (
-                                <tr key={p.id} className="border-b border-slate-100">
-                                    <td className="py-2">{p.numero_recibo}</td>
-                                    <td className="py-2">{formatDate(p.created_at)}</td>
-                                    <td className="py-2 text-right">{formatCurrency(p.valor_pago)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            <div className="mt-10 flex items-center justify-between gap-4 border-t border-slate-300 pt-4">
-                <p className="text-sm text-slate-400">
-                    Documento gerado electronicamente pelo sistema Aquafuros — sem necessidade de assinatura.
-                    <br />
-                    Desenvolvido pela RJM Consultórios e Serviços — José Zeferino Chaúque Júnior
-                </p>
-                {qrUrl && (
-                    <div className="flex shrink-0 flex-col items-center gap-1">
-                        <QRCodeSVG value={qrUrl} size={72} level="M" />
-                        <p className="text-[9px] text-slate-400">Verificar autenticidade</p>
-                    </div>
-                )}
-            </div>
-        </div>
+                <MontanteFactura valor={resumo.aPagar} className="text-3xl font-bold" />
+            </section>
+            <MeiosPagamentoFactura empresa={empresa} />
+            <aside className="rounded-md border border-amber-100 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-950" style={{ breakInside: "avoid" }}>
+                <p>{avisoPenalizacao}</p>
+                {resumo.multasPrevistas > 0 && <p className="mt-1 font-medium">Penalizações por atraso previstas: {moedaDocumento(resumo.multasPrevistas)}. Valores sujeitos a confirmação no pagamento, ainda não incluídos no saldo actual.</p>}
+                <p className="mt-1">Ao efectuar o pagamento, indique o número da factura e guarde o comprovativo.</p>
+            </aside>
+            <RodapeFactura empresa={empresa} qrUrl={qrUrl} />
+        </article>
     );
 }

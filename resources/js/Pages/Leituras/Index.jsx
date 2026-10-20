@@ -81,14 +81,15 @@ function EstadoLeitura({ leitura }) {
 
 function FacturaLink({ factura }) {
     return (
-        <a
-            href={`/facturas/${factura.id}/imprimir`}
-            target="_blank"
-            rel="noopener noreferrer"
+        <Link
+            href={`/facturas/${factura.numero_factura}/imprimir`}
+            prefetch="hover"
+            cacheFor="5m"
+            cacheTags="factura"
             className="whitespace-nowrap font-medium text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
         >
             {factura.numero_factura}
-        </a>
+        </Link>
     );
 }
 
@@ -108,7 +109,12 @@ const colunas = [
         chave: "periodo",
         titulo: "Período",
         ordenavel: true,
-        render: (leitura) => `${meses[leitura.mes - 1]}/${leitura.ano}`,
+        render: (leitura) => (
+            <>
+                <p>{meses[leitura.mes - 1]}/{leitura.ano}</p>
+                <p className="text-xs text-slate-500">{leitura.numero_leitura}</p>
+            </>
+        ),
     },
     {
         chave: "consumo",
@@ -141,7 +147,7 @@ const cartaoLeitura = (leitura) => (
         <div>
             <p className="font-semibold text-slate-900 dark:text-white">{leitura.cliente?.nome ?? "Cliente removido"}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-                {formatDate(leitura.created_at)} · {meses[leitura.mes - 1]}/{leitura.ano}
+                {formatDate(leitura.created_at)} · {meses[leitura.mes - 1]}/{leitura.ano} · {leitura.numero_leitura}
             </p>
         </div>
         <p className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">{formatVolume(consumoDe(leitura))}</p>

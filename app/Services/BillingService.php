@@ -11,18 +11,20 @@ class BillingService
     {
         $consumo         = $this->calcularConsumo($leitura);
         $valorConsumo    = $this->calcularValorConsumo($consumo, $cliente);
-        $dividaAnterior  = $this->calcularDividaAnterior($cliente);
-        $multa           = $this->calcularMulta($dividaAnterior, $cliente);
-        // A dívida anterior é só informativa: as facturas antigas continuam em
-        // aberto por si, por isso não entra no total (senão contava a dobrar).
-        $totalPagar      = $valorConsumo + $multa;
+        $multaAnterior   = $cliente->saldoMultasEmAberto();
+        $dividaAnterior  = max(0, $this->calcularDividaAnterior($cliente) - $multaAnterior);
+        // O saldo anterior é apresentado no documento; a dívida mantém a sua origem.
+        $multa           = 0.0;
+        $totalPagar      = $valorConsumo;
 
         return [
             'consumo_m3'      => round($consumo, 2),
             'valor_consumo'   => round($valorConsumo, 2),
             'divida_anterior' => round($dividaAnterior, 2),
             'multa'           => round($multa, 2),
+            'multa_anterior'  => round($multaAnterior, 2),
             'total_pagar'     => round($totalPagar, 2),
+            'total_emitido'   => round($dividaAnterior + $multaAnterior + $valorConsumo, 2),
         ];
     }
 
@@ -54,14 +56,4 @@ class BillingService
         return $cliente->saldoEmAberto();
     }
 
-    private function calcularMulta(float $dividaAnterior, Cliente $cliente): float
-    {
-        $tarifa = $cliente->tarifa;
-
-        if ($dividaAnterior >= (float) $tarifa->limiar_corte) {
-            return $dividaAnterior * (float) $tarifa->percentagem_multa;
-        }
-
-        return 0.00;
-    }
 }

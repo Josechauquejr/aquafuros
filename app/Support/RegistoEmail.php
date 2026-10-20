@@ -27,7 +27,11 @@ class RegistoEmail
             $corpo = null; // o corpo é só para consulta: nunca impede o envio
         }
 
-        $anexos = collect($mail->attachments())->map(fn ($a) => $a->as)->filter()->values()->all();
+        // Tal como no Mailable do Laravel, attachments() é opcional.
+        // Recibos e emails de teste podem não ter qualquer anexo.
+        $anexos = method_exists($mail, 'attachments')
+            ? collect($mail->attachments())->map(fn ($a) => $a->as)->filter()->values()->all()
+            : [];
 
         $registo = [
             'tipo' => $meta['tipo'],

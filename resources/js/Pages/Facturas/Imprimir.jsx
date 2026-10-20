@@ -12,6 +12,14 @@ export default function Imprimir({ factura, primeiraLeitura, consumoAnterior, qr
     const [formato, setFormato] = useFormatoImpressao();
     const conteudoRef = useRef(null);
     const aceitaPagamento = factura.estado === "pendente" || factura.estado === "parcial";
+    const anterioresEmAberto = factura.cobranca?.origens ?? [];
+    const pagarOrigens = () => {
+        if (anterioresEmAberto.length === 1 && !aceitaPagamento) {
+            router.visit(`/pagamentos?factura_id=${anterioresEmAberto[0].id}`);
+        } else {
+            router.visit(`/pagamentos?pagar_varias=1&cliente_id=${factura.cliente_id}`);
+        }
+    };
 
     const irParaPagamento = () => {
         router.visit(`/pagamentos?factura_id=${factura.id}`);
@@ -44,9 +52,12 @@ export default function Imprimir({ factura, primeiraLeitura, consumoAnterior, qr
                             className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:text-white dark:hover:bg-emerald-500"
                         >
                             <Banknote className="h-4 w-4" aria-hidden="true" />
-                            Efectuar pagamento
+                            Pagar esta factura
                         </AnimatedButton>
                     )}
+                    {anterioresEmAberto.length > 0 && <AnimatedButton variant="secondary" onClick={pagarOrigens}>
+                        <Banknote className="h-4 w-4" aria-hidden="true" />Pagar facturas em aberto
+                    </AnimatedButton>}
                     <AnimatedButton variant="primary" onClick={() => window.print()}>
                         <Printer className="h-4 w-4" aria-hidden="true" />
                         Imprimir

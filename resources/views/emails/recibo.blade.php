@@ -26,6 +26,17 @@
                         @endforeach
                         <tr><td colspan="3" style="padding:10px 12px;border-top:1px solid #e2e8f0;font-weight:bold;">Total recebido</td><td style="padding:10px 12px;border-top:1px solid #e2e8f0;font-weight:bold;" align="right">{{ $mzn($total) }}</td></tr>
                     </table>
+                    @foreach ($pagamentos as $pagamento)
+                        @if ($pagamento->imputacoes->isNotEmpty())
+                            <p style="margin:16px 0 6px;font-size:13px;font-weight:bold;">Aplicação do recibo {{ $pagamento->numero_recibo }}</p>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:12px;">
+                                <tr><th align="left">Factura de origem</th><th align="right">Principal</th><th align="right">Multa</th></tr>
+                                @foreach ($pagamento->imputacoes as $parcela)
+                                    <tr><td style="padding:5px 0;">{{ $parcela->factura?->numero_factura }}</td><td align="right">{{ $mzn($parcela->valor_principal) }}</td><td align="right">{{ $mzn($parcela->valor_multa) }}</td></tr>
+                                @endforeach
+                            </table>
+                        @endif
+                    @endforeach
                     <p style="margin:18px 0 0;font-size:13px;color:#475569;line-height:1.5;">Guarde este email como comprovativo do pagamento.</p>
                 </td></tr>
                 <tr><td style="padding:14px 24px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;">{{ $empresa->nome }}@if ($empresa->localizacao) · {{ $empresa->localizacao }}@endif</td></tr>

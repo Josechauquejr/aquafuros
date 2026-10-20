@@ -40,6 +40,10 @@ class ConfiguracaoController extends Controller
             'nuit' => 'nullable|string|max:50',
             'localizacao' => 'nullable|string|max:255',
             'logotipo' => 'nullable|image|max:2048',
+            'mpesa_numero' => 'nullable|string|max:50',
+            'mpesa_titular' => 'nullable|string|max:255',
+            'emola_numero' => 'nullable|string|max:50',
+            'emola_titular' => 'nullable|string|max:255',
         ]);
 
         $empresa = EmpresaPerfil::atual();

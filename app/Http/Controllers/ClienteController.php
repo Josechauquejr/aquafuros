@@ -84,7 +84,8 @@ class ClienteController extends Controller
         // por isso ficava preso em 0,00 para clientes que nunca pagaram
         // nada mas tinham facturas por liquidar.
         $clientes->getCollection()->transform(function (Cliente $cliente) {
-            $pagoPorFactura = $cliente->pagamentos->groupBy('factura_id')->map->sum('valor_pago');
+            $cliente->loadMissing('facturas.pagamentos');
+            $pagoPorFactura = $cliente->facturas->mapWithKeys(fn ($f) => [$f->id => $f->totalPago()]);
             $emAberto = $cliente->facturas->whereIn('estado', ['pendente', 'parcial']);
             $saldoDe = fn ($f) => max(0, (float) $f->total_pagar - (float) ($pagoPorFactura[$f->id] ?? 0));
 
@@ -126,6 +127,23 @@ class ClienteController extends Controller
         ]);
     }
 
+    /** Ficha completa de um cliente, com o histórico financeiro e de leituras. */
+    public function show(Cliente $cliente)
+    {
+        $cliente->load([
+            'tarifa', 'zona',
+            'leituras' => fn ($q) => $q->withTrashed()->orderByDesc('ano')->orderByDesc('mes'),
+            'facturas' => fn ($q) => $q->withTrashed()->with(['pagamentos' => fn ($p) => $p->withTrashed()])->orderByDesc('ano')->orderByDesc('mes'),
+            'pagamentos' => fn ($q) => $q->withTrashed()->with(['factura' => fn ($f) => $f->withTrashed()])->orderByDesc('pago_em')->orderByDesc('created_at'),
+        ]);
+        $cliente->saldo_em_aberto = $cliente->saldoEmAberto();
+        $atraso = $cliente->dividaEmAtraso();
+        $cliente->divida_em_atraso = $atraso['valor'];
+        $cliente->em_corte = $atraso['em_corte'];
+
+        return Inertia::render('Clientes/Show', ['cliente' => $cliente]);
+    }
+
     /**
      * Saldo em aberto do cliente como subconsulta SQL (mesma fórmula do
      * cálculo em PHP: facturas pendentes/parciais menos o já pago, por
@@ -134,7 +152,7 @@ class ClienteController extends Controller
      */
     private function sqlSaldoEmAberto(): string
     {
-        $pago = '(SELECT COALESCE(SUM(p.valor_pago), 0) FROM pagamentos p WHERE p.factura_id = f.id AND p.deleted_at IS NULL)';
+        $pago = '(SELECT COALESCE(SUM(p.valor_pago), 0) FROM pagamentos_aplicados p WHERE p.factura_id = f.id AND p.deleted_at IS NULL)';
 
         return 'SELECT COALESCE(SUM(CASE WHEN f.total_pagar > '.$pago.' THEN f.total_pagar - '.$pago.' ELSE 0 END), 0)'
             ." FROM facturas f WHERE f.cliente_id = clientes.id AND f.estado IN ('pendente', 'parcial') AND f.deleted_at IS NULL";
@@ -200,7 +218,7 @@ class ClienteController extends Controller
 
             if ($novoContrato) {
                 $facturaLigacao = Factura::create([
-                    'numero_factura' => $this->proximoNumeroFactura(now()->year),
+                    'numero_factura' => $this->proximoNumeroFactura(now()->year, now()->month),
                     'cliente_id' => $cliente->id,
                     'leitura_id' => null,
                     'tipo' => 'ligacao',
@@ -332,14 +350,14 @@ class ClienteController extends Controller
         return NumeracaoDocumentos::proximoNumero(Cliente::withTrashed(), 'numero_cliente', 'CLI-%04d');
     }
 
-    private function proximoNumeroFactura(int $ano): string
+    private function proximoNumeroFactura(int $ano, int $mes): string
     {
         // withTrashed(): mesma razão do proximoNumeroCliente() — uma factura
         // na lixeira ainda ocupa o número.
         return NumeracaoDocumentos::proximoNumero(
-            Factura::withTrashed()->where('numero_factura', 'like', "FAT-{$ano}-%"),
+            Factura::withTrashed()->where('numero_factura', 'like', sprintf('FAT-%04d%02d-', $ano, $mes).'%'),
             'numero_factura',
-            "FAT-{$ano}-%04d",
+            sprintf('FAT-%04d%02d-', $ano, $mes).'%04d',
         );
     }
 }

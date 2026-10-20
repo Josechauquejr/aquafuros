@@ -27,6 +27,7 @@ class FacturaMail extends Mailable
 
     public function content(): Content
     {
+        $this->factura->prepararDocumento();
         $leitura = $this->factura->leitura;
 
         return new Content(view: 'emails.factura', with: [

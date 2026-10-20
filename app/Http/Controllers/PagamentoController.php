@@ -15,7 +15,6 @@ use App\Support\NumeracaoDocumentos;
 use App\Support\RegistoEmail;
 use App\Mail\ReciboMail;
 use Illuminate\Http\Request;
-use App\Models\Configuracao;
 use App\Models\Credito;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -71,20 +70,24 @@ class PagamentoController extends Controller
         return Inertia::render('Pagamentos/Index', [
             'pagamentos' => $this->comTotalDoLote($query->paginate(15)->withQueryString()),
             'facturasEmAberto' => Factura::whereIn('estado', ['pendente', 'parcial'])
-                ->with(['cliente' => fn ($q) => $q->withTrashed()])
+                ->with(['cliente' => fn ($q) => $q->withTrashed()->with('tarifa')])
                 ->withSum('pagamentos', 'valor_pago')
                 ->orderByDesc('ano')->orderByDesc('mes')->get()
                 ->each(function (Factura $factura) {
                     // O que falta pagar (uma factura parcial pode receber vários pagamentos).
                     $factura->total_pago = round((float) ($factura->pagamentos_sum_valor_pago ?? 0), 2);
                     $factura->em_falta = max(0, round((float) $factura->total_pagar - $factura->total_pago, 2));
+                    $factura->multa_prevista = $factura->multaAtrasoPrevista();
+                    $factura->multa_em_falta = $factura->multaEmFalta();
+                    $factura->em_falta_sem_multa = max(0, round($factura->em_falta - $factura->multa_em_falta, 2));
+                    $factura->em_falta_com_multa = round($factura->em_falta + $factura->multa_prevista, 2);
                 }),
             'metricas' => ResumoMensal::pagamentos($mesRef->month, $mesRef->year),
             'resumoMes' => ResumoMensal::facturas($mesRef->month, $mesRef->year),
             'clientes' => Cliente::where('estado', '!=', 'inativo')->orderBy('nome')->get(['id', 'nome', 'numero_cliente']),
-            'diasRetroactivos' => (int) Configuracao::valor('pagamento_dias_retroactivos', 7),
             'creditos' => Credito::selectRaw('cliente_id, sum(valor) as saldo')->groupBy('cliente_id')->get()
                 ->filter(fn ($c) => (float) $c->saldo > 0.004)->mapWithKeys(fn ($c) => [$c->cliente_id => round((float) $c->saldo, 2)]),
+            'dataActual' => now()->toDateString(),
             'mesReferencia' => MesReferencia::paraSeletor($mesRef),
             'filtros' => [
                 ...$periodo,
@@ -133,8 +136,10 @@ class PagamentoController extends Controller
         }
 
         $emFalta = $factura->emFalta();
-        $valorCredito = ! empty($data['usar_credito']) ? min(Credito::saldoDe($factura->cliente_id), $emFalta) : 0.0;
-        $restante = round($emFalta - $valorCredito, 2);
+        $multaPrevista = $factura->multaAtrasoPrevista();
+        $limitePagamento = round($emFalta + $multaPrevista, 2);
+        $valorCredito = ! empty($data['usar_credito']) ? min(Credito::saldoDe($factura->cliente_id), $limitePagamento) : 0.0;
+        $restante = round($limitePagamento - $valorCredito, 2);
         $valorPago = round((float) $data['valor_pago'], 2);
         $excesso = 0.0;
 
@@ -154,6 +159,17 @@ class PagamentoController extends Controller
         }
 
         $principal = DB::transaction(function () use ($factura, $data, $valorCredito, $valorPago, $excesso, $pagoEm, $request) {
+            Cliente::withTrashed()->whereKey($factura->cliente_id)->lockForUpdate()->firstOrFail();
+            $factura = Factura::with('cliente.tarifa')->whereKey($factura->id)->lockForUpdate()->firstOrFail();
+            if (! in_array($factura->estado, ['pendente', 'parcial'], true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['factura_id' => 'A factura já não aceita pagamentos.']);
+            }
+            // A multa vencida faz sempre parte do saldo a pagar.
+            $factura->registarMultaAtraso();
+            $limiteActual = $factura->emFalta();
+            if ($valorPago + $valorCredito > $limiteActual + 0.005 || $valorCredito > Credito::saldoDe($factura->cliente_id) + 0.005) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['valor_pago' => 'O saldo mudou. Actualize os valores antes de confirmar.']);
+            }
             $base = [
                 'factura_id' => $factura->id,
                 'cliente_id' => $factura->cliente_id,
@@ -167,7 +183,7 @@ class PagamentoController extends Controller
             if ($valorCredito > 0) {
                 $comCredito = Pagamento::create([
                     ...$base,
-                    'numero_recibo' => $this->proximoRecibo(now()->year),
+                    'numero_recibo' => $this->proximoRecibo(Carbon::parse($pagoEm ?? now())),
                     'valor_pago' => $valorCredito,
                     'origem_credito' => true,
                 ]);
@@ -182,7 +198,7 @@ class PagamentoController extends Controller
             if ($valorPago > 0) {
                 $normal = Pagamento::create([
                     ...$base,
-                    'numero_recibo' => $this->proximoRecibo(now()->year),
+                    'numero_recibo' => $this->proximoRecibo(Carbon::parse($pagoEm ?? now())),
                     'valor_pago' => $valorPago,
                 ]);
             }
@@ -228,14 +244,17 @@ class PagamentoController extends Controller
         }
 
         $data = $request->validate([
-            'parcelas' => 'required|array|min:2|max:24',
+            'parcelas' => 'required|array|min:2',
             'parcelas.*.factura_id' => 'required|integer|distinct|exists:facturas,id',
             'parcelas.*.valor_pago' => 'required|numeric|min:0.01',
             'metodo_pagamento' => 'required|in:dinheiro,banco,mpesa,e-mola',
             'referencia_pagamento' => 'nullable|string|max:255',
             'data_pagamento' => 'nullable|date',
+            'valor_recebido' => 'nullable|numeric|min:0',
+            'usar_credito' => 'nullable|boolean',
+            'guardar_excesso' => 'nullable|boolean',
         ], [
-            'parcelas.min' => 'Escolha pelo menos 2 facturas — para uma só, use "Registar pagamento".',
+            'parcelas.min' => 'Seleccione pelo menos duas facturas para este pagamento.',
             'parcelas.*.factura_id.distinct' => 'A mesma factura foi escolhida mais de uma vez.',
         ]);
 
@@ -260,7 +279,7 @@ class PagamentoController extends Controller
                 return back()->with('error', "A factura {$factura->numero_factura} já não aceita pagamentos.");
             }
 
-            $emFalta = $factura->emFalta();
+            $emFalta = round($factura->emFalta() + $factura->multaAtrasoPrevista(), 2);
             if ((float) $parcela['valor_pago'] > $emFalta + 0.005) {
                 return back()->withErrors([
                     "parcelas.{$indice}.valor_pago" => "O valor excede o que falta pagar da factura {$factura->numero_factura} (MZN ".number_format($emFalta, 2, ',', ' ').').',
@@ -271,25 +290,68 @@ class PagamentoController extends Controller
         $lote = (string) Str::uuid();
 
         $pagamentos = DB::transaction(function () use ($data, $facturas, $lote, $pagoEm, $request) {
-            return collect($data['parcelas'])->map(function ($parcela) use ($data, $facturas, $lote, $pagoEm, $request) {
-                $factura = $facturas[$parcela['factura_id']];
+            Cliente::withTrashed()->whereKey($facturas->first()->cliente_id)->lockForUpdate()->firstOrFail();
+            $totalParcelas = round(collect($data['parcelas'])->sum('valor_pago'), 2);
+            $creditoRestante = ! empty($data['usar_credito']) ? min(Credito::saldoDe($facturas->first()->cliente_id), $totalParcelas) : 0.0;
+            $recebido = round((float) ($data['valor_recebido'] ?? $totalParcelas), 2);
+            $excesso = round($recebido + $creditoRestante - $totalParcelas, 2);
+            if ($excesso < -0.005 || ($excesso > 0.005 && empty($data['guardar_excesso']))) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['valor_pago' => 'O valor recebido e o crédito não correspondem às parcelas. Reveja os valores.']);
+            }
+            $pagamentos = collect();
+            $parcelas = collect($data['parcelas'])->sortBy(fn ($p) => sprintf('%04d%02d%010d', $facturas[$p['factura_id']]->ano, $facturas[$p['factura_id']]->mes, $p['factura_id']));
+            foreach ($parcelas as $parcela) {
+                $factura = Factura::with('cliente.tarifa')->whereKey($parcela['factura_id'])->lockForUpdate()->firstOrFail();
+                if (! in_array($factura->estado, ['pendente', 'parcial'], true)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['parcelas' => 'Uma factura seleccionada já foi liquidada.']);
+                }
+                $factura->registarMultaAtraso();
+                $limite = $factura->emFalta();
+                if ((float) $parcela['valor_pago'] > $limite + 0.005) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['parcelas' => 'O saldo de uma factura mudou. Actualize os valores antes de confirmar.']);
+                }
 
-                $pagamento = Pagamento::create([
-                    'numero_recibo' => $this->proximoRecibo(now()->year),
+                $base = [
                     'factura_id' => $factura->id,
                     'cliente_id' => $factura->cliente_id,
-                    'valor_pago' => $parcela['valor_pago'],
                     'metodo_pagamento' => $data['metodo_pagamento'],
                     'referencia_pagamento' => $data['referencia_pagamento'] ?? null,
                     'lote' => $lote,
                     'pago_em' => $pagoEm,
                     'recebido_por' => $request->user()->id,
-                ]);
-
+                ];
+                $comCredito = round(min($creditoRestante, (float) $parcela['valor_pago']), 2);
+                $emDinheiro = round((float) $parcela['valor_pago'] - $comCredito, 2);
+                foreach ([$comCredito, $emDinheiro] as $indice => $valor) {
+                    if ($valor <= 0) continue;
+                    $pagamento = Pagamento::create([
+                        ...$base,
+                        'numero_recibo' => $this->proximoRecibo(Carbon::parse($pagoEm ?? now())),
+                        'valor_pago' => $valor,
+                        'origem_credito' => $indice === 0,
+                    ]);
+                    if ($indice === 0) {
+                        Credito::create([
+                            'cliente_id' => $factura->cliente_id, 'tipo' => 'utilizacao', 'valor' => -$valor,
+                            'pagamento_id' => $pagamento->id, 'recebido_por' => $request->user()->id,
+                            'nota' => 'Usado a pagar a factura '.$factura->numero_factura,
+                        ]);
+                    }
+                    $pagamentos->push($pagamento);
+                }
+                $creditoRestante = round($creditoRestante - $comCredito, 2);
                 $this->recalcularFacturaEDivida($factura);
-
-                return $pagamento;
-            });
+            }
+            if ($excesso > 0.005) {
+                Credito::create([
+                    'cliente_id' => $facturas->first()->cliente_id, 'tipo' => 'entrada', 'valor' => $excesso,
+                    'metodo_pagamento' => $data['metodo_pagamento'], 'referencia_pagamento' => $data['referencia_pagamento'] ?? null,
+                    'pagamento_id' => $pagamentos->first(fn ($p) => ! $p->origem_credito)?->id,
+                    'recebido_por' => $request->user()->id, 'pago_em' => $pagoEm ?? now(),
+                    'nota' => 'Excesso do pagamento em lote '.$lote,
+                ]);
+            }
+            return $pagamentos;
         });
 
         $pagamentos->each(fn (Pagamento $pagamento) => $pagamento->load(['cliente', 'factura']));
@@ -349,9 +411,8 @@ class PagamentoController extends Controller
     }
 
     /**
-     * Data em que o dinheiro foi realmente pago. Por omissão é agora; pode
-     * ser anterior (uma transferência confirmada dias depois), até um limite
-     * configurável de dias, e nunca no futuro.
+     * Data em que o dinheiro foi realmente pago. Por omissão é agora; aceita
+     * qualquer data passada para permitir regularizar pagamentos históricos.
      *
      * @return array{0: ?Carbon, 1: ?string} data (null = agora) e mensagem de erro
      */
@@ -368,11 +429,6 @@ class PagamentoController extends Controller
         }
         if ($dia->isFuture()) {
             return [null, 'A data do pagamento não pode ser no futuro.'];
-        }
-
-        $limite = (int) Configuracao::valor('pagamento_dias_retroactivos', 7);
-        if ($dia->lt(now()->subDays($limite)->startOfDay())) {
-            return [null, "Só é possível registar pagamentos dos últimos {$limite} dia(s)."];
         }
 
         return [$dia->setTimeFrom(now()), null];
@@ -629,15 +685,7 @@ class PagamentoController extends Controller
      */
     public function recalcularFacturaEDivida(Factura $factura): void
     {
-        $totalPago = (float) $factura->pagamentos()->sum('valor_pago');
-
-        $novoEstado = match (true) {
-            $totalPago <= 0 => 'pendente',
-            $totalPago >= $factura->total_pagar => 'paga',
-            default => 'parcial',
-        };
-
-        $factura->update(['estado' => $novoEstado]);
+        \App\Services\ImputacaoPagamento::recalcularCliente($factura->cliente_id);
 
     }
 
@@ -648,7 +696,7 @@ class PagamentoController extends Controller
      */
     private function qrUrl(Pagamento $pagamento): string
     {
-        return URL::signedRoute('verificacao.pagamento', ['pagamento' => $pagamento->id]);
+        return URL::signedRoute('verificacao.pagamento', ['pagamento' => $pagamento]);
     }
 
     private function enviarReciboEmail($pagamentos, int $enviadoPor): void
@@ -669,14 +717,14 @@ class PagamentoController extends Controller
         ]);
     }
 
-    private function proximoRecibo(int $ano): string
+    private function proximoRecibo(Carbon $data): string
     {
         // withTrashed(): mesma razão do numero_factura — um recibo na
         // lixeira ainda ocupa o número.
         return NumeracaoDocumentos::proximoNumero(
-            Pagamento::withTrashed()->where('numero_recibo', 'like', "REC-{$ano}-%"),
+            Pagamento::withTrashed()->where('numero_recibo', 'like', sprintf('REC-%04d%02d-', $data->year, $data->month).'%'),
             'numero_recibo',
-            "REC-{$ano}-%04d",
+            sprintf('REC-%04d%02d-', $data->year, $data->month).'%04d',
         );
     }
 }

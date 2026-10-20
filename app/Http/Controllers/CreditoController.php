@@ -35,9 +35,9 @@ class CreditoController extends Controller
             ...$data,
             'tipo' => 'entrada',
             'numero_recibo' => NumeracaoDocumentos::proximoNumero(
-                Credito::whereNotNull('numero_recibo')->where('numero_recibo', 'like', 'ADI-'.now()->year.'-%'),
+                Credito::whereNotNull('numero_recibo')->where('numero_recibo', 'like', 'ADI-'.now()->format('Ym'). '-%'),
                 'numero_recibo',
-                'ADI-'.now()->year.'-%04d',
+                'ADI-'.now()->format('Ym'). '-%04d',
             ),
             'recebido_por' => $request->user()->id,
             'pago_em' => now(),

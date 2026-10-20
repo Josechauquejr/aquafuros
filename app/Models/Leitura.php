@@ -26,6 +26,7 @@ class Leitura extends Model
     }
 
     protected $fillable = [
+        'numero_leitura',
         'cliente_id',
         'mes',
         'ano',

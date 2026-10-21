@@ -34,7 +34,7 @@ export default function ApexChart({ opcoes, altura = 280, rotulo }) {
     const base = {
         chart: {
             height: altura,
-            fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif",
+            fontFamily: "Rethink Sans, ui-sans-serif, system-ui, sans-serif",
             foreColor: escuro ? "#94a3b8" : "#64748b",
             background: "transparent",
             toolbar: { show: false },

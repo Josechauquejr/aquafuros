@@ -141,7 +141,34 @@ class ClienteController extends Controller
         $cliente->divida_em_atraso = $atraso['valor'];
         $cliente->em_corte = $atraso['em_corte'];
 
-        return Inertia::render('Clientes/Show', ['cliente' => $cliente]);
+        // Resumo da evolução baseado nas leituras activas, por ordem cronológica.
+        $leiturasValidas = $cliente->leituras
+            ->whereNull('deleted_at')
+            ->sortBy(fn ($leitura) => $leitura->ano * 100 + $leitura->mes)
+            ->values();
+        $primeiraLeitura = $leiturasValidas->first();
+        $cliente->resumo_consumo = [
+            'total' => round($leiturasValidas->sum(fn ($leitura) => $leitura->consumo()), 2),
+            'quantidade' => $leiturasValidas->count(),
+            'primeira' => $primeiraLeitura ? [
+                'mes' => $primeiraLeitura->mes,
+                'ano' => $primeiraLeitura->ano,
+                'leitura_anterior' => (float) $primeiraLeitura->leitura_anterior,
+                'leitura_actual' => (float) $primeiraLeitura->leitura_actual,
+                'consumo' => $primeiraLeitura->consumo(),
+            ] : null,
+            'evolucao' => $leiturasValidas->take(-12)->map(fn ($leitura) => [
+                'mes' => $leitura->mes,
+                'ano' => $leitura->ano,
+                'consumo' => $leitura->consumo(),
+            ])->values(),
+        ];
+
+        return Inertia::render('Clientes/Show', [
+            'cliente' => $cliente,
+            'zonas' => Zona::orderBy('nome')->get(['id', 'nome']),
+            'tarifas' => Tarifa::orderBy('nome')->get(['id', 'nome']),
+        ]);
     }
 
     /**
@@ -276,7 +303,7 @@ class ClienteController extends Controller
 
         $cliente->update($data);
 
-        return redirect()->route('clientes.index')->with('status', 'Cliente actualizado com sucesso.');
+        return back()->with('status', 'Cliente actualizado com sucesso.');
     }
 
     public function reverter(Activity $activity)

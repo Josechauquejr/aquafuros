@@ -1,11 +1,18 @@
-import { Head, Link } from "@inertiajs/react";
-import { ArrowDown, ArrowLeft, ArrowUp } from "lucide-react";
+import { Head, Link, useForm } from "@inertiajs/react";
+import { ArrowDown, ArrowLeft, ArrowUp, Pencil, Droplets } from "lucide-react";
 import { useMemo, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import StatusBadge from "@/Components/StatusBadge";
 import { Campo, Campos, Destaque, Destaques } from "@/Components/DataTable/Detalhe";
 import { formatDate, formatMoney, formatNumero } from "@/lib/utils";
+import AnimatedButton from "@/Components/AnimatedButton";
+import InputError from "@/Components/InputError";
+import InputLabel from "@/Components/InputLabel";
+import Modal from "@/Components/Modal";
+import PrimaryButton from "@/Components/PrimaryButton";
+import SecondaryButton from "@/Components/SecondaryButton";
+import TextInput from "@/Components/TextInput";
 
 const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const estadosCliente = { ativo: ["Activo", "emerald"], inativo: ["Inactivo", "slate"], cortado: ["Cortado", "rose"] };
@@ -39,13 +46,27 @@ function criarRegistos(cliente) {
         };
     });
 }
-export default function Show({ cliente }) {
+export default function Show({ cliente, zonas = [], tarifas = [] }) {
+    const [editar, setEditar] = useState(false);
+    const form = useForm({ nome: "", endereco: "", zona_id: "", telefone: "", email: "", tarifa_id: "", estado: "ativo" });
     const [ordenacao, setOrdenacao] = useState({ campo: "dataOrdenacao", direccao: "desc" });
     const [estadoNome, estadoTom] = estadosCliente[cliente.estado] ?? [cliente.estado, "slate"];
     const pagamentos = cliente.pagamentos ?? [];
     const facturas = cliente.facturas ?? [];
     const leituras = cliente.leituras ?? [];
     const totalPago = pagamentos.filter((pagamento) => !pagamento.deleted_at).reduce((total, pagamento) => total + Number(pagamento.valor_pago), 0);
+    const resumo = cliente.resumo_consumo ?? { total: 0, quantidade: 0, primeira: null, evolucao: [] };
+    const maxConsumo = Math.max(1, ...(resumo.evolucao ?? []).map((item) => Number(item.consumo)));
+
+    const abrirEdicao = () => {
+        form.setData({ nome: cliente.nome ?? "", endereco: cliente.endereco ?? "", zona_id: cliente.zona_id ?? "", telefone: cliente.telefone ?? "", email: cliente.email ?? "", tarifa_id: cliente.tarifa_id ?? "", estado: cliente.estado ?? "ativo" });
+        form.clearErrors();
+        setEditar(true);
+    };
+    const guardarEdicao = (event) => {
+        event.preventDefault();
+        form.put(`/clientes/${cliente.numero_cliente}`, { preserveScroll: true, onSuccess: () => setEditar(false) });
+    };
 
     const registos = useMemo(() => criarRegistos(cliente), [cliente]);
     const registosOrdenados = useMemo(() => [...registos].sort((a, b) => {
@@ -77,7 +98,10 @@ export default function Show({ cliente }) {
                             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voltar aos clientes
                         </Link>
                         <p className="mt-5 text-sm font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Ficha do cliente</p>
-                        <h1 className="mt-1 text-3xl font-bold text-slate-950 dark:text-white">{cliente.nome}</h1>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <h1 className="mt-1 text-3xl font-bold text-slate-950 dark:text-white">{cliente.nome}</h1>
+                            <AnimatedButton variant="secondary" onClick={abrirEdicao}><Pencil className="h-4 w-4" aria-hidden="true" /> Editar dados</AnimatedButton>
+                        </div>
                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Nº de cliente: {cliente.numero_cliente}</p>
                     </div>
 
@@ -100,6 +124,26 @@ export default function Show({ cliente }) {
                         <Destaque rotulo="Facturas" sub={`${facturas.length} no histórico`}>{facturas.length}</Destaque>
                         <Destaque rotulo="Estado"><StatusBadge tone={estadoTom}>{estadoNome}</StatusBadge></Destaque>
                     </Destaques>
+
+                    <AnimatedPanel className="p-5 sm:p-6">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div><h2 className="text-lg font-semibold text-foreground">Evolução do consumo</h2><p className="text-sm text-muted-foreground">Consumo acumulado e leituras mensais registadas.</p></div>
+                            <span className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-sm font-semibold text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200"><Droplets className="h-4 w-4" aria-hidden="true" /> {formatNumero(resumo.total)} m³ no total</span>
+                        </div>
+                        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                            <div className="rounded-lg border border-border p-4">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Primeira leitura registada</p>
+                                {resumo.primeira ? <><p className="mt-2 text-xl font-bold text-foreground">{formatNumero(resumo.primeira.leitura_actual)} m³</p><p className="mt-1 text-sm text-muted-foreground">{String(resumo.primeira.mes).padStart(2, "0")}/{resumo.primeira.ano} · primeiro consumo: {formatNumero(resumo.primeira.consumo)} m³</p><p className="mt-1 text-xs text-muted-foreground">Contador: {formatNumero(resumo.primeira.leitura_anterior)} → {formatNumero(resumo.primeira.leitura_actual)}</p></> : <p className="mt-2 text-sm text-muted-foreground">Ainda não há leituras registadas.</p>}
+                            </div>
+                            <div className="rounded-lg border border-border p-4">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Últimas leituras · m³</p>
+                                {resumo.evolucao?.length ? <div className="mt-4 flex h-24 items-end gap-2" role="img" aria-label="Gráfico da evolução mensal do consumo">
+                                    {resumo.evolucao.map((item) => { const valor = Number(item.consumo); const altura = Math.max(6, (valor / maxConsumo) * 100); return <div key={`${item.ano}-${item.mes}`} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${String(item.mes).padStart(2, "0")}/${item.ano}: ${formatNumero(valor)} m³`}><div className="w-full max-w-8 rounded-t bg-cyan-600 dark:bg-cyan-400" style={{ height: `${altura}%` }} /><span className="text-[10px] text-muted-foreground">{String(item.mes).padStart(2, "0")}/{String(item.ano).slice(-2)}</span></div>; })}
+                                </div> : <p className="mt-2 text-sm text-muted-foreground">Sem dados para mostrar.</p>}
+                                <p className="mt-2 text-xs text-muted-foreground">{resumo.quantidade} leitura(s) consideradas; anuladas excluídas.</p>
+                            </div>
+                        </div>
+                    </AnimatedPanel>
 
                     <AnimatedPanel className="overflow-hidden">
                         <div className="border-b border-border p-5 sm:p-6">
@@ -149,6 +193,22 @@ export default function Show({ cliente }) {
                     </AnimatedPanel>
                 </div>
             </div>
+            <Modal show={editar} onClose={() => setEditar(false)} title={`Editar cliente · ${cliente.numero_cliente}`} maxWidth="lg">
+                <form onSubmit={guardarEdicao} className="space-y-4">
+                    <div><InputLabel htmlFor="cliente-nome" value="Nome" /><TextInput id="cliente-nome" required value={form.data.nome} onChange={(e) => form.setData("nome", e.target.value)} className="mt-1 block w-full" /><InputError message={form.errors.nome} className="mt-1" /></div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div><InputLabel htmlFor="cliente-zona" value="Zona / bairro" /><select id="cliente-zona" value={form.data.zona_id} onChange={(e) => form.setData("zona_id", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"><option value="">Sem zona</option>{zonas.map((zona) => <option key={zona.id} value={zona.id}>{zona.nome}</option>)}</select><InputError message={form.errors.zona_id} className="mt-1" /></div>
+                        <div><InputLabel htmlFor="cliente-telefone" value="Telefone" /><TextInput id="cliente-telefone" value={form.data.telefone} onChange={(e) => form.setData("telefone", e.target.value)} className="mt-1 block w-full" /><InputError message={form.errors.telefone} className="mt-1" /></div>
+                    </div>
+                    <div><InputLabel htmlFor="cliente-email" value="Email" /><TextInput id="cliente-email" type="email" value={form.data.email} onChange={(e) => form.setData("email", e.target.value)} className="mt-1 block w-full" /><InputError message={form.errors.email} className="mt-1" /></div>
+                    <div><InputLabel htmlFor="cliente-endereco" value="Endereço" /><TextInput id="cliente-endereco" value={form.data.endereco} onChange={(e) => form.setData("endereco", e.target.value)} className="mt-1 block w-full" /><InputError message={form.errors.endereco} className="mt-1" /></div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div><InputLabel htmlFor="cliente-tarifa" value="Tarifa" /><select id="cliente-tarifa" required value={form.data.tarifa_id} onChange={(e) => form.setData("tarifa_id", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"><option value="">Seleccione</option>{tarifas.map((tarifa) => <option key={tarifa.id} value={tarifa.id}>{tarifa.nome}</option>)}</select><InputError message={form.errors.tarifa_id} className="mt-1" /></div>
+                        <div><InputLabel htmlFor="cliente-estado" value="Estado" /><select id="cliente-estado" value={form.data.estado} onChange={(e) => form.setData("estado", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"><option value="ativo">Activo</option><option value="inativo">Inactivo</option><option value="cortado">Cortado</option></select><InputError message={form.errors.estado} className="mt-1" /></div>
+                    </div>
+                    <div className="flex justify-end gap-2 border-t border-border pt-4"><SecondaryButton type="button" onClick={() => setEditar(false)}>Cancelar</SecondaryButton><PrimaryButton type="submit" disabled={form.processing}>{form.processing ? "A guardar…" : "Guardar alterações"}</PrimaryButton></div>
+                </form>
+            </Modal>
         </AdminLayout>
     );
 }

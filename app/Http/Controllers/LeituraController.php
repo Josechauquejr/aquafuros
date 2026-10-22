@@ -7,6 +7,7 @@ use App\Models\Factura;
 use App\Models\Leitura;
 use App\Models\LeituraCorreccao;
 use App\Services\BillingService;
+use App\Services\SequenciaLeituras;
 use App\Support\BuscaDifusa;
 use App\Support\Facturacao;
 use App\Support\ListaQuery;
@@ -66,11 +67,55 @@ class LeituraController extends Controller
             )->orderByDesc('leituras.ano')->orderByDesc('leituras.mes'),
         ], 'periodo', 'desc');
 
+        $gruposQuery = (clone $query)->reorder()
+            ->select('leituras.cliente_id')
+            ->groupBy('leituras.cliente_id');
+        $gruposQuery->join('clientes as clientes_grupo', 'clientes_grupo.id', '=', 'leituras.cliente_id')
+            ->groupBy('clientes_grupo.nome');
+        match ($sort) {
+            'cliente' => $gruposQuery->orderBy('clientes_grupo.nome', $dir),
+            'consumo' => $gruposQuery->orderByRaw("MAX(leituras.leitura_actual - leituras.leitura_anterior) {$dir}"),
+            'estado' => $gruposQuery->orderByRaw(
+                'MAX(CASE WHEN leituras.confirmado THEN '
+                ."(CASE WHEN EXISTS (SELECT 1 FROM facturas WHERE facturas.leitura_id = leituras.id AND facturas.deleted_at IS NULL) THEN 2 ELSE 1 END)"
+                ." ELSE 0 END) {$dir}",
+            ),
+            default => $gruposQuery->orderByRaw("MAX(leituras.ano * 100 + leituras.mes) {$dir}"),
+        };
+        $paginador = $gruposQuery->orderBy('clientes_grupo.nome')->paginate(15)->withQueryString();
+        $idsNaPagina = $paginador->getCollection()->pluck('cliente_id')->unique()->values();
+        $leituras = (clone $query)->whereIn('leituras.cliente_id', $idsNaPagina)->get();
+        if ($idsNaPagina->isNotEmpty()) {
+            $aberturas = Cliente::withTrashed()->whereIn('id', $idsNaPagina)->whereNotNull('leitura_inicial')
+                ->orderBy('nome')->get(['id', 'numero_cliente', 'nome', 'leitura_inicial', 'created_at'])
+                ->map(function (Cliente $cliente) {
+                    $abertura = new Leitura;
+                    $abertura->forceFill([
+                        'id' => 'abertura-'.$cliente->id, 'cliente_id' => $cliente->id,
+                        'leitura_anterior' => null, 'leitura_actual' => $cliente->leitura_inicial,
+                        'confirmado' => true, 'created_at' => $cliente->created_at,
+                    ]);
+                    $abertura->setAttribute('abertura', true);
+                    $relacaoCliente = new Cliente;
+                    $relacaoCliente->forceFill([
+                        'id' => $cliente->id, 'numero_cliente' => $cliente->numero_cliente, 'nome' => $cliente->nome,
+                    ]);
+                    $abertura->setRelation('cliente', $relacaoCliente);
+                    $abertura->setRelation('factura', null);
+                    $abertura->setRelation('correccaoActiva', null);
+                    $abertura->setRelation('registadoPor', null);
+                    return $abertura;
+                })->values();
+            // A abertura é a referência para todas as leituras seguintes;
+            // mantê-la no início do grupo torna-a imediatamente visível.
+            $leituras = $aberturas->concat($leituras)->values();
+        }
+        $paginador->setCollection($leituras);
+
         return Inertia::render('Leituras/Index', [
-            'leituras' => $query->paginate(15)->withQueryString(),
+            'leituras' => $paginador,
             'clientes' => $this->clientesParaLeitura(),
             'totais' => ResumoMensal::leituras($mesRef->month, $mesRef->year),
-            'resumoMes' => ResumoMensal::facturas($mesRef->month, $mesRef->year),
             'pendentesTotal' => Leitura::where('confirmado', false)->count(),
             'facturarAoConfirmar' => Facturacao::facturarAoConfirmar(),
             'mesReferencia' => MesReferencia::paraSeletor($mesRef),
@@ -125,7 +170,29 @@ class LeituraController extends Controller
             'mes' => 'required|integer|min:1|max:12',
             'ano' => 'required|integer|min:2000|max:2100',
             'leitura_actual' => 'required|numeric|min:0',
+            'confirmar_impacto' => 'nullable|boolean',
+            'motivo' => 'nullable|string|min:5|max:1000',
         ]);
+
+        $cliente = Cliente::findOrFail($data['cliente_id']);
+        $sequencia = app(SequenciaLeituras::class);
+        $plano = $sequencia->planoInsercao($cliente, (int) $data['mes'], (int) $data['ano'], (float) $data['leitura_actual']);
+        if ($plano['retroactiva']) {
+            if (! $request->boolean('confirmar_impacto')) {
+                return back()->withErrors(['leitura_actual' => 'Pré-visualize o impacto antes de gravar esta leitura retroactiva.'])->withInput();
+            }
+            if (blank($data['motivo'] ?? null)) {
+                return back()->withErrors(['motivo' => 'Indique o motivo da inserção retroactiva.'])->withInput();
+            }
+            $nova = $sequencia->inserir($cliente, $data, $request->user()->id, $data['motivo']);
+            if ($request->user()->hasRole('administrador')) {
+                $request->session()->flash('leituraRegistada', [
+                    ...$nova->only(['id', 'cliente_id', 'mes', 'ano', 'leitura_anterior', 'leitura_actual']),
+                    'cliente' => ['nome' => $cliente->nome],
+                ]);
+            }
+            return back()->with('status', 'Leitura retroactiva registada. A leitura seguinte e as facturas pendentes foram recalculadas.');
+        }
 
         $existe = Leitura::where('cliente_id', $data['cliente_id'])
             ->where('mes', $data['mes'])
@@ -171,6 +238,28 @@ class LeituraController extends Controller
         return back()->with('status', 'Leitura registada com sucesso.');
     }
 
+    public function previsualizar(Request $request)
+    {
+        $data = $request->validate([
+            'cliente_id' => 'required|exists:clientes,id', 'mes' => 'required|integer|min:1|max:12',
+            'ano' => 'required|integer|min:2000|max:2100', 'leitura_actual' => 'required|numeric|min:0',
+        ]);
+        return response()->json(app(SequenciaLeituras::class)->planoInsercao(
+            Cliente::findOrFail($data['cliente_id']), (int) $data['mes'], (int) $data['ano'], (float) $data['leitura_actual'],
+        ));
+    }
+
+    public function previsualizarActualizacao(Request $request, Leitura $leitura)
+    {
+        $data = $request->validate([
+            'mes' => 'required|integer|min:1|max:12', 'ano' => 'required|integer|min:2000|max:2100',
+            'leitura_actual' => 'required|numeric|min:0',
+        ]);
+        return response()->json(app(SequenciaLeituras::class)->planoActualizacao(
+            $leitura, (int) $data['mes'], (int) $data['ano'], (float) $data['leitura_actual'],
+        ));
+    }
+
     private function proximoNumeroLeitura(int $ano, int $mes): string
     {
         return \App\Support\NumeracaoDocumentos::proximoNumero(
@@ -190,9 +279,32 @@ class LeituraController extends Controller
         }
 
         $data = $request->validate([
-            'leitura_actual' => "required|numeric|min:{$leitura->leitura_anterior}",
+            'leitura_actual' => 'required|numeric|min:0',
+            'mes' => 'nullable|integer|min:1|max:12',
+            'ano' => 'nullable|integer|min:2000|max:2100',
             'confirmado' => 'boolean',
+            'confirmar_impacto' => 'nullable|boolean',
+            'motivo' => 'nullable|string|min:5|max:1000',
         ]);
+
+        $mes = (int) ($data['mes'] ?? $leitura->mes);
+        $ano = (int) ($data['ano'] ?? $leitura->ano);
+        if ($request->boolean('confirmar_impacto')) {
+            app(SequenciaLeituras::class)->actualizar($leitura, $mes, $ano, (float) $data['leitura_actual'], $request->user()->id, (string) ($data['motivo'] ?? ''));
+            return back()->with('status', 'Leitura actualizada. A sequência e as facturas pendentes afectadas foram recalculadas.');
+        }
+        if ($mes !== (int) $leitura->mes || $ano !== (int) $leitura->ano) {
+            return back()->withErrors(['mes' => 'Pré-visualize o impacto antes de mudar o período da leitura.']);
+        }
+
+        if (empty($data['confirmado']) && (float) $data['leitura_actual'] !== (float) $leitura->leitura_actual) {
+            $plano = app(SequenciaLeituras::class)->planoActualizacao($leitura, $mes, $ano, (float) $data['leitura_actual']);
+            if ($plano['requer_previsualizacao']) {
+                return back()->withErrors(['leitura_actual' => 'Pré-visualize o impacto antes de alterar uma leitura com períodos seguintes.']);
+            }
+            app(SequenciaLeituras::class)->actualizar($leitura, $mes, $ano, (float) $data['leitura_actual'], $request->user()->id, 'Correcção de leitura pendente');
+            return back()->with('status', 'Leitura actualizada com registo de auditoria.');
+        }
 
         if (! empty($data['confirmado'])) {
             $data['confirmado_por'] = $request->user()->id;
@@ -270,6 +382,12 @@ class LeituraController extends Controller
             'motivo_anulacao' => 'required|string|min:5|max:1000',
         ]);
 
+        if ((int) ($data['mes'] ?? $leitura->mes) === (int) $leitura->mes
+            && (int) ($data['ano'] ?? $leitura->ano) === (int) $leitura->ano
+            && (float) $data['leitura_actual'] < (float) $leitura->leitura_anterior) {
+            return back()->withErrors(['leitura_actual' => 'A leitura actual não pode ser menor que o contador anterior.']);
+        }
+
         $factura = $leitura->factura;
 
         if ($factura?->pagamentos()->exists()) {
@@ -314,9 +432,18 @@ class LeituraController extends Controller
         }
 
         $data = $request->validate([
-            'leitura_actual' => "required|numeric|min:{$leitura->leitura_anterior}",
+            'leitura_actual' => 'required|numeric|min:0',
+            'mes' => 'nullable|integer|min:1|max:12',
+            'ano' => 'nullable|integer|min:2000|max:2100',
             'motivo' => 'required|string|min:5|max:1000',
         ]);
+
+        $mesNovo = (int) ($data['mes'] ?? $leitura->mes);
+        $anoNovo = (int) ($data['ano'] ?? $leitura->ano);
+        if ($mesNovo !== (int) $leitura->mes || $anoNovo !== (int) $leitura->ano) {
+            app(SequenciaLeituras::class)->actualizar($leitura, $mesNovo, $anoNovo, (float) $data['leitura_actual'], $request->user()->id, $data['motivo']);
+            return back()->with('status', 'Período da leitura corrigido e sequência recalculada.');
+        }
 
         if (round((float) $data['leitura_actual'], 2) === round((float) $leitura->leitura_actual, 2)) {
             return back()->withErrors(['leitura_actual' => 'O valor é igual ao actual: não há nada a corrigir.']);

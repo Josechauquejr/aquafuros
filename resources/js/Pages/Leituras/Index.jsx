@@ -3,14 +3,11 @@ import {
     Ban,
     CheckCheck,
     CheckCircle2,
-    Clock,
     Eye,
-    FileText,
     Pencil,
     Undo2,
     Plus,
     Trash2,
-    Waves,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
@@ -21,7 +18,6 @@ import { Campo, Campos, Destaque, Destaques, MaisDetalhes } from "@/Components/D
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
-import KpiCard from "@/Components/KpiCard";
 import ResumoMes from "@/Components/ResumoMes";
 import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
@@ -31,7 +27,8 @@ import StatusBadge from "@/Components/StatusBadge";
 import FuseDanger from "@/Components/FuseDanger";
 import Textarea from "@/Components/Textarea";
 import TextInput from "@/Components/TextInput";
-import { formatDate, formatDateTime, formatNumero, formatVolume } from "@/lib/utils";
+import { formatDate, formatDateTime, formatMoney, formatNumero, formatVolume } from "@/lib/utils";
+import { previewPost } from "@/lib/previewPost";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -71,6 +68,7 @@ const filtrosConfig = [
 const consumoDe = (leitura) => Number(leitura.leitura_actual) - Number(leitura.leitura_anterior);
 
 function EstadoLeitura({ leitura }) {
+    if (leitura.abertura) return <StatusBadge tone="slate">Abertura · não faturável</StatusBadge>;
     if (leitura.factura) return <StatusBadge tone="cyan">Facturada</StatusBadge>;
     return (
         <StatusBadge tone={leitura.confirmado ? "emerald" : "amber"}>
@@ -98,10 +96,10 @@ const colunas = [
         chave: "cliente",
         titulo: "Cliente",
         ordenavel: true,
-        render: (leitura) => (
+        render: (leitura) => leitura.__linhaAgrupada ? null : (
             <>
                 <p className="font-semibold text-slate-900 dark:text-white">{leitura.cliente?.nome ?? "Cliente removido"}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{formatDate(leitura.created_at)}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{leitura.abertura ? "Valor inicial do contador" : formatDate(leitura.created_at)}</p>
             </>
         ),
     },
@@ -110,7 +108,7 @@ const colunas = [
         titulo: "Período",
         ordenavel: true,
         render: (leitura) => (
-            <>
+            leitura.abertura ? <p className="font-semibold">Abertura</p> : <>
                 <p>{meses[leitura.mes - 1]}/{leitura.ano}</p>
                 <p className="text-xs text-slate-500">{leitura.numero_leitura}</p>
             </>
@@ -122,7 +120,7 @@ const colunas = [
         ordenavel: true,
         direita: true,
         render: (leitura) => (
-            <span className="font-semibold text-cyan-700 dark:text-cyan-300">{formatVolume(consumoDe(leitura))}</span>
+            <span className="font-semibold text-cyan-700 dark:text-cyan-300">{leitura.abertura ? `${formatNumero(leitura.leitura_actual)} m³` : formatVolume(consumoDe(leitura))}</span>
         ),
     },
     {
@@ -145,12 +143,12 @@ const colunas = [
 const cartaoLeitura = (leitura) => (
     <div className="space-y-2">
         <div>
-            <p className="font-semibold text-slate-900 dark:text-white">{leitura.cliente?.nome ?? "Cliente removido"}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-                {formatDate(leitura.created_at)} · {meses[leitura.mes - 1]}/{leitura.ano} · {leitura.numero_leitura}
-            </p>
+            {!leitura.__linhaAgrupada && <p className="font-semibold text-slate-900 dark:text-white">{leitura.cliente?.nome ?? "Cliente removido"}</p>}
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {leitura.abertura ? "Valor inicial do contador" : `${formatDate(leitura.created_at)} · ${meses[leitura.mes - 1]}/${leitura.ano} · ${leitura.numero_leitura}`}
+                </p>
         </div>
-        <p className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">{formatVolume(consumoDe(leitura))}</p>
+        <p className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">{leitura.abertura ? `Contador: ${formatNumero(leitura.leitura_actual)} m³` : formatVolume(consumoDe(leitura))}</p>
         <div className="flex flex-wrap items-center gap-2">
             <EstadoLeitura leitura={leitura} />
         </div>
@@ -160,12 +158,12 @@ const cartaoLeitura = (leitura) => (
 // Cartão expandido: o essencial da leitura; o resto em "Mais detalhes".
 const detalheLeitura = {
     titulo: (leitura) => leitura.cliente?.nome ?? "Cliente removido",
-    descricao: (leitura) => `Leitura de ${meses[leitura.mes - 1]}/${leitura.ano}`,
+    descricao: (leitura) => leitura.abertura ? "Abertura do contador · não faturável" : `Leitura de ${meses[leitura.mes - 1]}/${leitura.ano}`,
     conteudo: (leitura) => (
         <>
             <Destaques>
-                <Destaque rotulo="Consumo" tom="primario">
-                    {formatVolume(consumoDe(leitura))}
+                <Destaque rotulo={leitura.abertura ? "Leitura de abertura" : "Consumo"} tom="primario">
+                    {leitura.abertura ? `${formatNumero(leitura.leitura_actual)} m³` : formatVolume(consumoDe(leitura))}
                 </Destaque>
                 <Destaque rotulo="Estado">
                     <EstadoLeitura leitura={leitura} />
@@ -173,9 +171,9 @@ const detalheLeitura = {
             </Destaques>
             <Campos className="mt-5">
                 <Campo rotulo="Contador">
-                    {formatNumero(leitura.leitura_anterior)} → {formatNumero(leitura.leitura_actual)}
+                    {leitura.abertura ? `Contador inicial: ${formatNumero(leitura.leitura_actual)}` : `${formatNumero(leitura.leitura_anterior)} → ${formatNumero(leitura.leitura_actual)}`}
                 </Campo>
-                <Campo rotulo="Factura">{leitura.factura && <FacturaLink factura={leitura.factura} />}</Campo>
+                <Campo rotulo="Factura">{leitura.abertura ? "Não aplicável" : leitura.factura && <FacturaLink factura={leitura.factura} />}</Campo>
                 {leitura.correccao_activa && (
                     <Campo rotulo="Corrigida">
                         {formatNumero(leitura.correccao_activa.leitura_antes)} → {formatNumero(leitura.correccao_activa.leitura_depois)} por{" "}
@@ -193,7 +191,7 @@ const detalheLeitura = {
     ),
 };
 
-export default function Index({ leituras, clientes, totais, resumoMes, mesReferencia, pendentesTotal = 0, facturarAoConfirmar = false, filtros }) {
+export default function Index({ leituras, clientes, totais, mesReferencia, pendentesTotal = 0, facturarAoConfirmar = false, filtros }) {
     const { flash, auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador");
     const [showModal, setShowModal] = useState(false);
@@ -207,6 +205,12 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
     const [recemRegistada, setRecemRegistada] = useState(null);
     const [corrigindo, setCorrigindo] = useState(null);
     const [paraDesfazer, setParaDesfazer] = useState(null);
+    const [previewAjuste, setPreviewAjuste] = useState(null);
+    const [motivoAjuste, setMotivoAjuste] = useState("");
+    const [aberturaEditando, setAberturaEditando] = useState(null);
+    const [previewAbertura, setPreviewAbertura] = useState(null);
+    const aberturaForm = useForm({ leitura_inicial: "" });
+    const [motivoAbertura, setMotivoAbertura] = useState("");
 
     // O administrador que acaba de registar uma leitura decide logo se a confirma.
     useEffect(() => {
@@ -216,13 +220,6 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
     const form = useForm(formVazio);
     const anularForm = useForm({ motivo_anulacao: "" });
     const corrigirForm = useForm({ leitura_actual: "", motivo: "" });
-
-    const metrics = [
-        { label: "Leituras do mês", value: totais.total, icon: Waves, tone: "cyan" },
-        { label: "Confirmadas", value: totais.confirmadas, icon: CheckCircle2, tone: "emerald" },
-        { label: "Pendentes de confirmação", value: totais.pendentes, icon: Clock, tone: "amber" },
-        { label: "Confirmadas sem factura", value: totais.semFactura, icon: FileText, tone: "rose" },
-    ];
 
     const abrirNova = () => {
         setEditando(null);
@@ -258,6 +255,42 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
         setShowModal(true);
     };
 
+    const abrirEdicaoAbertura = (leitura) => {
+        setAberturaEditando(leitura);
+        aberturaForm.setData("leitura_inicial", leitura.leitura_actual);
+        aberturaForm.clearErrors();
+        setMotivoAbertura("");
+    };
+
+    const previsualizarAbertura = async (event) => {
+        event.preventDefault();
+        try {
+            const plano = await previewPost(
+                `/clientes/${aberturaEditando.cliente.numero_cliente}/previsualizar-leitura-inicial`,
+                aberturaForm.data,
+            );
+            setPreviewAbertura(plano);
+        } catch (error) {
+            aberturaForm.setError("leitura_inicial", error.message);
+        }
+    };
+
+    const confirmarAbertura = () => {
+        if (!previewAbertura?.pode_aplicar || motivoAbertura.trim().length < 5) return;
+        aberturaForm.transform((data) => ({
+            ...data,
+            confirmar_leitura_inicial: true,
+            motivo_leitura_inicial: motivoAbertura,
+        })).put(`/clientes/${aberturaEditando.cliente.numero_cliente}/leitura-inicial`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setPreviewAbertura(null);
+                setAberturaEditando(null);
+            },
+            onFinish: () => aberturaForm.transform((data) => data),
+        });
+    };
+
     // Leituras suspeitas: "anterior = 0" (o consumo seria calculado desde o
     // início do contador) ou consumo muito acima da média do cliente.
     // Só avisa — quem regista decide se prossegue.
@@ -288,19 +321,44 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
         setAvisoLeitura({ avisos, prosseguir });
     };
 
-    const submit = (event) => {
+    const submit = async (event) => {
         event.preventDefault();
 
         if (editando) {
-            const guardar = () =>
-                form
-                    .transform((data) => ({ leitura_actual: data.leitura_actual, confirmado: editando.confirmado }))
-                    .put(`/leituras/${editando.id}`, { onSuccess: () => setShowModal(false) });
-            comAviso(avisosDaLeitura(editando.cliente_id, editando.leitura_anterior, form.data.leitura_actual), guardar);
+            try {
+                const plano = await previewPost(`/leituras/${editando.id}/previsualizar`, form.data);
+                setPreviewAjuste({ tipo: "actualizar", plano });
+                setMotivoAjuste("");
+            } catch (error) {
+                form.setError("leitura_actual", error.message);
+            }
         } else {
-            const cliente = clientes.find((c) => String(c.id) === String(form.data.cliente_id));
-            const guardar = () => form.post("/leituras", { onSuccess: () => setShowModal(false) });
-            comAviso(avisosDaLeitura(form.data.cliente_id, cliente?.leitura_anterior ?? 0, form.data.leitura_actual), guardar);
+            try {
+                const plano = await previewPost("/leituras/previsualizar", form.data);
+                if (plano.retroactiva) {
+                    setPreviewAjuste({ tipo: "inserir", plano });
+                    setMotivoAjuste("");
+                    return;
+                }
+                const guardar = () => form.post("/leituras", { onSuccess: () => setShowModal(false) });
+                comAviso(avisosDaLeitura(form.data.cliente_id, plano.leitura_anterior, form.data.leitura_actual), guardar);
+            } catch (error) {
+                form.setError("leitura_actual", error.message);
+            }
+        }
+    };
+
+    const confirmarAjuste = () => {
+        if (!previewAjuste?.plano?.pode_aplicar) return;
+        const precisaMotivo = previewAjuste.tipo === "inserir" || previewAjuste.plano.requer_motivo;
+        if (precisaMotivo && motivoAjuste.trim().length < 5) return;
+        const extras = { confirmar_impacto: true, motivo: motivoAjuste };
+        if (previewAjuste.tipo === "inserir") {
+            form.transform((data) => ({ ...data, ...extras })).post("/leituras", { onSuccess: () => { setPreviewAjuste(null); setShowModal(false); }, onFinish: () => form.transform((data) => data) });
+        } else if (previewAjuste.tipo === "actualizar") {
+            form.transform((data) => ({ ...data, ...extras })).put(`/leituras/${editando.id}`, { onSuccess: () => { setPreviewAjuste(null); setShowModal(false); }, onFinish: () => form.transform((data) => data) });
+        } else {
+            corrigirForm.transform((data) => ({ ...data, motivo: motivoAjuste })).put(`/leituras/${corrigindo.id}/corrigir`, { onSuccess: () => { setPreviewAjuste(null); setCorrigindo(null); }, onFinish: () => corrigirForm.transform((data) => data) });
         }
     };
 
@@ -328,13 +386,23 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
 
     // Só o administrador corrige uma leitura confirmada; a factura (se houver) é recalculada.
     const abrirCorreccao = (leitura) => {
-        corrigirForm.setData({ leitura_actual: leitura.leitura_actual, motivo: "" });
+        corrigirForm.setData({ leitura_actual: leitura.leitura_actual, mes: leitura.mes, ano: leitura.ano, motivo: "" });
         corrigirForm.clearErrors();
         setCorrigindo(leitura);
     };
 
-    const submeterCorreccao = (event) => {
+    const submeterCorreccao = async (event) => {
         event.preventDefault();
+        if (Number(corrigirForm.data.mes) !== Number(corrigindo.mes) || Number(corrigirForm.data.ano) !== Number(corrigindo.ano)) {
+            try {
+                const plano = await previewPost(`/leituras/${corrigindo.id}/previsualizar`, corrigirForm.data);
+                setPreviewAjuste({ tipo: "corrigir", plano });
+                setMotivoAjuste(corrigirForm.data.motivo);
+            } catch (error) {
+                corrigirForm.setError("mes", error.message);
+            }
+            return;
+        }
         corrigirForm.put(`/leituras/${corrigindo.id}/corrigir`, { preserveScroll: true, onSuccess: () => setCorrigindo(null) });
     };
 
@@ -392,6 +460,13 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
     };
 
     const accoesLeitura = (leitura) => {
+        if (leitura.abertura) {
+            if (!ehAdministrador) return undefined;
+            return { menu: [
+                { icone: Eye, rotulo: "Ver detalhe", expandir: true },
+                { icone: Pencil, rotulo: "Editar leitura de abertura", onClick: () => abrirEdicaoAbertura(leitura) },
+            ] };
+        }
         const nome = leitura.cliente?.nome ?? "cliente removido";
 
         return {
@@ -424,6 +499,7 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
     };
 
     const selecao = {
+        podeSeleccionar: (leitura) => !leitura.abertura,
         acoes: [
             {
                 rotulo: "Confirmar",
@@ -474,19 +550,14 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
 
-                    <ResumoMes rota="/leituras" mesReferencia={mesReferencia} resumo={resumoMes} filtros={filtros} />
-
-                    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        {metrics.map((metric, index) => (
-                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
-                        ))}
-                    </section>
+                    <ResumoMes rota="/leituras" tipo="leituras" mesReferencia={mesReferencia} dados={totais} filtros={filtros} />
 
                     <DataTable
                         rota="/leituras"
                         filtros={filtros}
                         padroes={padroes}
                         paginador={leituras}
+                        agruparPor={(leitura) => ({ id: `cliente-${leitura.cliente_id}`, label: leitura.cliente?.nome ?? "Cliente removido" })}
                         colunas={colunas}
                         cartao={cartaoLeitura}
                         detalhe={detalheLeitura}
@@ -534,8 +605,7 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
                         </div>
                     )}
 
-                    {!editando && (
-                        <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <InputLabel htmlFor="mes" value="Mês" />
                                 <select
@@ -561,8 +631,7 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
                                     className="mt-1 block w-full"
                                 />
                             </div>
-                        </div>
-                    )}
+                    </div>
 
                     <div>
                         <InputLabel htmlFor="leitura_actual" value="Leitura actual do contador" />
@@ -613,12 +682,16 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
                                 A factura <strong>{corrigindo.factura.numero_factura}</strong> será recalculada com o novo consumo. Se já foi enviada ao cliente, reenvie-a depois.
                             </div>
                         )}
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div><InputLabel htmlFor="correccao_mes" value="Mês" /><select id="correccao_mes" value={corrigirForm.data.mes} onChange={(event) => corrigirForm.setData("mes", event.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">{meses.map((nome, index) => <option key={nome} value={index + 1}>{nome}</option>)}</select><InputError message={corrigirForm.errors.mes} className="mt-1" /></div>
+                            <div><InputLabel htmlFor="correccao_ano" value="Ano" /><TextInput id="correccao_ano" type="number" min="2000" max="2100" value={corrigirForm.data.ano} onChange={(event) => corrigirForm.setData("ano", event.target.value)} className="mt-1 block w-full" /><InputError message={corrigirForm.errors.ano} className="mt-1" /></div>
+                        </div>
                         <div>
                             <InputLabel htmlFor="correccao_leitura" value="Leitura actual correcta" />
                             <TextInput
                                 id="correccao_leitura"
                                 type="number"
-                                min={corrigindo.leitura_anterior}
+                                min="0"
                                 step="0.01"
                                 required
                                 value={corrigirForm.data.leitura_actual}
@@ -647,6 +720,41 @@ export default function Index({ leituras, clientes, totais, resumoMes, mesRefere
                         </div>
                     </form>
                 )}
+            </Modal>
+
+            <Modal show={Boolean(aberturaEditando && !previewAbertura)} onClose={() => setAberturaEditando(null)} title="Editar leitura de abertura" maxWidth="md">
+                {aberturaEditando && !previewAbertura && <form onSubmit={previsualizarAbertura} className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">{aberturaEditando.cliente?.nome}: este valor é a referência do contador. Não gera factura nem pagamento; a alteração pode recalcular a primeira leitura mensal.</p>
+                    <div>
+                        <InputLabel htmlFor="leitura-inicial-lista" value="Valor de abertura (m³)" />
+                        <TextInput id="leitura-inicial-lista" type="number" min="0" max="99999999" step="0.01" value={aberturaForm.data.leitura_inicial} onChange={(event) => aberturaForm.setData("leitura_inicial", event.target.value)} className="mt-1 block w-full" required />
+                        <InputError message={aberturaForm.errors.leitura_inicial} className="mt-1" />
+                    </div>
+                    <div className="flex justify-end gap-3"><SecondaryButton type="button" onClick={() => setAberturaEditando(null)}>Cancelar</SecondaryButton><PrimaryButton type="submit" disabled={aberturaForm.processing}>Pré-visualizar</PrimaryButton></div>
+                </form>}
+            </Modal>
+
+            <Modal show={Boolean(previewAbertura)} onClose={() => setPreviewAbertura(null)} title="Pré-visualizar leitura de abertura" maxWidth="md">
+                {previewAbertura && <div className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">Leitura inicial: <strong>{formatNumero(previewAbertura.leitura_inicial_antes)} → {formatNumero(previewAbertura.leitura_inicial_depois)} m³</strong>.</p>
+                    {previewAbertura.primeira ? <div className="rounded-lg border border-border p-4 text-sm"><p>Primeira leitura mensal: <strong>{previewAbertura.primeira.periodo}</strong> · contador {formatNumero(previewAbertura.primeira.contador)} m³</p><p className="mt-1">Consumo: {formatNumero(previewAbertura.primeira.consumo_antes)} → <strong>{formatNumero(previewAbertura.primeira.consumo_depois)} m³</strong></p>{previewAbertura.factura?.factura && <p className="mt-1">Factura {previewAbertura.factura.factura.numero_factura}: {formatMoney(previewAbertura.factura.total_antes)} → <strong>{previewAbertura.factura.total_depois == null ? "—" : formatMoney(previewAbertura.factura.total_depois)}</strong></p>}</div> : <p className="text-sm">Ainda não há leituras mensais; apenas o valor de abertura será actualizado.</p>}
+                    {!previewAbertura.pode_aplicar && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">A factura da primeira leitura tem pagamentos ou não está pendente. Regularize-a antes de alterar a abertura.</p>}
+                    <div><InputLabel htmlFor="motivo-abertura-lista" value="Motivo da alteração" /><Textarea id="motivo-abertura-lista" rows={3} value={motivoAbertura} onChange={(event) => setMotivoAbertura(event.target.value)} className="mt-1 block w-full" placeholder="Explique por que o valor de abertura está a ser corrigido" /></div>
+                    <div className="flex justify-end gap-3"><SecondaryButton type="button" onClick={() => setPreviewAbertura(null)}>Voltar</SecondaryButton><PrimaryButton type="button" disabled={!previewAbertura.pode_aplicar || motivoAbertura.trim().length < 5 || aberturaForm.processing} onClick={confirmarAbertura}>Confirmar correcção</PrimaryButton></div>
+                </div>}
+            </Modal>
+
+            <Modal show={Boolean(previewAjuste)} onClose={() => setPreviewAjuste(null)} title="Pré-visualizar impacto da leitura" maxWidth="lg">
+                {previewAjuste && <div className="space-y-4">
+                    {previewAjuste.tipo === "inserir" ? <>
+                        <p className="text-sm text-slate-600 dark:text-slate-300">Nova leitura de <strong>{previewAjuste.plano.periodo}</strong>: contador anterior {formatNumero(previewAjuste.plano.leitura_anterior)}, consumo {formatNumero(previewAjuste.plano.consumo_novo)} m³.</p>
+                        {previewAjuste.plano.seguinte && <div className="rounded-lg border border-border p-4 text-sm">Leitura seguinte ({previewAjuste.plano.seguinte.periodo}): consumo {formatNumero(previewAjuste.plano.seguinte.consumo_antes)} → <strong>{formatNumero(previewAjuste.plano.seguinte.consumo_depois)} m³</strong>.</div>}
+                    </> : <div className="space-y-2 text-sm">{previewAjuste.plano.leituras?.map((item) => <div key={item.depois.id} className="rounded-lg border border-border p-3">Leitura {String(item.depois.mes).padStart(2, "0")}/{item.depois.ano}: contador anterior {formatNumero(item.antes.leitura_anterior)} → {formatNumero(item.depois.leitura_anterior)}; contador actual {formatNumero(item.antes.leitura_actual)} → {formatNumero(item.depois.leitura_actual)}.</div>)}</div>}
+                    {previewAjuste.plano.facturas?.length > 0 && <div className="space-y-2">{previewAjuste.plano.facturas.map((impacto, index) => <div key={impacto.factura?.id ?? `${impacto.leitura_id}-${index}`} className="rounded-lg border border-border p-3 text-sm">{impacto.factura ? <>Factura <strong>{impacto.factura.numero_factura}</strong> ({impacto.factura.estado}): consumo {formatNumero(impacto.consumo_antes)} → {formatNumero(impacto.consumo_depois)} m³; total {formatMoney(impacto.total_antes)} → {impacto.total_depois == null ? "—" : formatMoney(impacto.total_depois)}.</> : <>Leitura {impacto.leitura_id}: consumo {formatNumero(impacto.consumo_antes)} → {formatNumero(impacto.consumo_depois)} m³; ainda sem factura.</>}</div>)}</div>}
+                    {!previewAjuste.plano.pode_aplicar && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">Há uma factura afectada com pagamentos ou num estado que não permite recalcular. Estorne/regularize os pagamentos antes de continuar.</p>}
+                    {(previewAjuste.tipo === "inserir" || previewAjuste.plano.requer_motivo) && <div><InputLabel htmlFor="motivo-ajuste-leitura" value="Motivo" /><Textarea id="motivo-ajuste-leitura" rows={3} value={motivoAjuste} onChange={(event) => setMotivoAjuste(event.target.value)} className="mt-1 block w-full" placeholder="Explique por que esta leitura ou período está a ser corrigido" /></div>}
+                    <div className="flex justify-end gap-3"><SecondaryButton type="button" onClick={() => setPreviewAjuste(null)}>Cancelar</SecondaryButton><PrimaryButton type="button" disabled={!previewAjuste.plano.pode_aplicar || ((previewAjuste.tipo === "inserir" || previewAjuste.plano.requer_motivo) && motivoAjuste.trim().length < 5) || form.processing || corrigirForm.processing} onClick={confirmarAjuste}>Confirmar e aplicar</PrimaryButton></div>
+                </div>}
             </Modal>
 
             <ConfirmDialog

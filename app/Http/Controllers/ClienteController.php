@@ -7,6 +7,7 @@ use App\Models\Configuracao;
 use App\Models\Zona;
 use App\Models\Factura;
 use App\Models\Tarifa;
+use App\Services\SequenciaLeituras;
 use App\Rules\TelefoneMocambicano;
 use App\Support\BuscaDifusa;
 use App\Support\ListaQuery;
@@ -295,7 +296,23 @@ class ClienteController extends Controller
             'zona_id' => 'nullable|exists:zonas,id',
             'tarifa_id' => 'required|exists:tarifas,id',
             'estado' => 'required|in:ativo,inativo,cortado',
+            'leitura_inicial' => $request->user()->hasRole('administrador') ? 'nullable|numeric|min:0|max:99999999' : 'prohibited',
+            'confirmar_leitura_inicial' => 'nullable|boolean',
+            'motivo_leitura_inicial' => 'nullable|string|min:5|max:1000',
         ]);
+
+        if (array_key_exists('leitura_inicial', $data) && (float) $data['leitura_inicial'] !== (float) $cliente->leitura_inicial) {
+            if (! $request->boolean('confirmar_leitura_inicial')) {
+                return back()->withErrors(['leitura_inicial' => 'Pré-visualize o impacto antes de alterar a leitura inicial.']);
+            }
+            if (blank($data['motivo_leitura_inicial'] ?? null)) {
+                return back()->withErrors(['motivo_leitura_inicial' => 'Indique o motivo da correcção da leitura inicial.']);
+            }
+            app(SequenciaLeituras::class)->alterarLeituraInicial(
+                $cliente, (float) $data['leitura_inicial'], $request->user()->id, $data['motivo_leitura_inicial'],
+            );
+        }
+        unset($data['leitura_inicial'], $data['confirmar_leitura_inicial'], $data['motivo_leitura_inicial']);
 
         if (! empty($data['zona_id'])) {
             $data['bairro'] = Zona::find($data['zona_id'])->nome;
@@ -304,6 +321,29 @@ class ClienteController extends Controller
         $cliente->update($data);
 
         return back()->with('status', 'Cliente actualizado com sucesso.');
+    }
+
+    public function previsualizarLeituraInicial(Request $request, Cliente $cliente)
+    {
+        abort_unless($request->user()->hasRole('administrador'), 403);
+        $data = $request->validate(['leitura_inicial' => 'required|numeric|min:0|max:99999999']);
+        return response()->json(app(SequenciaLeituras::class)->planoLeituraInicial($cliente, (float) $data['leitura_inicial']));
+    }
+
+    public function actualizarLeituraInicial(Request $request, Cliente $cliente)
+    {
+        abort_unless($request->user()->hasRole('administrador'), 403);
+        $data = $request->validate([
+            'leitura_inicial' => 'required|numeric|min:0|max:99999999',
+            'confirmar_leitura_inicial' => 'required|accepted',
+            'motivo_leitura_inicial' => 'required|string|min:5|max:1000',
+        ]);
+
+        app(SequenciaLeituras::class)->alterarLeituraInicial(
+            $cliente, (float) $data['leitura_inicial'], $request->user()->id, $data['motivo_leitura_inicial'],
+        );
+
+        return back()->with('status', 'Leitura de abertura actualizada; a primeira leitura mensal e a factura pendente foram recalculadas.');
     }
 
     public function reverter(Activity $activity)

@@ -34,6 +34,7 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
 import { cn, formatNumero, formatDate, formatDateTime, formatMoney, formatPhone, formatVolume, phoneDigits } from "@/lib/utils";
+import { previewPost } from "@/lib/previewPost";
 
 const estadoConfig = {
     ativo: { label: "Activo", tone: "emerald" },
@@ -343,6 +344,8 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
     const [paraEliminar, setParaEliminar] = useState(null);
     const [facturaParaPagar, setFacturaParaPagar] = useState(null);
     const [novaZonaAberta, setNovaZonaAberta] = useState(false);
+    const [previewInicial, setPreviewInicial] = useState(null);
+    const [motivoInicial, setMotivoInicial] = useState("");
     const novaZona = useForm({ nome: "" });
     const ultimaFacturaTratadaRef = useRef(null);
 
@@ -431,6 +434,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
             telefone: cliente.telefone ?? "",
             tarifa_id: cliente.tarifa_id,
             estado: cliente.estado,
+            ...(ehAdministrador ? { leitura_inicial: cliente.leitura_inicial ?? 0 } : {}),
         });
         form.clearErrors();
         setEtapaNovo("formulario");
@@ -454,14 +458,34 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
         });
     };
 
-    const submitCliente = (event) => {
+    const submitCliente = async (event) => {
         event.preventDefault();
 
         if (editando) {
+            if (ehAdministrador && Number(form.data.leitura_inicial) !== Number(editando.leitura_inicial ?? 0)) {
+                try {
+                    const plano = await previewPost(`/clientes/${editando.numero_cliente}/previsualizar-leitura-inicial`, { leitura_inicial: form.data.leitura_inicial });
+                    setPreviewInicial(plano);
+                    setMotivoInicial("");
+                } catch (error) {
+                    form.setError("leitura_inicial", error.message);
+                }
+                return;
+            }
             form.put(`/clientes/${editando.numero_cliente}`, { onSuccess: fecharModalCliente });
         } else {
             form.post("/clientes", { onSuccess: fecharModalCliente });
         }
+    };
+
+    const confirmarLeituraInicial = () => {
+        if (!editando || !previewInicial?.pode_aplicar || motivoInicial.trim().length < 5) return;
+        form.transform((data) => ({ ...data, confirmar_leitura_inicial: true, motivo_leitura_inicial: motivoInicial }))
+            .put(`/clientes/${editando.numero_cliente}`, {
+                preserveScroll: true,
+                onSuccess: () => { setPreviewInicial(null); fecharModalCliente(); },
+                onFinish: () => form.transform((data) => data),
+            });
     };
 
     const confirmarEliminacao = () => {
@@ -751,6 +775,14 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
                             </p>
                         </div>
                     )}
+                    {editando && ehAdministrador && (
+                        <div>
+                            <InputLabel htmlFor="leitura_inicial" value="Leitura inicial do contador" />
+                            <TextInput id="leitura_inicial" type="number" min="0" step="0.01" value={form.data.leitura_inicial} onChange={(event) => form.setData("leitura_inicial", event.target.value)} className="mt-1 block w-full" />
+                            <InputError message={form.errors.leitura_inicial} className="mt-1" />
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">A alteração recalcula o consumo da primeira leitura. Se a factura tiver pagamentos, a alteração fica bloqueada até à regularização.</p>
+                        </div>
+                    )}
                     <InputError message={form.errors.telefone} className="-mt-2" />
 
                     <div className="flex justify-end gap-3 pt-2">
@@ -762,6 +794,20 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
                         </PrimaryButton>
                     </div>
                 </form>
+            </Modal>
+
+            <Modal show={Boolean(previewInicial)} onClose={() => setPreviewInicial(null)} title="Pré-visualizar leitura inicial" maxWidth="md">
+                {previewInicial && <div className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">Leitura inicial: <strong>{formatNumero(previewInicial.leitura_inicial_antes)} → {formatNumero(previewInicial.leitura_inicial_depois)}</strong>.</p>
+                    {previewInicial.primeira ? <div className="rounded-lg border border-border p-4 text-sm">
+                        <p>Primeira leitura: <strong>{previewInicial.primeira.periodo}</strong> · contador {formatNumero(previewInicial.primeira.contador)}</p>
+                        <p className="mt-1">Consumo: {formatNumero(previewInicial.primeira.consumo_antes)} → <strong>{formatNumero(previewInicial.primeira.consumo_depois)} m³</strong></p>
+                        {previewInicial.factura?.factura && <p className="mt-1">Factura {previewInicial.factura.factura.numero_factura}: {formatMoney(previewInicial.factura.total_antes)} → <strong>{previewInicial.factura.total_depois == null ? "—" : formatMoney(previewInicial.factura.total_depois)}</strong></p>}
+                    </div> : <p className="text-sm">Ainda não há leituras mensais; apenas o ponto inicial será actualizado.</p>}
+                    {!previewInicial.pode_aplicar && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">A factura afectada tem pagamentos ou não está pendente. Regularize os pagamentos antes de alterar esta leitura.</p>}
+                    <div><InputLabel htmlFor="motivo-leitura-inicial" value="Motivo da alteração" /><textarea id="motivo-leitura-inicial" rows={3} value={motivoInicial} onChange={(event) => setMotivoInicial(event.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Ex.: leitura de abertura confirmada com o cliente" /></div>
+                    <div className="flex justify-end gap-3"><SecondaryButton type="button" onClick={() => setPreviewInicial(null)}>Cancelar</SecondaryButton><PrimaryButton type="button" disabled={!previewInicial.pode_aplicar || motivoInicial.trim().length < 5 || form.processing} onClick={confirmarLeituraInicial}>Confirmar correcção</PrimaryButton></div>
+                </div>}
             </Modal>
 
             <Modal show={novaZonaAberta} onClose={() => setNovaZonaAberta(false)} title="Adicionar bairro/zona" maxWidth="sm">

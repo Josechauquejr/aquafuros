@@ -472,13 +472,6 @@ export default function Index({
         });
     }, [resumoMensalProp]);
 
-    const pctRecebido = totais.totalFacturado > 0
-        ? Math.min(100, (totais.recebidoNoMes / totais.totalFacturado) * 100)
-        : 0;
-    const pctAberto = totais.totalFacturado > 0
-        ? Math.min(100 - pctRecebido, (totais.emAberto / totais.totalFacturado) * 100)
-        : 0;
-
     const abrirNova = () => {
         setEditando(null);
         setLeituraSelecionada(leiturasDisponiveis[0]?.id ?? "");
@@ -731,22 +724,7 @@ export default function Index({
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
 
-                    <ResumoMes rota="/facturas" mesReferencia={mesReferencia} resumo={totais} filtros={filtros} />
-
-                    {totais.totalFacturado > 0 && (
-                        <AnimatedPanel delay={0.14} className="px-5 py-4">
-                            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                                <span>Recebido vs. em aberto do mês</span>
-                                <span>
-                                    {formatNumero((totais.recebidoNoMes / totais.totalFacturado) * 100, 0)}% recebido
-                                </span>
-                            </div>
-                            <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                                <div className="h-full bg-emerald-500" style={{ width: `${pctRecebido}%` }} />
-                                <div className="h-full bg-amber-400" style={{ width: `${pctAberto}%` }} />
-                            </div>
-                        </AnimatedPanel>
-                    )}
+                    <ResumoMes rota="/facturas" tipo="facturas" mesReferencia={mesReferencia} dados={totais} filtros={filtros} />
 
                     <AnimatedPanel delay={0.16} className="overflow-hidden">
                         <button

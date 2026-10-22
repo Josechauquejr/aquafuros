@@ -50,7 +50,6 @@ class ResumoMensal
         return [
             'totalFacturado' => round((float) $emitidas->sum(fn ($f) => $f->valorProprio()), 2),
             'numeroFacturas' => $emitidas->count(),
-            'recebidoNoMes' => round((float) Pagamento::whereBetween('pago_em', [$inicio, $fim])->sum('valor_pago'), 2),
             'emAberto' => round((float) $abertas->sum($falta), 2),
             'pendentesCount' => $emitidas->where('estado', 'pendente')->count(),
             'parciaisCount' => $emitidas->where('estado', 'parcial')->count(),

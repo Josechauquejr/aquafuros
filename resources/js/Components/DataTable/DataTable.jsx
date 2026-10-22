@@ -1,4 +1,6 @@
 import { Link } from "@inertiajs/react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { Fragment } from "react";
 import { useMemo, useRef, useState } from "react";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
@@ -125,6 +127,7 @@ export default function DataTable({
     accoes,
     rotuloAccoes,
     selecao,
+    agruparPor,
     vazio,
 }) {
     const estado = useTableState({ rota, filtros, padroes });
@@ -133,13 +136,30 @@ export default function DataTable({
     const ecraGrande = useEcraGrande();
     const [seleccionados, setSeleccionados] = useState([]);
     const [aberta, setAberta] = useState(null);
+    const [gruposAbertos, setGruposAbertos] = useState({});
     const ultimaAberta = useRef(null);
+    const grupoEstaAberto = (id) => gruposAbertos[id] !== false;
+
+    const grupos = useMemo(() => {
+        if (!agruparPor) return [{ id: "__todos__", label: null, linhas }];
+        const agrupados = new Map();
+        linhas.forEach((linha) => {
+            const grupo = agruparPor(linha);
+            if (!agrupados.has(grupo.id)) agrupados.set(grupo.id, { ...grupo, linhas: [] });
+            agrupados.get(grupo.id).linhas.push({ ...linha, __linhaAgrupada: true });
+        });
+        return Array.from(agrupados.values());
+    }, [linhas, agruparPor]);
+    const linhasVisiveis = agruparPor
+        ? grupos.filter((grupo) => grupoEstaAberto(grupo.id)).flatMap((grupo) => grupo.linhas)
+        : linhas;
 
     const colunasOrdenaveis = useMemo(() => colunas.filter((coluna) => coluna.ordenavel), [colunas]);
     const chips = chipsActivos({ filtrosConfig, filtros, padroes, periodo });
     const temFiltros = chips.length > 0 || Boolean(estado.search);
 
-    const idsVisiveis = linhas.map(linhaId);
+    const podeSeleccionar = (linha) => selecao?.podeSeleccionar?.(linha) ?? true;
+    const idsVisiveis = linhasVisiveis.filter(podeSeleccionar).map(linhaId);
     const todosSeleccionados = idsVisiveis.length > 0 && idsVisiveis.every((id) => seleccionados.includes(id));
 
     const alternar = (id) =>
@@ -175,6 +195,42 @@ export default function DataTable({
     };
 
     const accoesDe = (linha) => resolverAccoes(accoes?.(linha), () => abrirCartao(linha));
+
+    const renderCartaoLinha = (linha) => {
+        const id = linhaId(linha);
+        const accao = accoesDe(linha);
+        const corpo = (
+            <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                {selecao && podeSeleccionar(linha) && <label className="-m-3 mr-0 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
+                    <input type="checkbox" checked={seleccionados.includes(id)} onChange={() => alternar(id)} className={checkboxClasses} aria-label="Seleccionar linha" />
+                </label>}
+                <div className="min-w-0 flex-1">{cartao(linha)}</div>
+                {accao && <RowActions {...accao} rotuloMenu={rotuloAccoes?.(linha)} />}
+            </div>
+        );
+        if (!detalhe) return <div key={id}>{corpo}</div>;
+        return <ExpandableCard key={id} trigger={corpo} title={detalhe.titulo(linha)} description={detalhe.descricao?.(linha)} open={aberta === id} onOpenChange={(valor) => setAberta(valor ? id : null)} footer={accao && <AccoesDoCartao accao={accao} fechar={() => setAberta(null)} />}>
+            {detalhe.conteudo(linha)}
+        </ExpandableCard>;
+    };
+
+    const renderTabelaLinha = (linha) => {
+        const id = linhaId(linha);
+        const accao = accoesDe(linha);
+        return <tr key={id} onClick={(evento) => cliqueNaLinha(evento, linha)} onKeyDown={(evento) => {
+            if (evento.key === "Enter" && evento.target === evento.currentTarget) abrirCartao(linha);
+        }} tabIndex={detalhe ? 0 : undefined} title={detalhe ? "Ver todos os dados" : undefined} className={cn("transition hover:bg-slate-50 dark:hover:bg-slate-800/40", detalhe && "cursor-pointer focus:outline-none focus-visible:bg-slate-50 dark:focus-visible:bg-slate-800/40")}>
+            {selecao && <td className="px-4 py-3.5">{podeSeleccionar(linha) && <input type="checkbox" checked={seleccionados.includes(id)} onChange={() => alternar(id)} className={checkboxClasses} aria-label="Seleccionar linha" />}</td>}
+            {colunas.map((coluna) => <td key={coluna.chave} className={cn("px-4 py-3.5 text-slate-700 dark:text-slate-300", coluna.direita && "text-right", coluna.className)}>{coluna.render(linha)}</td>)}
+            {accoes && <td className="px-4 py-2">{accao && <RowActions {...accao} rotuloMenu={rotuloAccoes?.(linha)} />}</td>}
+        </tr>;
+    };
+
+    const alternarGrupo = (grupo) => {
+        const fechar = grupoEstaAberto(grupo.id);
+        if (fechar && grupo.linhas.some((linha) => linhaId(linha) === aberta)) setAberta(null);
+        setGruposAbertos((anteriores) => ({ ...anteriores, [grupo.id]: fechar ? false : true }));
+    };
 
     return (
         <div className="space-y-4">
@@ -217,44 +273,13 @@ export default function DataTable({
                     {/* Cartões — móvel (<md): não há cabeçalhos, a ordenação está no painel de Filtros */}
                     {!ecraGrande && (
                         <div className={cn("space-y-3 transition-opacity duration-150", carregando && "opacity-60")} aria-busy={carregando}>
-                            {linhas.map((linha) => {
-                                      const id = linhaId(linha);
-                                      const accao = accoesDe(linha);
-                                      const corpo = (
-                                          <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                                              {selecao && (
-                                                  // Área de toque de 44 px à volta da caixa de 16 px.
-                                                  <label className="-m-3 mr-0 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
-                                                      <input
-                                                          type="checkbox"
-                                                          checked={seleccionados.includes(id)}
-                                                          onChange={() => alternar(id)}
-                                                          className={checkboxClasses}
-                                                          aria-label="Seleccionar linha"
-                                                      />
-                                                  </label>
-                                              )}
-                                              <div className="min-w-0 flex-1">{cartao(linha)}</div>
-                                              {accao && <RowActions {...accao} rotuloMenu={rotuloAccoes?.(linha)} />}
-                                          </div>
-                                      );
-
-                                      if (!detalhe) return <div key={id}>{corpo}</div>;
-
-                                      return (
-                                          <ExpandableCard
-                                              key={id}
-                                              trigger={corpo}
-                                              title={detalhe.titulo(linha)}
-                                              description={detalhe.descricao?.(linha)}
-                                              open={aberta === id}
-                                              onOpenChange={(valor) => setAberta(valor ? id : null)}
-                                              footer={accao && <AccoesDoCartao accao={accao} fechar={() => setAberta(null)} />}
-                                          >
-                                              {detalhe.conteudo(linha)}
-                                          </ExpandableCard>
-                                      );
-                                  })}
+                            {grupos.map((grupo) => <div key={grupo.id} className={agruparPor ? "overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800" : "space-y-3"}>
+                                {agruparPor && <button type="button" onClick={() => alternarGrupo(grupo)} aria-expanded={grupoEstaAberto(grupo.id)} className="flex min-h-12 w-full items-center gap-2 bg-white px-4 py-3 text-left font-semibold text-slate-900 hover:bg-slate-50 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
+                                    {grupoEstaAberto(grupo.id) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    <span className="flex-1">{grupo.label}</span><span className="text-xs font-normal text-slate-500">{grupo.linhas.length} leitura(s)</span>
+                                </button>}
+                                {(!agruparPor || grupoEstaAberto(grupo.id)) && <div className={agruparPor ? "space-y-2 border-t border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/30" : "space-y-3"}>{grupo.linhas.map(renderCartaoLinha)}</div>}
+                            </div>)}
                         </div>
                     )}
 
@@ -271,6 +296,7 @@ export default function DataTable({
                                                         type="checkbox"
                                                         checked={todosSeleccionados}
                                                         onChange={alternarTodos}
+                                                        disabled={idsVisiveis.length === 0}
                                                         className={checkboxClasses}
                                                         aria-label="Seleccionar todas as linhas visíveis"
                                                     />
@@ -296,55 +322,17 @@ export default function DataTable({
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {linhas.map((linha) => {
-                                                  const id = linhaId(linha);
-                                                  const accao = accoesDe(linha);
-
-                                                  return (
-                                                      <tr
-                                                          key={id}
-                                                          onClick={(evento) => cliqueNaLinha(evento, linha)}
-                                                          onKeyDown={(evento) => {
-                                                              if (evento.key === "Enter" && evento.target === evento.currentTarget) abrirCartao(linha);
-                                                          }}
-                                                          tabIndex={detalhe ? 0 : undefined}
-                                                          title={detalhe ? "Ver todos os dados" : undefined}
-                                                          className={cn(
-                                                              "transition hover:bg-slate-50 dark:hover:bg-slate-800/40",
-                                                              detalhe && "cursor-pointer focus:outline-none focus-visible:bg-slate-50 dark:focus-visible:bg-slate-800/40",
-                                                          )}
-                                                      >
-                                                          {selecao && (
-                                                              <td className="px-4 py-3.5">
-                                                                  <input
-                                                                      type="checkbox"
-                                                                      checked={seleccionados.includes(id)}
-                                                                      onChange={() => alternar(id)}
-                                                                      className={checkboxClasses}
-                                                                      aria-label="Seleccionar linha"
-                                                                  />
-                                                              </td>
-                                                          )}
-                                                          {colunas.map((coluna) => (
-                                                              <td
-                                                                  key={coluna.chave}
-                                                                  className={cn(
-                                                                      "px-4 py-3.5 text-slate-700 dark:text-slate-300",
-                                                                      coluna.direita && "text-right",
-                                                                      coluna.className,
-                                                                  )}
-                                                              >
-                                                                  {coluna.render(linha)}
-                                                              </td>
-                                                          ))}
-                                                          {accoes && (
-                                                              <td className="px-4 py-2">
-                                                                  {accao && <RowActions {...accao} rotuloMenu={rotuloAccoes?.(linha)} />}
-                                                              </td>
-                                                          )}
-                                                      </tr>
-                                                  );
-                                              })}
+                                        {grupos.map((grupo) => <Fragment key={grupo.id}>
+                                            {agruparPor && <tr className="bg-slate-50 dark:bg-slate-950/50">
+                                                <td colSpan={colunas.length + Number(Boolean(selecao)) + Number(Boolean(accoes))} className="px-4 py-2">
+                                                    <button type="button" onClick={() => alternarGrupo(grupo)} aria-expanded={grupoEstaAberto(grupo.id)} className="flex w-full items-center gap-2 text-left font-semibold text-slate-900 hover:text-cyan-700 dark:text-white dark:hover:text-cyan-300">
+                                                        {grupoEstaAberto(grupo.id) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                        <span>{grupo.label}</span><span className="text-xs font-normal text-slate-500">{grupo.linhas.length} leitura(s)</span>
+                                                    </button>
+                                                </td>
+                                            </tr>}
+                                            {(!agruparPor || grupoEstaAberto(grupo.id)) && grupo.linhas.map(renderTabelaLinha)}
+                                        </Fragment>)}
                                     </tbody>
                                 </table>
                             </div>

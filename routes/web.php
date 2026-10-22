@@ -113,6 +113,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('facturas/email-lote', [FacturaController::class, 'enviarEmailLote'])->name('facturas.email-lote');
         Route::get('facturas/imprimir-lote', [FacturaController::class, 'imprimirLote'])->name('facturas.imprimir-lote');
         Route::get('clientes/{cliente}/imprimir', [ClienteController::class, 'imprimir'])->name('clientes.imprimir');
+        Route::post('clientes/{cliente}/previsualizar-leitura-inicial', [ClienteController::class, 'previsualizarLeituraInicial'])->name('clientes.leitura-inicial.preview');
+        Route::put('clientes/{cliente}/leitura-inicial', [ClienteController::class, 'actualizarLeituraInicial'])->name('clientes.leitura-inicial.update');
         Route::resource('clientes', ClienteController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
         Route::get('cliente/{cliente}', fn (\App\Models\Cliente $cliente) => redirect()->route('clientes.show', $cliente))
             ->name('cliente.show.legacy');
@@ -157,6 +159,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Técnico regista leituras
     Route::middleware(['role:administrador|gestor|tecnico'])->group(function () {
+        Route::post('leituras/previsualizar', [LeituraController::class, 'previsualizar'])->name('leituras.preview');
+        Route::post('leituras/{leitura}/previsualizar', [LeituraController::class, 'previsualizarActualizacao'])->name('leituras.update.preview');
         Route::put('leituras/confirmar-todas', [LeituraController::class, 'confirmarTodas'])->name('leituras.confirmar-todas');
         Route::resource('leituras', LeituraController::class)->only(['index', 'store', 'update', 'destroy']);
 

@@ -8,7 +8,6 @@ import {
     Pencil,
     Plus,
     Printer,
-    Receipt,
     RotateCcw,
     Smartphone,
     Trash2,
@@ -23,7 +22,6 @@ import { Campo, Campos, Destaque, Destaques, MaisDetalhes } from "@/Components/D
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
-import KpiCard from "@/Components/KpiCard";
 import ResumoMes from "@/Components/ResumoMes";
 import Modal from "@/Components/Modal";
 import RegistarPagamento from "@/Components/RegistarPagamento";
@@ -159,7 +157,7 @@ const detalhePagamento = {
     ),
 };
 
-export default function Index({ pagamentos, facturasEmAberto, clientes = [], creditos = {}, dataActual, metricas, resumoMes, mesReferencia, filtros }) {
+export default function Index({ pagamentos, facturasEmAberto, clientes = [], creditos = {}, dataActual, metricas, mesReferencia, filtros }) {
     const { auth, flash } = usePage().props;
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
@@ -171,16 +169,6 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
     const adiantamento = useForm({ cliente_id: "", valor: "", metodo_pagamento: "dinheiro", referencia_pagamento: "", nota: "" });
     const form = useForm({ metodo_pagamento: "dinheiro", referencia_pagamento: "" });
     const ehAdministrador = auth.roles?.includes("administrador") ?? false;
-
-    const metrics = [
-        { label: "Pagamentos registados no mês", value: metricas.totalRegistados, icon: Receipt, tone: "emerald" },
-        {
-            label: "Método mais usado",
-            value: metricas.metodoMaisUsado ? metodoConfig[metricas.metodoMaisUsado].label : "Sem dados",
-            icon: Smartphone,
-            tone: "amber",
-        },
-    ];
 
     const abrirNovo = (facturaIdPreseleccionada) => {
         setEditando(null);
@@ -319,13 +307,7 @@ export default function Index({ pagamentos, facturasEmAberto, clientes = [], cre
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
 
-                    <ResumoMes rota="/pagamentos" mesReferencia={mesReferencia} resumo={resumoMes} filtros={filtros} />
-
-                    <section className="grid gap-4 sm:grid-cols-2">
-                        {metrics.map((metric, index) => (
-                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
-                        ))}
-                    </section>
+                    <ResumoMes rota="/pagamentos" tipo="pagamentos" mesReferencia={mesReferencia} dados={metricas} filtros={filtros} />
 
                     <DataTable
                         rota="/pagamentos"

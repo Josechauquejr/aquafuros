@@ -83,7 +83,6 @@ class PagamentoController extends Controller
                     $factura->em_falta_com_multa = round($factura->em_falta + $factura->multa_prevista, 2);
                 }),
             'metricas' => ResumoMensal::pagamentos($mesRef->month, $mesRef->year),
-            'resumoMes' => ResumoMensal::facturas($mesRef->month, $mesRef->year),
             'clientes' => Cliente::where('estado', '!=', 'inativo')->orderBy('nome')->get(['id', 'nome', 'numero_cliente']),
             'creditos' => Credito::selectRaw('cliente_id, sum(valor) as saldo')->groupBy('cliente_id')->get()
                 ->filter(fn ($c) => (float) $c->saldo > 0.004)->mapWithKeys(fn ($c) => [$c->cliente_id => round((float) $c->saldo, 2)]),

@@ -72,13 +72,16 @@ export default function Show({ cliente, zonas = [], tarifas = [] }) {
     const maxConsumo = Math.max(1, ...(resumo.evolucao ?? []).map((item) => Number(item.consumo)));
 
     const abrirEdicao = () => {
-        form.setData({ nome: cliente.nome ?? "", endereco: cliente.endereco ?? "", zona_id: cliente.zona_id ?? "", telefone: cliente.telefone ?? "", email: cliente.email ?? "", tarifa_id: cliente.tarifa_id ?? "", estado: cliente.estado ?? "ativo", leitura_inicial: cliente.leitura_inicial ?? 0 });
+        form.setData({ nome: cliente.nome ?? "", endereco: cliente.endereco ?? "", zona_id: cliente.zona_id ?? "", telefone: cliente.telefone ?? "", email: cliente.email ?? "", tarifa_id: cliente.tarifa_id ?? "", estado: cliente.estado ?? "ativo", leitura_inicial: cliente.leitura_inicial ?? "" });
         form.clearErrors();
         setEditar(true);
     };
     const guardarEdicao = async (event) => {
         event.preventDefault();
-        if (ehAdministrador && Number(form.data.leitura_inicial) !== Number(cliente.leitura_inicial ?? 0)) {
+        const leituraInicialAlterada = cliente.leitura_inicial == null
+            ? form.data.leitura_inicial !== "" && form.data.leitura_inicial != null
+            : form.data.leitura_inicial !== "" && Number(form.data.leitura_inicial) !== Number(cliente.leitura_inicial);
+        if (ehAdministrador && leituraInicialAlterada) {
             try {
                 const plano = await previewPost(`/clientes/${cliente.numero_cliente}/previsualizar-leitura-inicial`, { leitura_inicial: form.data.leitura_inicial });
                 setPreviewInicial(plano);

@@ -301,7 +301,10 @@ class ClienteController extends Controller
             'motivo_leitura_inicial' => 'nullable|string|min:5|max:1000',
         ]);
 
-        if (array_key_exists('leitura_inicial', $data) && (float) $data['leitura_inicial'] !== (float) $cliente->leitura_inicial) {
+        $novoValorAbertura = $data['leitura_inicial'] ?? null;
+        $leituraInicialAlterada = $novoValorAbertura !== null
+            && ($cliente->leitura_inicial === null || (float) $novoValorAbertura !== (float) $cliente->leitura_inicial);
+        if ($leituraInicialAlterada) {
             if (! $request->boolean('confirmar_leitura_inicial')) {
                 return back()->withErrors(['leitura_inicial' => 'Pré-visualize o impacto antes de alterar a leitura inicial.']);
             }

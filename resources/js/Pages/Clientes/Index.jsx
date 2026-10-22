@@ -434,7 +434,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
             telefone: cliente.telefone ?? "",
             tarifa_id: cliente.tarifa_id,
             estado: cliente.estado,
-            ...(ehAdministrador ? { leitura_inicial: cliente.leitura_inicial ?? 0 } : {}),
+            ...(ehAdministrador ? { leitura_inicial: cliente.leitura_inicial ?? "" } : {}),
         });
         form.clearErrors();
         setEtapaNovo("formulario");
@@ -462,7 +462,10 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
         event.preventDefault();
 
         if (editando) {
-            if (ehAdministrador && Number(form.data.leitura_inicial) !== Number(editando.leitura_inicial ?? 0)) {
+            const leituraInicialAlterada = editando.leitura_inicial == null
+                ? form.data.leitura_inicial !== "" && form.data.leitura_inicial != null
+                : form.data.leitura_inicial !== "" && Number(form.data.leitura_inicial) !== Number(editando.leitura_inicial);
+            if (ehAdministrador && leituraInicialAlterada) {
                 try {
                     const plano = await previewPost(`/clientes/${editando.numero_cliente}/previsualizar-leitura-inicial`, { leitura_inicial: form.data.leitura_inicial });
                     setPreviewInicial(plano);

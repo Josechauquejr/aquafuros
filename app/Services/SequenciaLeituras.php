@@ -305,7 +305,7 @@ class SequenciaLeituras
 
     private function numeroLeitura(int $ano, int $mes): string
     {
-        return \\App\\Support\\NumeracaoDocumentos::proximoNumero(
+        return \App\Support\NumeracaoDocumentos::proximoNumero(
             Leitura::withTrashed()->where('numero_leitura', 'like', sprintf('LEI-%04d%02d-', $ano, $mes).'%'),
             'numero_leitura', sprintf('LEI-%04d%02d-%%04d', $ano, $mes),
         );

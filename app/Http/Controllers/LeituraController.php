@@ -67,20 +67,34 @@ class LeituraController extends Controller
             )->orderByDesc('leituras.ano')->orderByDesc('leituras.mes'),
         ], 'periodo', 'desc');
 
-        $gruposQuery = (clone $query)->reorder()
+        $idsComLeituras = (clone $query)->reorder()
+            ->select('leituras.cliente_id')->distinct();
+        $idsComAbertura = Cliente::withTrashed()->select('clientes.id as cliente_id')->whereNotNull('leitura_inicial');
+        if ($idsClientes !== null) {
+            $idsComAbertura->whereIn('clientes.id', $idsClientes);
+        }
+        $idsDosGrupos = $idsComLeituras->union($idsComAbertura);
+
+        $resumoLeituras = (clone $query)->reorder()
             ->select('leituras.cliente_id')
-            ->groupBy('leituras.cliente_id');
-        $gruposQuery->join('clientes as clientes_grupo', 'clientes_grupo.id', '=', 'leituras.cliente_id')
-            ->groupBy('clientes_grupo.nome');
-        match ($sort) {
-            'cliente' => $gruposQuery->orderBy('clientes_grupo.nome', $dir),
-            'consumo' => $gruposQuery->orderByRaw("MAX(leituras.leitura_actual - leituras.leitura_anterior) {$dir}"),
-            'estado' => $gruposQuery->orderByRaw(
+            ->selectRaw('MAX(leituras.ano * 100 + leituras.mes) as periodo_ordem')
+            ->selectRaw('MAX(leituras.leitura_actual - leituras.leitura_anterior) as consumo_ordem')
+            ->selectRaw(
                 'MAX(CASE WHEN leituras.confirmado THEN '
                 ."(CASE WHEN EXISTS (SELECT 1 FROM facturas WHERE facturas.leitura_id = leituras.id AND facturas.deleted_at IS NULL) THEN 2 ELSE 1 END)"
-                ." ELSE 0 END) {$dir}",
-            ),
-            default => $gruposQuery->orderByRaw("MAX(leituras.ano * 100 + leituras.mes) {$dir}"),
+                .' ELSE 0 END) as estado_ordem',
+            )
+            ->groupBy('leituras.cliente_id');
+
+        $gruposQuery = DB::query()->fromSub($idsDosGrupos, 'clientes_lista')
+            ->join('clientes as clientes_grupo', 'clientes_grupo.id', '=', 'clientes_lista.cliente_id')
+            ->leftJoinSub($resumoLeituras, 'leituras_resumo', 'leituras_resumo.cliente_id', '=', 'clientes_lista.cliente_id')
+            ->select('clientes_lista.cliente_id');
+        match ($sort) {
+            'cliente' => $gruposQuery->orderBy('clientes_grupo.nome', $dir),
+            'consumo' => $gruposQuery->orderByRaw("COALESCE(leituras_resumo.consumo_ordem, 0) {$dir}"),
+            'estado' => $gruposQuery->orderByRaw("COALESCE(leituras_resumo.estado_ordem, 0) {$dir}"),
+            default => $gruposQuery->orderByRaw("COALESCE(leituras_resumo.periodo_ordem, 0) {$dir}"),
         };
         $paginador = $gruposQuery->orderBy('clientes_grupo.nome')->paginate(15)->withQueryString();
         $idsNaPagina = $paginador->getCollection()->pluck('cliente_id')->unique()->values();

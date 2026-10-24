@@ -80,10 +80,13 @@ export default function FacturaCompacta({ factura, qrUrl, empresa }) {
             <MontanteFactura valor={resumo.aPagar} className="text-[18pt] font-bold" />
         </section>
         {resumo.multasPrevistas > 0 && <p className="text-[8pt] text-amber-900">Penalizações por atraso previstas: {moedaDocumento(resumo.multasPrevistas)}. Ainda não incluídas no saldo acima; serão apuradas no pagamento.</p>}
+        <section className="rounded border-2 border-slate-900 px-[2mm] py-[1.5mm] text-[9pt] leading-tight font-bold text-slate-950">
+            <h3 className="uppercase tracking-wide">Aviso: multas e corte do fornecimento</h3>
+            <p className="mt-[0.5mm]">{avisoPenalizacao}</p>
+        </section>
         <footer className="flex items-start justify-between gap-[3mm] border-t border-slate-200 pt-[1mm]">
             <div className="min-w-0 flex-1 space-y-[1mm]">
                 {meios.length ? <div className="grid grid-cols-2 gap-[3mm]">{meios.map(([nome, numero, titular]) => <div key={nome} className="min-w-0 break-words"><p className="text-[8pt] text-slate-600">{nome}</p><p className="text-[10pt] font-semibold">{telefonePagamento(numero)}</p>{titular && <p className="text-[8pt] text-slate-600">{titular}</p>}</div>)}</div> : <p>Contacte a empresa para obter os meios de pagamento.</p>}
-                <p className="text-[8pt] text-slate-600">{avisoPenalizacao}</p>
                 <p className="text-[8pt] text-slate-600">Emissão electrónica · Dispensa assinatura · Software: RJM CONSULTORIA LDA.</p>
             </div>
             {qrUrl && <a href={qrUrl} className="shrink-0 text-center text-slate-600"><QRCodeSVG value={qrUrl} size={80} level="M" marginSize={4} /><span className="block text-[8pt]">Verificar factura</span></a>}

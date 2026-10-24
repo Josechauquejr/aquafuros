@@ -88,10 +88,11 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                 <MontanteFactura valor={resumo.aPagar} className="text-3xl font-bold" />
             </section>
             <MeiosPagamentoFactura empresa={empresa} />
-            <aside className="rounded-md border border-amber-100 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-950" style={{ breakInside: "avoid" }}>
-                <p>{avisoPenalizacao}</p>
-                {resumo.multasPrevistas > 0 && <p className="mt-1 font-medium">Penalizações por atraso previstas: {moedaDocumento(resumo.multasPrevistas)}. Valores sujeitos a confirmação no pagamento, ainda não incluídos no saldo actual.</p>}
-                <p className="mt-1">Ao efectuar o pagamento, indique o número da factura e guarde o comprovativo.</p>
+            <aside className="rounded-md border-2 border-slate-900 px-4 py-3 text-[13px] leading-relaxed text-slate-950" style={{ breakInside: "avoid" }}>
+                <p className="text-[15px] font-bold uppercase tracking-wide">Aviso: multas e corte do fornecimento</p>
+                <p className="mt-1 font-bold">{avisoPenalizacao}</p>
+                {resumo.multasPrevistas > 0 && <p className="mt-1 font-semibold">Penalizações por atraso previstas: {moedaDocumento(resumo.multasPrevistas)}. Valores sujeitos a confirmação no pagamento, ainda não incluídos no saldo actual.</p>}
+                <p className="mt-1 text-[12px]">Ao efectuar o pagamento, indique o número da factura e guarde o comprovativo.</p>
             </aside>
             <RodapeFactura empresa={empresa} qrUrl={qrUrl} />
         </article>

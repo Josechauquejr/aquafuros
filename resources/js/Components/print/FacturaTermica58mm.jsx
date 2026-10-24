@@ -1,7 +1,7 @@
 import { usePage } from "@inertiajs/react";
 import { QRCodeSVG } from "qrcode.react";
 import { formatDate } from "@/lib/format";
-import { moedaDocumento as formatCurrency, resumoDocumento, estadoDocumento, telefonePagamento } from "@/lib/facturaDocumento";
+import { avisoPenalizacao, moedaDocumento as formatCurrency, resumoDocumento, estadoDocumento, telefonePagamento } from "@/lib/facturaDocumento";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -121,6 +121,10 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
 
             <p className="text-center font-bold">SALDO ACTUAL A PAGAR</p>
             <p className="text-center text-sm font-bold">{formatCurrency(resumo.aPagar)}</p>
+            <div className="my-2 border-2 border-black px-2 py-1 text-center font-bold">
+                <p className="text-[13px] uppercase">Aviso: multas e corte do fornecimento</p>
+                <p className="mt-1 text-[12px]">{avisoPenalizacao}</p>
+            </div>
             {!factura.cobranca && !factura.divida_anterior_incluida && Number(factura.divida_anterior) > 0 && (
                 <>
                     <Linha />

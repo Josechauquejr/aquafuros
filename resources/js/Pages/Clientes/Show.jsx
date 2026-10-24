@@ -60,7 +60,7 @@ export default function Show({ cliente, zonas = [], tarifas = [] }) {
     const ehAdministrador = auth.roles?.includes("administrador");
     const [editar, setEditar] = useState(false);
     const [previewInicial, setPreviewInicial] = useState(null);
-    const [motivoInicial, setMotivoInicial] = useState("");
+    const correcaoInicialForm = useForm({ leitura_inicial: "", confirmar_leitura_inicial: true, motivo_leitura_inicial: "" });
     const form = useForm({ nome: "", endereco: "", zona_id: "", telefone: "", email: "", tarifa_id: "", estado: "ativo", leitura_inicial: "" });
     const [ordenacao, setOrdenacao] = useState({ campo: "dataOrdenacao", direccao: "desc" });
     const [estadoNome, estadoTom] = estadosCliente[cliente.estado] ?? [cliente.estado, "slate"];
@@ -85,7 +85,12 @@ export default function Show({ cliente, zonas = [], tarifas = [] }) {
             try {
                 const plano = await previewPost(`/clientes/${cliente.numero_cliente}/previsualizar-leitura-inicial`, { leitura_inicial: form.data.leitura_inicial });
                 setPreviewInicial(plano);
-                setMotivoInicial("");
+                correcaoInicialForm.setData({
+                    leitura_inicial: form.data.leitura_inicial,
+                    confirmar_leitura_inicial: true,
+                    motivo_leitura_inicial: "",
+                });
+                correcaoInicialForm.clearErrors();
             } catch (error) {
                 form.setError("leitura_inicial", error.message);
             }
@@ -93,14 +98,13 @@ export default function Show({ cliente, zonas = [], tarifas = [] }) {
         }
         form.put(`/clientes/${cliente.numero_cliente}`, { preserveScroll: true, onSuccess: () => setEditar(false) });
     };
-    const confirmarLeituraInicial = () => {
-        if (!previewInicial?.pode_aplicar || motivoInicial.trim().length < 5) return;
-        form.transform((data) => ({ ...data, confirmar_leitura_inicial: true, motivo_leitura_inicial: motivoInicial }))
-            .put(`/clientes/${cliente.numero_cliente}`, {
-                preserveScroll: true,
-                onSuccess: () => { setPreviewInicial(null); setEditar(false); },
-                onFinish: () => form.transform((data) => data),
-            });
+    const confirmarLeituraInicial = (event) => {
+        event.preventDefault();
+        if (!previewInicial?.pode_aplicar) return;
+        correcaoInicialForm.put(`/clientes/${cliente.numero_cliente}/leitura-inicial`, {
+            preserveScroll: true,
+            onSuccess: () => { setPreviewInicial(null); setEditar(false); },
+        });
     };
 
     const registos = useMemo(() => criarRegistos(cliente), [cliente]);
@@ -248,13 +252,14 @@ export default function Show({ cliente, zonas = [], tarifas = [] }) {
                 </form>
             </Modal>
             <Modal show={Boolean(previewInicial)} onClose={() => setPreviewInicial(null)} title="Pré-visualizar leitura inicial" maxWidth="md">
-                {previewInicial && <div className="space-y-4">
+                {previewInicial && <form onSubmit={confirmarLeituraInicial} className="space-y-4">
                     <p className="text-sm text-muted-foreground">Leitura inicial: <strong>{formatNumero(previewInicial.leitura_inicial_antes)} → {formatNumero(previewInicial.leitura_inicial_depois)} m³</strong>.</p>
                     {previewInicial.primeira ? <div className="rounded-lg border border-border p-4 text-sm"><p>Primeira leitura mensal: <strong>{previewInicial.primeira.periodo}</strong> · contador {formatNumero(previewInicial.primeira.contador)} m³</p><p className="mt-1">Consumo: {formatNumero(previewInicial.primeira.consumo_antes)} → <strong>{formatNumero(previewInicial.primeira.consumo_depois)} m³</strong></p>{previewInicial.factura?.factura && <p className="mt-1">Factura {previewInicial.factura.factura.numero_factura}: {formatMoney(previewInicial.factura.total_antes)} → <strong>{previewInicial.factura.total_depois == null ? "—" : formatMoney(previewInicial.factura.total_depois)}</strong></p>}</div> : <p className="text-sm">Ainda não há leituras mensais; apenas o valor de abertura será actualizado.</p>}
+                    <InputError message={correcaoInicialForm.errors.leitura_inicial} />
                     {!previewInicial.pode_aplicar && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">A factura afectada tem pagamentos ou não está pendente. Regularize-a antes de alterar a leitura inicial.</p>}
-                    <div><InputLabel htmlFor="motivo-inicial-ficha" value="Motivo da alteração" /><textarea id="motivo-inicial-ficha" rows={3} value={motivoInicial} onChange={(e) => setMotivoInicial(e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900" /></div>
-                    <div className="flex justify-end gap-2"><SecondaryButton type="button" onClick={() => setPreviewInicial(null)}>Cancelar</SecondaryButton><PrimaryButton type="button" disabled={!previewInicial.pode_aplicar || motivoInicial.trim().length < 5 || form.processing} onClick={confirmarLeituraInicial}>Confirmar correcção</PrimaryButton></div>
-                </div>}
+                    <div><InputLabel htmlFor="motivo-inicial-ficha" value="Motivo da alteração" /><textarea id="motivo-inicial-ficha" rows={3} required minLength={5} maxLength={1000} value={correcaoInicialForm.data.motivo_leitura_inicial} onChange={(e) => correcaoInicialForm.setData("motivo_leitura_inicial", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900" /><InputError message={correcaoInicialForm.errors.motivo_leitura_inicial} className="mt-1" /></div>
+                    <div className="flex justify-end gap-2"><SecondaryButton type="button" onClick={() => setPreviewInicial(null)}>Cancelar</SecondaryButton><PrimaryButton type="submit" disabled={!previewInicial.pode_aplicar || correcaoInicialForm.processing}>{correcaoInicialForm.processing ? "A guardar…" : "Confirmar correcção"}</PrimaryButton></div>
+                </form>}
             </Modal>
         </AdminLayout>
     );

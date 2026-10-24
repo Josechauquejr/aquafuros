@@ -162,4 +162,25 @@ class ClientesTest extends TestCase
                 ->where('clientes.0.leitura_anterior', 120)
                 ->where('clientes.0.consumo_medio', 20));
     }
+
+    public function test_actualiza_a_leitura_inicial_pelo_endpoint_proprio_com_motivo(): void
+    {
+        $cliente = $this->cliente('Ana', ['leitura_inicial' => 100]);
+
+        $this->actingAs($this->admin)->put('/clientes/'.$cliente->numero_cliente.'/leitura-inicial', [
+            'leitura_inicial' => 120,
+            'confirmar_leitura_inicial' => true,
+            'motivo_leitura_inicial' => 'Valor do contador revisto',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('clientes', [
+            'id' => $cliente->id,
+            'leitura_inicial' => 120,
+        ]);
+        $this->assertDatabaseHas('ajustes_leitura', [
+            'cliente_id' => $cliente->id,
+            'tipo' => 'leitura_inicial',
+            'motivo' => 'Valor do contador revisto',
+        ]);
+    }
 }

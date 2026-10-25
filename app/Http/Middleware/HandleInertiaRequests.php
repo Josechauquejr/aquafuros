@@ -61,6 +61,7 @@ class HandleInertiaRequests extends Middleware
                 // senha — mostrada uma única vez, nunca persistida em claro.
                 'novaSenha' => fn () => $request->session()->get('novaSenha'),
                 'abrirNovoUtilizador' => fn () => $request->session()->get('abrirNovoUtilizador'),
+                'abrirAcaoUtilizador' => fn () => $request->session()->get('abrirAcaoUtilizador'),
                 'leituraRegistada' => fn () => $request->session()->get('leituraRegistada'),
                 'zonaCriada' => fn () => $request->session()->get('zonaCriada'),
             ],

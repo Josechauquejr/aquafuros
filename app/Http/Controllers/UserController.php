@@ -34,6 +34,27 @@ class UserController extends Controller
         return redirect()->route('dev.users.index')->with('abrirNovoUtilizador', true);
     }
 
+    /** Confirma a senha antes de abrir qualquer acção CRUD, evitando perder o pedido original. */
+    public function prepararAcao(string $acao, int $id)
+    {
+        $permitidas = ['editar', 'repor', 'eliminar', 'restaurar', 'eliminar-definitivo'];
+        abort_unless(in_array($acao, $permitidas, true), 404);
+
+        $user = in_array($acao, ['restaurar', 'eliminar-definitivo'], true)
+            ? User::onlyTrashed()->findOrFail($id)
+            : User::findOrFail($id);
+
+        if ($acao === 'eliminar' && $user->id === Auth::id()) {
+            return redirect()->back()->with('error', 'Não podes eliminar a tua própria conta.');
+        }
+
+        $destino = in_array($acao, ['restaurar', 'eliminar-definitivo'], true)
+            ? redirect()->route('dev.users.lixeira', ['search' => $user->username])
+            : redirect()->route('dev.users.index', ['search' => $user->username]);
+
+        return $destino->with('abrirAcaoUtilizador', ['acao' => $acao, 'id' => $user->id]);
+    }
+
     /**
      * Listar utilizadores paginados, com pesquisa e filtros de papel/estado
      * aplicados no servidor.

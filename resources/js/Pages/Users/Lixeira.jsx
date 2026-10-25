@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from "@inertiajs/react";
 import { ArrowLeft, RotateCcw, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DevLayout from "@/Layouts/DevLayout";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import DataTable from "@/Components/DataTable/DataTable";
@@ -22,6 +22,20 @@ function Prazo({ utilizador }) {
 export default function Lixeira({ utilizadores, diasRetencao, filtros }) {
     const { flash } = usePage().props;
     const [paraEliminar, setParaEliminar] = useState(null);
+    const [paraRestaurar, setParaRestaurar] = useState(null);
+
+    const prepararAcao = (user, acao) => {
+        router.get(`/dev/users/${user.id}/preparar/${acao}`, {}, { preserveScroll: true });
+    };
+
+    useEffect(() => {
+        const pedido = flash.abrirAcaoUtilizador;
+        if (!pedido) return;
+        const alvo = utilizadores.data.find((user) => user.id === pedido.id);
+        if (!alvo) return;
+        if (pedido.acao === "restaurar") setParaRestaurar(alvo);
+        if (pedido.acao === "eliminar-definitivo") setParaEliminar(alvo);
+    }, [flash.abrirAcaoUtilizador]);
 
     const colunas = [
         {
@@ -57,14 +71,19 @@ export default function Lixeira({ utilizadores, diasRetencao, filtros }) {
             curto: "Recuperar",
             destaque: true,
             rotulo: `Recuperar utilizador ${u.name}`,
-            onClick: () => router.post(`/dev/users/lixeira/${u.id}/restaurar`, {}, { preserveScroll: true }),
+            onClick: () => prepararAcao(u, "restaurar"),
         },
-        menu: [{ icone: Trash2, rotulo: "Apagar definitivamente", tone: "danger", onClick: () => setParaEliminar(u) }],
+        menu: [{ icone: Trash2, rotulo: "Apagar definitivamente", tone: "danger", onClick: () => prepararAcao(u, "eliminar-definitivo") }],
     });
 
     const confirmarEliminacao = () => {
         if (!paraEliminar) return;
         router.delete(`/dev/users/lixeira/${paraEliminar.id}`, { onFinish: () => setParaEliminar(null), preserveScroll: true });
+    };
+
+    const confirmarRestauro = () => {
+        if (!paraRestaurar) return;
+        router.post(`/dev/users/lixeira/${paraRestaurar.id}/restaurar`, {}, { onFinish: () => setParaRestaurar(null), preserveScroll: true });
     };
 
     return (
@@ -109,6 +128,15 @@ export default function Lixeira({ utilizadores, diasRetencao, filtros }) {
                     />
                 </div>
             </div>
+
+            <ConfirmDialog
+                show={Boolean(paraRestaurar)}
+                onClose={() => setParaRestaurar(null)}
+                onConfirm={confirmarRestauro}
+                title="Recuperar utilizador"
+                confirmLabel="Recuperar"
+                description={paraRestaurar ? `Recuperar a conta de ${paraRestaurar.name}?` : ""}
+            />
 
             <ConfirmDialog
                 show={Boolean(paraEliminar)}

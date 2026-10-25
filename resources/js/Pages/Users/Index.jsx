@@ -107,6 +107,20 @@ export default function Index({ usuarios, papeis, filtros }) {
         setShowModal(true);
     }, [flash.abrirNovoUtilizador]);
 
+    useEffect(() => {
+        const pedido = flash.abrirAcaoUtilizador;
+        if (!pedido) return;
+        const alvo = dados.find((user) => user.id === pedido.id);
+        if (!alvo) return;
+        if (pedido.acao === "editar") abrirEdicao(alvo);
+        if (pedido.acao === "repor") setParaRepor(alvo);
+        if (pedido.acao === "eliminar") setParaEliminar(alvo);
+    }, [flash.abrirAcaoUtilizador]);
+
+    const prepararAcao = (user, acao) => {
+        router.get(`/dev/users/${user.id}/preparar/${acao}`, {}, { preserveScroll: true });
+    };
+
     const abrirEdicao = (user) => {
         setEditando(user);
         form.setData({
@@ -274,14 +288,14 @@ export default function Index({ usuarios, papeis, filtros }) {
                                             <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
                                                 <StatusBadge tone={role.tone}>{role.label}</StatusBadge>
                                                 <div className="flex items-center gap-1">
-                                                    <IconButton onClick={() => setParaRepor(user)} title="Repor senha">
+                                                    <IconButton onClick={() => prepararAcao(user, "repor")} title="Repor senha">
                                                         <KeyRound className="h-4 w-4" aria-hidden="true" />
                                                     </IconButton>
-                                                    <IconButton onClick={() => abrirEdicao(user)} title="Editar usuário">
+                                                    <IconButton onClick={() => prepararAcao(user, "editar")} title="Editar usuário">
                                                         <Pencil className="h-4 w-4" aria-hidden="true" />
                                                     </IconButton>
                                                     {user.id !== auth.user.id && (
-                                                        <IconButton tone="danger" onClick={() => setParaEliminar(user)} title="Eliminar usuário">
+                                                        <IconButton tone="danger" onClick={() => prepararAcao(user, "eliminar")} title="Eliminar usuário">
                                                             <Trash2 className="h-4 w-4" aria-hidden="true" />
                                                         </IconButton>
                                                     )}
@@ -348,14 +362,14 @@ export default function Index({ usuarios, papeis, filtros }) {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-1.5">
-                                                                <IconButton onClick={() => setParaRepor(user)} title="Repor senha">
+                                                                <IconButton onClick={() => prepararAcao(user, "repor")} title="Repor senha">
                                                                     <KeyRound className="h-4 w-4" aria-hidden="true" />
                                                                 </IconButton>
-                                                                <IconButton onClick={() => abrirEdicao(user)} title="Editar usuário">
+                                                                <IconButton onClick={() => prepararAcao(user, "editar")} title="Editar usuário">
                                                                     <Pencil className="h-4 w-4" aria-hidden="true" />
                                                                 </IconButton>
                                                                 {user.id !== auth.user.id && (
-                                                                    <IconButton tone="danger" onClick={() => setParaEliminar(user)} title="Eliminar usuário">
+                                                                    <IconButton tone="danger" onClick={() => prepararAcao(user, "eliminar")} title="Eliminar usuário">
                                                                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                                                                     </IconButton>
                                                                 )}
@@ -533,14 +547,14 @@ export default function Index({ usuarios, papeis, filtros }) {
                     description={`@${utilizador.username}`}
                     footer={
                         <div className="flex flex-wrap justify-end gap-2">
-                            <SecondaryButton type="button" onClick={() => { const alvo = utilizador; cartao.fechar(); setParaRepor(alvo); }}>
+                            <SecondaryButton type="button" onClick={() => { const alvo = utilizador; cartao.fechar(); prepararAcao(alvo, "repor"); }}>
                                 <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" /> Repor senha
                             </SecondaryButton>
-                            <SecondaryButton type="button" onClick={() => { const alvo = utilizador; cartao.fechar(); abrirEdicao(alvo); }}>
+                            <SecondaryButton type="button" onClick={() => { const alvo = utilizador; cartao.fechar(); prepararAcao(alvo, "editar"); }}>
                                 <Pencil className="mr-2 h-4 w-4" aria-hidden="true" /> Editar
                             </SecondaryButton>
                             {utilizador.id !== auth.user.id && (
-                                <SecondaryButton type="button" onClick={() => { const alvo = utilizador; cartao.fechar(); setParaEliminar(alvo); }}>
+                                <SecondaryButton type="button" onClick={() => { const alvo = utilizador; cartao.fechar(); prepararAcao(alvo, "eliminar"); }}>
                                     <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" /> Eliminar
                                 </SecondaryButton>
                             )}

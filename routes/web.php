@@ -214,7 +214,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('dados/{tabela}/registo/{id}', [DevDadosController::class, 'registo'])->name('dados.registo');
         // Alterações de dados: a página mostra sempre o estado; o resto só corre com DEV_ESCRITA=true.
         Route::get('alteracoes', [DevAlteracoesController::class, 'index'])->name('alteracoes');
-        Route::get('editar/{tabela}/{id}', [DevEdicaoController::class, 'form'])->middleware('dev.escrita')->name('editar');
+        Route::get('editar/{tabela}/{id}', [DevEdicaoController::class, 'form'])->middleware(['dev.escrita', 'password.confirm:password.confirm,900'])->name('editar');
         Route::get('integridade', [DevIntegridadeController::class, 'index'])->name('integridade');
         Route::get('integridade/{chave}', [DevIntegridadeController::class, 'detalhe'])->name('integridade.detalhe');
         Route::get('analise', [DevIntegridadeController::class, 'analise'])->name('analise');
@@ -250,6 +250,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Tudo o que altera dados ou contas: volta a pedir a senha (válida 15 min) e fica na auditoria.
         Route::middleware(['password.confirm:password.confirm,900'])->group(function () {
             Route::get('users/novo', [UserController::class, 'prepararCriacao'])->name('users.novo');
+            Route::get('users/{id}/preparar/{acao}', [UserController::class, 'prepararAcao'])->whereNumber('id')->name('users.preparar-acao');
             // Filas, operações do sistema e reenvio de emails (acções reais: a maioria pede também uma palavra escrita).
             Route::post('filas/falhados/repetir-todos', [DevFilasController::class, 'repetirTodos'])->name('filas.repetir-todos');
             Route::post('filas/falhados/{uuid}/repetir', [DevFilasController::class, 'repetir'])->name('filas.repetir');

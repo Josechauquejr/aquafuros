@@ -7,14 +7,12 @@ import FacturaTermica58mm from "@/Components/print/FacturaTermica58mm";
 import FacturaCompacta from "@/Components/print/FacturaCompacta";
 import FacturaA4 from "@/Components/print/FacturaA4";
 import AnexoOrigensFactura from "@/Components/print/AnexoOrigensFactura";
-import FacturaPrototipos from "@/Components/print/FacturaPrototipos";
 import { resumoDocumento } from "@/lib/facturaDocumento";
 import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/FormatoImpressaoToggle";
 import useFormatoImpressao from "@/hooks/useFormatoImpressao";
 
 export default function ImprimirLote({ facturas, empresa, primeirasLeituras = {}, consumosAnteriores = {}, qrUrls = {} }) {
     const [formato, setFormato] = useFormatoImpressao();
-    const [showPrototypes, setShowPrototypes] = useState(false);
     const paginasRef = useRef([]);
     const medicaoRef = useRef(null);
     const [paginas, setPaginas] = useState(() => Array.from({ length: Math.ceil(facturas.length / 3) }, (_, i) => ({ facturas: facturas.slice(i * 3, i * 3 + 3), individual: false })));
@@ -67,13 +65,12 @@ export default function ImprimirLote({ facturas, empresa, primeirasLeituras = {}
             <div className="mx-auto mb-4 flex max-w-[210mm] flex-wrap items-center justify-between gap-3 px-4 print:hidden">
                 <Link href="/facturas" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"><ArrowLeft className="h-4 w-4" />Voltar</Link>
                 <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-sm text-slate-500">{showPrototypes ? "Pré-visualização com dados da factura seleccionada" : `${facturas.length} factura(s)${formato === "a4" ? ` · ${paginas.length + anexos.length} página(s) · até 3 facturas por folha A4` : ""}`}</span>
-                    <button type="button" onClick={() => setShowPrototypes((show) => !show)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">{showPrototypes ? "Voltar à impressão" : "Comparar 4 protótipos"}</button>
-                    {!showPrototypes && <><FormatoImpressaoToggle formato={formato} onChange={setFormato} /><BotaoDescarregarPdfLote elementosRef={paginasRef} nomeFicheiro={`facturas-lote-${Date.now()}.pdf`} formato={formato} /></>}
-                    <AnimatedButton variant="primary" onClick={() => window.print()}><Printer className="h-4 w-4" />{showPrototypes ? "Imprimir proposta" : "Imprimir tudo"}</AnimatedButton>
+                    <span className="text-sm text-slate-500">{facturas.length} factura(s){formato === "a4" ? ` · ${paginas.length + anexos.length} página(s) · até 3 facturas por folha A4` : ""}</span>
+                    <FormatoImpressaoToggle formato={formato} onChange={setFormato} />
+                    <BotaoDescarregarPdfLote elementosRef={paginasRef} nomeFicheiro={`facturas-lote-${Date.now()}.pdf`} formato={formato} />
+                    <AnimatedButton variant="primary" onClick={() => window.print()}><Printer className="h-4 w-4" />Imprimir tudo</AnimatedButton>
                 </div>
             </div>
-            {showPrototypes ? <FacturaPrototipos facturas={facturas} empresa={empresa} /> : <>
             {!facturas.length && <p className="text-center text-sm text-slate-500">Nenhuma factura corresponde aos critérios seleccionados.</p>}
             {formato === "58mm" ? <div className="mx-auto w-[58mm] space-y-3 print:space-y-0">
                 {facturas.map((factura, index) => <div key={factura.id} ref={registarPagina(index)} className="border border-dashed border-slate-300 bg-white p-[2mm] print:border-0" style={index < facturas.length - 1 ? { breakAfter: "page" } : undefined}><FacturaTermica58mm {...propsFactura(factura)} /></div>)}
@@ -91,7 +88,6 @@ export default function ImprimirLote({ facturas, empresa, primeirasLeituras = {}
                         </div>)}
                     </div>
                 </div>
-            </>}
             </>}
         </div>
     );

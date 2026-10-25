@@ -20,6 +20,7 @@ class EmailConfigController extends Controller
         $ligacao = GmailOAuth::ligacao();
 
         return Inertia::render('Dev/EmailConfig', [
+            'emailAtivo' => (bool) config('services.email.enabled', false),
             'configurado' => GmailOAuth::configurado(),
             'ligado' => $ligacao !== null,
             'conta' => $ligacao['email'] ?? null,
@@ -33,6 +34,10 @@ class EmailConfigController extends Controller
 
     public function ligar(Request $request)
     {
+        if (! config('services.email.enabled', false)) {
+            return back()->with('error', 'O serviço de email está em manutenção.');
+        }
+
         if (! GmailOAuth::configurado()) {
             return back()->with('error', 'Faltam GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no ficheiro .env.');
         }
@@ -45,6 +50,10 @@ class EmailConfigController extends Controller
 
     public function callback(Request $request)
     {
+        if (! config('services.email.enabled', false)) {
+            return redirect()->route('dev.email')->with('error', 'O serviço de email está em manutenção.');
+        }
+
         if ($request->filled('error')) {
             return redirect()->route('dev.email')->with('error', 'A autorização foi recusada na Google ('.$request->query('error').').');
         }
@@ -81,6 +90,10 @@ class EmailConfigController extends Controller
     /** Envia um email de teste ao próprio desenvolvedor (ou ao endereço indicado). */
     public function testar(Request $request)
     {
+        if (! config('services.email.enabled', false)) {
+            return back()->with('error', 'O envio de emails está suspenso durante a manutenção.');
+        }
+
         $destino = $request->user()->email;
         $empresa = EmpresaPerfil::atual()->nome;
 

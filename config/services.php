@@ -2,6 +2,11 @@
 
 return [
 
+    // O envio permanece suspenso durante a manutenção do serviço de email.
+    'email' => [
+        'enabled' => (bool) env('EMAIL_ENABLED', false),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

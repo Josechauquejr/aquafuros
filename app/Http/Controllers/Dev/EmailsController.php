@@ -13,7 +13,7 @@ class EmailsController extends Controller
 
     public function index(Request $request)
     {
-        $estado = in_array($request->query('estado'), ['enviado', 'falhou'], true) ? $request->query('estado') : null;
+        $estado = in_array($request->query('estado'), ['enviado', 'falhou', 'suspenso'], true) ? $request->query('estado') : null;
         $tipo = $request->query('tipo');
         $search = trim((string) $request->query('search', ''));
 
@@ -41,6 +41,7 @@ class EmailsController extends Controller
                 'enviados' => EnvioEmail::whereIn('tipo', $tiposAutenticacao)->where('estado', 'enviado')->count(),
                 'falhados' => EnvioEmail::whereIn('tipo', $tiposAutenticacao)->where('estado', 'falhou')->count(),
                 'falhados_24h' => EnvioEmail::whereIn('tipo', $tiposAutenticacao)->where('estado', 'falhou')->where('created_at', '>=', now()->subDay())->count(),
+                'suspensos' => EnvioEmail::whereIn('tipo', $tiposAutenticacao)->where('estado', 'suspenso')->count(),
             ],
             'filtros' => ['estado' => $estado ?? 'todos', 'tipo' => $tipo ?: 'todos', 'search' => $search],
         ]);

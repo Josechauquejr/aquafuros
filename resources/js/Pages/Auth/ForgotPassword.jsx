@@ -6,7 +6,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import TextInput from "@/Components/TextInput";
 
 export default function ForgotPassword() {
-    const { flash } = usePage().props;
+    const { flash, emailAtivo } = usePage().props;
     const { data, setData, post, processing, errors } = useForm({ email: "" });
 
     const submit = (event) => {
@@ -19,8 +19,9 @@ export default function ForgotPassword() {
             <Head title="Recuperar senha" />
 
             <div className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-                Esqueceu a senha? Sem problema. Indique o seu email e enviamos um código
-                de 6 dígitos para a repor.
+                {emailAtivo
+                    ? "Esqueceu a senha? Indique o seu email para receber um código de reposição."
+                    : "A recuperação de senha está temporariamente indisponível durante a manutenção do serviço de email. Contacte o administrador para recuperar o acesso."}
             </div>
 
             {flash.status && (
@@ -28,8 +29,13 @@ export default function ForgotPassword() {
                     {flash.status}
                 </div>
             )}
+            {flash.error && (
+                <div className="mb-4 text-sm font-medium text-rose-600 dark:text-rose-400">
+                    {flash.error}
+                </div>
+            )}
 
-            <form onSubmit={submit}>
+            {emailAtivo && <form onSubmit={submit}>
                 <div>
                     <InputLabel htmlFor="email" value="Email" />
                     <TextInput
@@ -50,7 +56,7 @@ export default function ForgotPassword() {
                         Enviar código
                     </PrimaryButton>
                 </div>
-            </form>
+            </form>}
         </GuestLayout>
     );
 }

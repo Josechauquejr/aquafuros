@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from "@inertiajs/react";
+import { Head, Link, useForm, usePage } from "@inertiajs/react";
 import GuestLayout from "@/Layouts/GuestLayout";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
@@ -6,6 +6,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import TextInput from "@/Components/TextInput";
 
 export default function Register() {
+    const { emailAtivo } = usePage().props;
     const { data, setData, post, processing, errors, reset } = useForm({
         name: "",
         username: "",
@@ -24,6 +25,8 @@ export default function Register() {
     return (
         <GuestLayout>
             <Head title="Registar" />
+
+            {!emailAtivo && <p className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">O serviço de email está em manutenção. Durante este período, a conta será activada sem verificação por código.</p>}
 
             <form onSubmit={submit} className="space-y-4">
                 <div>

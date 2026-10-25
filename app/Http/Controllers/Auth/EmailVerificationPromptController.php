@@ -15,6 +15,13 @@ class EmailVerificationPromptController extends Controller
      */
     public function __invoke(Request $request): RedirectResponse|Response
     {
+        if (! config('services.email.enabled', false) && ! $request->user()->hasVerifiedEmail()) {
+            $request->user()->forceFill(['email_verified_at' => now()])->save();
+
+            return redirect()->intended(route('dashboard', absolute: false))
+                ->with('status', 'A verificação por email está suspensa durante a manutenção. A sua conta foi activada.');
+        }
+
         return $request->user()->hasVerifiedEmail()
                     ? redirect()->intended(route('dashboard', absolute: false))
                     : Inertia::render('Auth/VerifyEmail');

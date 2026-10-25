@@ -45,6 +45,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'roles' => $user?->getRoleNames() ?? [],
             ],
+            'emailAtivo' => (bool) config('services.email.enabled', false),
             // Identidade da empresa (nome/NUIT/localização/logotipo) — usada
             // como padrão do sistema (ex.: cabeçalho de facturas/recibos),
             // partilhada globalmente para não ter de passar por cada página.

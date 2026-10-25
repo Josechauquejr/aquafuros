@@ -27,6 +27,10 @@ class PasswordResetLinkController extends Controller
     {
         $request->validate(['email' => ['required', 'email']]);
 
+        if (! config('services.email.enabled', false)) {
+            return back()->with('error', 'A recuperação de senha está temporariamente indisponível durante a manutenção do serviço de email. Contacte o administrador.');
+        }
+
         $email = mb_strtolower(trim($request->string('email')->value()));
 
         if (User::where('email', $email)->where('is_active', true)->exists()) {
@@ -37,8 +41,12 @@ class PasswordResetLinkController extends Controller
             ->with('status', 'Se o email estiver registado, enviámos-lhe um código de 6 dígitos.');
     }
 
-    public function code(Request $request): Response
+    public function code(Request $request): RedirectResponse|Response
     {
+        if (! config('services.email.enabled', false)) {
+            return redirect()->route('password.request')->with('error', 'A recuperação de senha está temporariamente indisponível durante a manutenção do serviço de email.');
+        }
+
         return Inertia::render('Auth/VerifyResetCode', ['email' => (string) $request->query('email')]);
     }
 

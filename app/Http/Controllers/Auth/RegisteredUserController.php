@@ -45,6 +45,10 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
+        if (! config('services.email.enabled', false)) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
         event(new Registered($user));
 
         Auth::login($user);

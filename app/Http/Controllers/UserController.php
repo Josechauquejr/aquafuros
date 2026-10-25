@@ -129,6 +129,9 @@ class UserController extends Controller
                     'email_verified_at' => now(),
                 ]);
 
+                // `email_verified_at` is deliberately outside the fillable list.
+                $user->forceFill(['email_verified_at' => now()])->save();
+
                 $user->syncRoles([$data['papel']]);
 
                 return $user->fresh(['roles']);
@@ -140,11 +143,12 @@ class UserController extends Controller
         }
 
         $codigoEnviado = $this->enviarLinkSenha($user, true);
+        $flashKey = $codigoEnviado || ! config('services.email.enabled', false) ? 'status' : 'error';
 
         $redirect = redirect()->route('dev.users.index')
-            ->with($codigoEnviado ? 'status' : 'error', $codigoEnviado
+            ->with($flashKey, $codigoEnviado
                 ? "Utilizador {$user->name} criado. Enviámos um link para definir a senha."
-                : "Utilizador {$user->name} criado, mas não foi possível enviar o link. A senha temporária é mostrada uma vez ao developer.");
+                : "Utilizador {$user->name} criado. O email está em manutenção; a senha temporária é mostrada uma vez ao developer.");
 
         if (! $codigoEnviado) {
             $redirect->with('novaSenha', ['utilizador' => $user->name, 'username' => $user->username, 'senha' => $senha]);
@@ -193,11 +197,12 @@ class UserController extends Controller
 
         $user->update(['password' => Hash::make($senha)]);
         $codigoEnviado = $this->enviarLinkSenha($user, false);
+        $flashKey = $codigoEnviado || ! config('services.email.enabled', false) ? 'status' : 'error';
 
         $redirect = redirect()->route('dev.users.index')
-            ->with($codigoEnviado ? 'status' : 'error', $codigoEnviado
+            ->with($flashKey, $codigoEnviado
                 ? "Enviámos um link a {$user->name} para definir a nova senha."
-                : "Não foi possível enviar o link. A senha temporária é mostrada uma vez ao developer.");
+                : "Email em manutenção. A senha temporária de {$user->name} é mostrada uma vez ao developer.");
 
         if (! $codigoEnviado) {
             $redirect->with('novaSenha', ['utilizador' => $user->name, 'username' => $user->username, 'senha' => $senha]);
@@ -208,6 +213,10 @@ class UserController extends Controller
 
     private function enviarLinkSenha(User $user, bool $contaNova): bool
     {
+        if (! config('services.email.enabled', false)) {
+            return false;
+        }
+
         $token = Password::createToken($user);
         $url = route('password.reset', ['token' => $token, 'email' => $user->email]);
         $validade = (int) config('auth.passwords.users.expire', 60);

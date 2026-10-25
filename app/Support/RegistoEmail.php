@@ -20,6 +20,21 @@ class RegistoEmail
     {
         $assunto = $mail->envelope()->subject;
 
+        if (! config('services.email.enabled', false)) {
+            return EnvioEmail::create([
+                'tipo' => $meta['tipo'],
+                'origem' => $meta['origem'] ?? 'manual',
+                'cliente_id' => $meta['cliente_id'] ?? null,
+                'factura_id' => $meta['factura_id'] ?? null,
+                'enviado_por' => $meta['enviado_por'] ?? null,
+                'email' => $para,
+                'assunto' => $assunto,
+                'estado' => 'suspenso',
+                'tentativas' => 0,
+                'erro' => 'Envio suspenso durante a manutenção do serviço de email.',
+            ]);
+        }
+
         try {
             // Emails com segredos (códigos) não guardam o corpo.
             $corpo = ($meta['sem_corpo'] ?? false) ? null : $mail->render();

@@ -6,7 +6,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import TextInput from "@/Components/TextInput";
 
 export default function VerifyEmail() {
-    const { flash } = usePage().props;
+    const { flash, emailAtivo } = usePage().props;
     const { data, setData, post, processing, errors, reset } = useForm({ code: "" });
     const resend = useForm({});
     const logout = useForm({});
@@ -31,8 +31,9 @@ export default function VerifyEmail() {
             <Head title="Verificação de email" />
 
             <div className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-                Enviámos um código de 6 dígitos para o seu email. Introduza-o abaixo
-                para confirmar o endereço. O código vale 15 minutos.
+                {emailAtivo
+                    ? "Introduza o código de 6 dígitos enviado para o seu email. O código vale 15 minutos."
+                    : "A verificação por email está suspensa durante a manutenção. A sua conta será activada sem código."}
             </div>
 
             {flash.status && (
@@ -46,7 +47,7 @@ export default function VerifyEmail() {
                 </div>
             )}
 
-            <form onSubmit={submit}>
+            {emailAtivo && <form onSubmit={submit}>
                 <InputLabel htmlFor="code" value="Código" />
                 <TextInput
                     id="code"
@@ -67,9 +68,9 @@ export default function VerifyEmail() {
                         Verificar
                     </PrimaryButton>
                 </div>
-            </form>
+            </form>}
 
-            <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-700">
+            {emailAtivo && <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-700">
                 <form onSubmit={submitResend}>
                     <button
                         type="submit"
@@ -88,7 +89,7 @@ export default function VerifyEmail() {
                         Terminar sessão
                     </button>
                 </form>
-            </div>
+            </div>}
         </GuestLayout>
     );
 }

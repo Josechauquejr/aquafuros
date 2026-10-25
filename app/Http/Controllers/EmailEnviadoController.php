@@ -33,7 +33,7 @@ class EmailEnviadoController extends Controller
         if (array_key_exists($tipo, self::TIPOS)) {
             $query->where('tipo', $tipo);
         }
-        if (in_array($estado, ['enviado', 'falhou'], true)) {
+        if (in_array($estado, ['enviado', 'falhou', 'suspenso'], true)) {
             $query->where('estado', $estado);
         }
         if (in_array($origem, ['automatico', 'manual'], true)) {
@@ -54,6 +54,7 @@ class EmailEnviadoController extends Controller
                 'hoje' => EnvioEmail::whereIn('tipo', array_keys(self::TIPOS))->whereDate('created_at', now()->toDateString())->where('estado', 'enviado')->count(),
                 'enviados' => EnvioEmail::whereIn('tipo', array_keys(self::TIPOS))->where('estado', 'enviado')->count(),
                 'falharam' => EnvioEmail::whereIn('tipo', array_keys(self::TIPOS))->where('estado', 'falhou')->count(),
+                'suspensos' => EnvioEmail::whereIn('tipo', array_keys(self::TIPOS))->where('estado', 'suspenso')->count(),
                 'automaticos' => EnvioEmail::whereIn('tipo', array_keys(self::TIPOS))->where('estado', 'enviado')->where('origem', 'automatico')->count(),
             ],
             'filtros' => ['search' => $search, 'tipo' => $tipo, 'estado' => $estado, 'origem' => $origem],

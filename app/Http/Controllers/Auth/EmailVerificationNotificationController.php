@@ -18,6 +18,13 @@ class EmailVerificationNotificationController extends Controller
             return redirect()->intended(route('dashboard', absolute: false));
         }
 
+        if (! config('services.email.enabled', false)) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+
+            return redirect()->intended(route('dashboard', absolute: false))
+                ->with('status', 'A verificação por email está suspensa durante a manutenção. A sua conta foi activada.');
+        }
+
         return CodigoEmail::enviar($user->email, CodigoEmail::VERIFICACAO)
             ? back()->with('status', 'Enviámos um novo código para o seu email.')
             : back()->with('error', 'Não foi possível enviar o email. Tente novamente dentro de instantes.');

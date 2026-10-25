@@ -41,7 +41,7 @@ export default function Emails({ envios, tipos, totais, filtros }) {
                     <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
                     <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Emails (técnico)</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        {totais.enviados} enviados · {totais.falhados} falhados ({totais.falhados_24h} nas últimas 24 h). Clique numa linha para ver tudo; registos de códigos de acesso e links de definição ou reposição de senha.
+                        {totais.enviados} enviados · {totais.falhados} falhados · {totais.suspensos} suspensos ({totais.falhados_24h} falhados nas últimas 24 h). Histórico de códigos e links de acesso.
                     </p>
                 </div>
             }
@@ -59,6 +59,7 @@ export default function Emails({ envios, tipos, totais, filtros }) {
                             <option value="todos">Todos os estados</option>
                             <option value="enviado">Enviados</option>
                             <option value="falhou">Falhados</option>
+                            <option value="suspenso">Suspensos</option>
                         </select>
                         <select value={filtros.tipo} onChange={(ev) => aplicar({ tipo: ev.target.value })} className={seleccao}>
                             <option value="todos">Todos os tipos</option>
@@ -80,7 +81,7 @@ export default function Emails({ envios, tipos, totais, filtros }) {
                                             <td className="whitespace-nowrap px-4 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(envio.created_at)}</td>
                                             <td className="px-4 py-3"><p className="text-slate-900 dark:text-white">{envio.cliente?.nome ?? "—"}</p><p className="text-xs text-slate-500">{envio.email}</p></td>
                                             <td className="max-w-xs truncate px-4 py-3 text-slate-700 dark:text-slate-300">{envio.assunto}</td>
-                                            <td className="px-4 py-3"><StatusBadge tone={envio.estado === "enviado" ? "emerald" : "rose"}>{envio.estado === "enviado" ? "Enviado" : "Falhou"}</StatusBadge></td>
+                                            <td className="px-4 py-3"><StatusBadge tone={envio.estado === "enviado" ? "emerald" : envio.estado === "suspenso" ? "amber" : "rose"}>{envio.estado === "enviado" ? "Enviado" : envio.estado === "suspenso" ? "Suspenso" : "Falhou"}</StatusBadge></td>
                                             <td className="px-4 py-3">
                                                 <div className="flex justify-end gap-1">
                                                     {envio.tem_corpo ? <IconButton title="Ver o email" onClick={() => verEmail(envio)}><ExternalLink className="h-4 w-4" aria-hidden="true" /></IconButton> : null}
@@ -109,7 +110,7 @@ export default function Emails({ envios, tipos, totais, filtros }) {
                     }
                 >
                     <Destaques>
-                        <Destaque rotulo="Estado" tom={e.estado === "enviado" ? "sucesso" : "perigo"}>{e.estado === "enviado" ? "Enviado" : "Falhou"}</Destaque>
+                        <Destaque rotulo="Estado" tom={e.estado === "enviado" ? "sucesso" : e.estado === "suspenso" ? "neutro" : "perigo"}>{e.estado === "enviado" ? "Enviado" : e.estado === "suspenso" ? "Suspenso" : "Falhou"}</Destaque>
                         <Destaque rotulo="Tentativas">{e.tentativas ?? 1}</Destaque>
                     </Destaques>
                     <Campos className="mt-5">

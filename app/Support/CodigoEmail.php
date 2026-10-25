@@ -25,6 +25,10 @@ class CodigoEmail
     /** Gera um código novo (substitui o anterior) e envia-o. Devolve se o email saiu. */
     public static function enviar(string $email, string $finalidade): bool
     {
+        if (! config('services.email.enabled', false)) {
+            return false;
+        }
+
         $codigo = (string) random_int(100000, 999999);
 
         DB::table('codigos_email')->updateOrInsert(
@@ -48,6 +52,10 @@ class CodigoEmail
      */
     public static function confirmar(string $email, string $finalidade, string $introduzido): void
     {
+        if (! config('services.email.enabled', false)) {
+            throw ValidationException::withMessages(['code' => 'A verificação por email está temporariamente indisponível durante a manutenção.']);
+        }
+
         $codigo = preg_replace('/\D+/', '', $introduzido);
         $linha = DB::table('codigos_email')->where('email', $email)->where('finalidade', $finalidade)->first();
 

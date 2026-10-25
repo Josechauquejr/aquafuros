@@ -249,6 +249,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Tudo o que altera dados ou contas: volta a pedir a senha (válida 15 min) e fica na auditoria.
         Route::middleware(['password.confirm:password.confirm,900'])->group(function () {
+            Route::get('users/novo', [UserController::class, 'prepararCriacao'])->name('users.novo');
             // Filas, operações do sistema e reenvio de emails (acções reais: a maioria pede também uma palavra escrita).
             Route::post('filas/falhados/repetir-todos', [DevFilasController::class, 'repetirTodos'])->name('filas.repetir-todos');
             Route::post('filas/falhados/{uuid}/repetir', [DevFilasController::class, 'repetir'])->name('filas.repetir');

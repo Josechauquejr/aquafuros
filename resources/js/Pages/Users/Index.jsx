@@ -98,6 +98,15 @@ export default function Index({ usuarios, papeis, filtros }) {
         setShowModal(true);
     };
 
+    useEffect(() => {
+        if (!flash.abrirNovoUtilizador) return;
+        form.reset();
+        form.setData(formVazio);
+        form.clearErrors();
+        setEditando(null);
+        setShowModal(true);
+    }, [flash.abrirNovoUtilizador]);
+
     const abrirEdicao = (user) => {
         setEditando(user);
         form.setData({
@@ -162,7 +171,7 @@ export default function Index({ usuarios, papeis, filtros }) {
                             <Trash2 className="h-4 w-4" aria-hidden="true" />
                             Lixeira
                         </AnimatedButton>
-                        <AnimatedButton variant="primary" onClick={abrirNovo}>
+                        <AnimatedButton as={Link} href="/dev/users/novo" variant="primary">
                             <Plus className="h-4 w-4" aria-hidden="true" />
                             Novo usuário
                         </AnimatedButton>

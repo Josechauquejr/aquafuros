@@ -60,6 +60,7 @@ class HandleInertiaRequests extends Middleware
                 // Senha temporária gerada ao criar um utilizador ou repor a
                 // senha — mostrada uma única vez, nunca persistida em claro.
                 'novaSenha' => fn () => $request->session()->get('novaSenha'),
+                'abrirNovoUtilizador' => fn () => $request->session()->get('abrirNovoUtilizador'),
                 'leituraRegistada' => fn () => $request->session()->get('leituraRegistada'),
                 'zonaCriada' => fn () => $request->session()->get('zonaCriada'),
             ],

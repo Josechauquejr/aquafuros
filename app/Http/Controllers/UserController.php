@@ -28,6 +28,12 @@ class UserController extends Controller
 
     private const DIAS_RETENCAO = 30;
 
+    /** Confirma a senha antes de abrir o formulário, sem perder os dados num POST interceptado. */
+    public function prepararCriacao()
+    {
+        return redirect()->route('dev.users.index')->with('abrirNovoUtilizador', true);
+    }
+
     /**
      * Listar utilizadores paginados, com pesquisa e filtros de papel/estado
      * aplicados no servidor.

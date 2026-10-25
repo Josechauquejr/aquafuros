@@ -35,7 +35,7 @@ class UserController extends Controller
     }
 
     /** Confirma a senha antes de abrir qualquer acção CRUD, evitando perder o pedido original. */
-    public function prepararAcao(string $acao, int $id)
+    public function prepararAcao(int $id, string $acao)
     {
         $permitidas = ['editar', 'repor', 'eliminar', 'restaurar', 'eliminar-definitivo'];
         abort_unless(in_array($acao, $permitidas, true), 404);

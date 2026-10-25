@@ -28,6 +28,7 @@ import FuseDanger from "@/Components/FuseDanger";
 import Textarea from "@/Components/Textarea";
 import TextInput from "@/Components/TextInput";
 import { formatDate, formatDateTime, formatMoney, formatNumero, formatVolume } from "@/lib/utils";
+import { consumoLeitura } from "@/lib/consumoLeitura";
 import { previewPost } from "@/lib/previewPost";
 
 const meses = [
@@ -65,7 +66,7 @@ const filtrosConfig = [
     },
 ];
 
-const consumoDe = (leitura) => Number(leitura.leitura_actual) - Number(leitura.leitura_anterior);
+const consumoDe = consumoLeitura;
 
 function EstadoLeitura({ leitura }) {
     if (leitura.abertura) return <StatusBadge tone="slate">Abertura · não faturável</StatusBadge>;
@@ -209,6 +210,7 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
     const [motivoAjuste, setMotivoAjuste] = useState("");
     const [aberturaEditando, setAberturaEditando] = useState(null);
     const [previewAbertura, setPreviewAbertura] = useState(null);
+    const [confirmandoAbertura, setConfirmandoAbertura] = useState(false);
     const aberturaForm = useForm({ leitura_inicial: "" });
     const [motivoAbertura, setMotivoAbertura] = useState("");
 
@@ -277,17 +279,22 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
 
     const confirmarAbertura = () => {
         if (!previewAbertura?.pode_aplicar || motivoAbertura.trim().length < 5) return;
-        aberturaForm.transform((data) => ({
-            ...data,
+        aberturaForm.clearErrors();
+        router.put(`/clientes/${aberturaEditando.cliente.numero_cliente}/leitura-inicial`, {
+            leitura_inicial: aberturaForm.data.leitura_inicial,
             confirmar_leitura_inicial: true,
-            motivo_leitura_inicial: motivoAbertura,
-        })).put(`/clientes/${aberturaEditando.cliente.numero_cliente}/leitura-inicial`, {
+            motivo_leitura_inicial: motivoAbertura.trim(),
+        }, {
             preserveScroll: true,
+            onStart: () => setConfirmandoAbertura(true),
             onSuccess: () => {
                 setPreviewAbertura(null);
                 setAberturaEditando(null);
             },
-            onFinish: () => aberturaForm.transform((data) => data),
+            onError: (errors) => {
+                Object.entries(errors).forEach(([campo, mensagem]) => aberturaForm.setError(campo, mensagem));
+            },
+            onFinish: () => setConfirmandoAbertura(false),
         });
     };
 
@@ -739,8 +746,9 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
                     <p className="text-sm text-slate-600 dark:text-slate-300">Leitura inicial: <strong>{formatNumero(previewAbertura.leitura_inicial_antes)} → {formatNumero(previewAbertura.leitura_inicial_depois)} m³</strong>.</p>
                     {previewAbertura.primeira ? <div className="rounded-lg border border-border p-4 text-sm"><p>Primeira leitura mensal: <strong>{previewAbertura.primeira.periodo}</strong> · contador {formatNumero(previewAbertura.primeira.contador)} m³</p><p className="mt-1">Consumo: {formatNumero(previewAbertura.primeira.consumo_antes)} → <strong>{formatNumero(previewAbertura.primeira.consumo_depois)} m³</strong></p>{previewAbertura.factura?.factura && <p className="mt-1">Factura {previewAbertura.factura.factura.numero_factura}: {formatMoney(previewAbertura.factura.total_antes)} → <strong>{previewAbertura.factura.total_depois == null ? "—" : formatMoney(previewAbertura.factura.total_depois)}</strong></p>}</div> : <p className="text-sm">Ainda não há leituras mensais; apenas o valor de abertura será actualizado.</p>}
                     {!previewAbertura.pode_aplicar && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">A factura da primeira leitura tem pagamentos ou não está pendente. Regularize-a antes de alterar a abertura.</p>}
-                    <div><InputLabel htmlFor="motivo-abertura-lista" value="Motivo da alteração" /><Textarea id="motivo-abertura-lista" rows={3} value={motivoAbertura} onChange={(event) => setMotivoAbertura(event.target.value)} className="mt-1 block w-full" placeholder="Explique por que o valor de abertura está a ser corrigido" /></div>
-                    <div className="flex justify-end gap-3"><SecondaryButton type="button" onClick={() => setPreviewAbertura(null)}>Voltar</SecondaryButton><PrimaryButton type="button" disabled={!previewAbertura.pode_aplicar || motivoAbertura.trim().length < 5 || aberturaForm.processing} onClick={confirmarAbertura}>Confirmar correcção</PrimaryButton></div>
+                    <div><InputLabel htmlFor="motivo-abertura-lista" value="Motivo da alteração" /><Textarea id="motivo-abertura-lista" rows={3} value={motivoAbertura} onChange={(event) => { setMotivoAbertura(event.target.value); aberturaForm.clearErrors("motivo_leitura_inicial"); }} className="mt-1 block w-full" placeholder="Explique por que o valor de abertura está a ser corrigido" /><InputError message={aberturaForm.errors.motivo_leitura_inicial} className="mt-1" /></div>
+                    <InputError message={aberturaForm.errors.leitura_inicial} />
+                    <div className="flex justify-end gap-3"><SecondaryButton type="button" onClick={() => setPreviewAbertura(null)}>Voltar</SecondaryButton><PrimaryButton type="button" disabled={!previewAbertura.pode_aplicar || motivoAbertura.trim().length < 5 || confirmandoAbertura} onClick={confirmarAbertura}>{confirmandoAbertura ? "A aplicar…" : "Confirmar correcção"}</PrimaryButton></div>
                 </div>}
             </Modal>
 

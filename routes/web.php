@@ -44,7 +44,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
-})->middleware('sair.paginas.publicas');
+});
 
 // Verificação pública de autenticidade de documentos (QR code impresso nas
 // facturas/recibos) — sem autenticação, protegida por assinatura de URL

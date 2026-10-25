@@ -24,7 +24,6 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'dev.escrita' => \App\Http\Middleware\EscritaDevActiva::class,
             'dev.auditar' => \App\Http\Middleware\AuditarPainelDev::class,
-            'sair.paginas.publicas' => \App\Http\Middleware\TerminarSessaoEmPaginasPublicas::class,
         ]);
         $middleware->web(append:
         [

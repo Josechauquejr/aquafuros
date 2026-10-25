@@ -9,7 +9,12 @@ class BillingService
 {
     public function calcular(Leitura $leitura, Cliente $cliente): array
     {
-        $consumo         = $this->calcularConsumo($leitura);
+        $consumo         = $leitura->consumo();
+        return $this->calcularParaConsumo($consumo, $cliente);
+    }
+
+    public function calcularParaConsumo(float $consumo, Cliente $cliente): array
+    {
         $valorConsumo    = $this->calcularValorConsumo($consumo, $cliente);
         $multaAnterior   = $cliente->saldoMultasEmAberto();
         $dividaAnterior  = max(0, $this->calcularDividaAnterior($cliente) - $multaAnterior);
@@ -29,26 +34,28 @@ class BillingService
     }
 
     /** Só o valor do consumo da leitura, sem dívida anterior nem multa (para corrigir uma factura já emitida). */
-    public function valorConsumo(Leitura $leitura, Cliente $cliente): float
+    public function valorConsumo(Leitura $leitura, Cliente $cliente, ?array $tarifaSnapshot = null): float
     {
-        return round($this->calcularValorConsumo($this->calcularConsumo($leitura), $cliente), 2);
+        return round($this->calcularValorConsumo($leitura->consumo(), $cliente, $tarifaSnapshot), 2);
     }
 
-    private function calcularConsumo(Leitura $leitura): float
+    public function valorConsumoVolume(float $consumo, Cliente $cliente, ?array $tarifaSnapshot = null): float
     {
-        // max(0) protege contra leitura_actual menor que leitura_anterior por erro de registo
-        return max(0, (float) $leitura->leitura_actual - (float) $leitura->leitura_anterior);
+        return round($this->calcularValorConsumo($consumo, $cliente, $tarifaSnapshot), 2);
     }
 
-    private function calcularValorConsumo(float $consumo, Cliente $cliente): float
+    private function calcularValorConsumo(float $consumo, Cliente $cliente, ?array $tarifaSnapshot = null): float
     {
-        $tarifa = $cliente->tarifa;
+        $tarifa = $tarifaSnapshot ?? $cliente->tarifa;
+        $consumoMinimo = (float) (is_array($tarifa) ? $tarifa['consumo_minimo_m3'] : $tarifa->consumo_minimo_m3);
+        $taxaMinima = (float) (is_array($tarifa) ? $tarifa['taxa_minima'] : $tarifa->taxa_minima);
+        $precoM3 = (float) (is_array($tarifa) ? $tarifa['preco_m3'] : $tarifa->preco_m3);
 
-        if ($consumo <= $tarifa->consumo_minimo_m3) {
-            return (float) $tarifa->taxa_minima;
+        if ($consumo <= $consumoMinimo) {
+            return $taxaMinima;
         }
 
-        return $consumo * (float) $tarifa->preco_m3;
+        return $consumo * $precoM3;
     }
 
     private function calcularDividaAnterior(Cliente $cliente): float

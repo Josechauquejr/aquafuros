@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\DefinirSenhaMail;
+use App\Support\RegistoEmail;
+
 use App\Models\User;
 use App\Rules\TelefoneMocambicano;
 use App\Support\BuscaDifusa;
@@ -13,6 +16,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -108,9 +112,18 @@ class UserController extends Controller
             return back()->withInput()->with('error', 'Não foi possível guardar o utilizador. Verifique a ligação à base de dados e tente novamente.');
         }
 
-        return redirect()->route('dev.users.index')
-            ->with('status', "Utilizador {$user->name} criado com sucesso.")
-            ->with('novaSenha', ['utilizador' => $user->name, 'username' => $user->username, 'senha' => $senha]);
+        $codigoEnviado = $this->enviarLinkSenha($user, true);
+
+        $redirect = redirect()->route('dev.users.index')
+            ->with($codigoEnviado ? 'status' : 'error', $codigoEnviado
+                ? "Utilizador {$user->name} criado. Enviámos um link para definir a senha."
+                : "Utilizador {$user->name} criado, mas não foi possível enviar o link. A senha temporária é mostrada uma vez ao developer.");
+
+        if (! $codigoEnviado) {
+            $redirect->with('novaSenha', ['utilizador' => $user->name, 'username' => $user->username, 'senha' => $senha]);
+        }
+
+        return $redirect;
     }
 
     /**
@@ -152,10 +165,34 @@ class UserController extends Controller
         $senha = Str::password(12);
 
         $user->update(['password' => Hash::make($senha)]);
+        $codigoEnviado = $this->enviarLinkSenha($user, false);
 
-        return redirect()->route('dev.users.index')
-            ->with('status', "Senha de {$user->name} reposta com sucesso.")
-            ->with('novaSenha', ['utilizador' => $user->name, 'username' => $user->username, 'senha' => $senha]);
+        $redirect = redirect()->route('dev.users.index')
+            ->with($codigoEnviado ? 'status' : 'error', $codigoEnviado
+                ? "Enviámos um link a {$user->name} para definir a nova senha."
+                : "Não foi possível enviar o link. A senha temporária é mostrada uma vez ao developer.");
+
+        if (! $codigoEnviado) {
+            $redirect->with('novaSenha', ['utilizador' => $user->name, 'username' => $user->username, 'senha' => $senha]);
+        }
+
+        return $redirect;
+    }
+
+    private function enviarLinkSenha(User $user, bool $contaNova): bool
+    {
+        $token = Password::createToken($user);
+        $url = route('password.reset', ['token' => $token, 'email' => $user->email]);
+        $validade = (int) config('auth.passwords.users.expire', 60);
+
+        $envio = RegistoEmail::enviar(new DefinirSenhaMail($user->name, $url, $contaNova, $validade), $user->email, [
+            'tipo' => $contaNova ? 'senha_inicial' : 'senha_reposicao',
+            'origem' => 'automatico',
+            'enviado_por' => Auth::id(),
+            'sem_corpo' => true,
+        ]);
+
+        return $envio->estado === 'enviado';
     }
 
     /**

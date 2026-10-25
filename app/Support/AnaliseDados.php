@@ -126,10 +126,11 @@ class AnaliseDados
     public static function lentidao(): array
     {
         $acessos = DB::table('acessos_sistema')->where('created_at', '>=', now()->subDays(7))->whereNotNull('duracao_ms')
-            ->orderByDesc('id')->limit(20000)->get(['url', 'metodo', 'duracao_ms', 'tempo_bd_ms']);
+            ->orderByDesc('id')->limit(20000)->get(['url', 'metodo', 'duracao_ms', 'tempo_bd_ms', 'consultas']);
 
         $rotas = $acessos->groupBy(fn ($a) => $a->metodo.' '.self::normalizar($a->url))->map(function ($grupo, $rota) {
             $duracoes = $grupo->pluck('duracao_ms')->sort()->values();
+            $contagens = $grupo->pluck('consultas')->filter(fn ($n) => $n !== null)->sort()->values();
 
             return [
                 'rota' => $rota,
@@ -138,6 +139,8 @@ class AnaliseDados
                 'p95_ms' => (int) $duracoes[(int) floor(($duracoes->count() - 1) * 0.95)],
                 'max_ms' => (int) $duracoes->max(),
                 'bd_media_ms' => (int) round($grupo->avg('tempo_bd_ms')),
+                'consultas_media' => $contagens->isEmpty() ? null : (int) round($contagens->avg()),
+                'consultas_p95' => $contagens->isEmpty() ? null : (int) $contagens[(int) floor(($contagens->count() - 1) * 0.95)],
             ];
         })->filter(fn ($r) => $r['pedidos'] >= 3)->sortByDesc('p95_ms')->take(15)->values()->all();
 

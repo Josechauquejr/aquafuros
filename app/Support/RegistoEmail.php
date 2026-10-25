@@ -7,7 +7,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Mail;
 
 /**
- * Único ponto por onde o sistema envia emails a clientes: envia e deixa o
+ * Único ponto de envio de emails de autenticação: envia e deixa o
  * registo completo (para quem, assunto, o que dizia, anexos, se saiu ou falhou,
  * se foi automático ou à mão). É daqui que sai a página "Emails enviados".
  */

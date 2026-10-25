@@ -1,5 +1,5 @@
 import { usePage } from "@inertiajs/react";
-import { Banknote, Bell, BellRing, Droplets, FileText, Hammer, HandCoins, House, Mail, MapPin, PieChart, QrCode, Settings, SlidersHorizontal, Trash2, Users, Waves } from "lucide-react";
+import { Banknote, Bell, Calculator, Droplets, FileText, Hammer, HandCoins, House, Mail, MapPin, PieChart, QrCode, Settings, SlidersHorizontal, Trash2, Users, Waves } from "lucide-react";
 import AppShell, { ConteudoDaPagina } from "@/Components/AppShell";
 
 const navGroups = [
@@ -10,6 +10,7 @@ const navGroups = [
     { categoria: "Facturação e Clientes", items: [
         { label: "Clientes", href: "/clientes", icon: Users, roles: ["administrador", "gestor"] },
         { label: "Leituras", href: "/leituras", icon: Waves, roles: ["administrador", "gestor", "tecnico"] },
+        { label: "Leituras estimadas", href: "/leituras-estimadas", icon: Calculator, roles: ["administrador", "gestor", "tecnico"] },
         { label: "Facturas", href: "/facturas", icon: FileText, roles: ["administrador", "gestor"] },
         { label: "Pagamentos", href: "/pagamentos", icon: Banknote, roles: ["administrador", "gestor", "caixa"] },
         { label: "Ler QR Code", href: "/ler-qr", icon: QrCode, roles: ["administrador", "gestor", "caixa"] },
@@ -20,8 +21,7 @@ const navGroups = [
         { label: "Produção de água", href: "/producao", icon: Droplets, roles: ["administrador", "gestor", "tecnico"] },
     ] },
     { categoria: "Email", items: [
-        { label: "Emails de cobrança", href: "/notificacoes", icon: BellRing, roles: ["administrador", "gestor"] },
-        { label: "Emails enviados", href: "/emails", icon: Mail, roles: ["administrador", "gestor"] },
+        { label: "Emails de autenticação", href: "/emails", icon: Mail, roles: ["administrador", "gestor"] },
     ] },
     { categoria: "Administração", items: [
         { label: "KPIs", href: "/admin/kpis", icon: PieChart, roles: ["administrador", "gestor"] },

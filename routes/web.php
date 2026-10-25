@@ -25,13 +25,14 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\TarifaController;
 use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\AjusteLeituraController;
 use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\PagamentoController;
 use App\Http\Controllers\LeituraController;
+use App\Http\Controllers\LeituraEstimadaController;
 use App\Http\Controllers\VerificacaoController;
 use App\Http\Controllers\CobrancaController;
 use App\Http\Controllers\CreditoController;
-use App\Http\Controllers\NotificacaoController;
 use App\Http\Controllers\NovidadeController;
 use App\Http\Controllers\OcorrenciaController;
 use App\Http\Controllers\ProducaoController;
@@ -84,6 +85,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Correcção de leituras já confirmadas (e desfazer) — só o administrador.
         Route::put('leituras/{leitura}/corrigir', [LeituraController::class, 'corrigir'])->name('leituras.corrigir');
         Route::post('leituras/correccoes/{correccao}/desfazer', [LeituraController::class, 'desfazerCorreccao'])->name('leituras.correccoes.desfazer');
+        Route::post('ajustes-leitura/{ajuste}/reverter', [AjusteLeituraController::class, 'reverter'])->name('ajustes-leitura.reverter');
         Route::put('tarifas/regras', [TarifaController::class, 'actualizarRegras'])->name('tarifas.regras');
         Route::resource('tarifas', TarifaController::class)->only(['index', 'store', 'update', 'destroy']);
 
@@ -107,10 +109,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Administrador e Gestor
     Route::middleware(['role:administrador|gestor'])->group(function () {
+        Route::put('leituras-estimadas/{estimativa}/confirmar', [LeituraEstimadaController::class, 'confirmar'])->name('leituras-estimadas.confirmar');
+        Route::post('leituras-estimadas/{estimativa}/facturar', [LeituraEstimadaController::class, 'emitir'])->name('leituras-estimadas.facturar');
+        Route::delete('leituras-estimadas/{estimativa}', [LeituraEstimadaController::class, 'cancelar'])->name('leituras-estimadas.cancelar');
+        Route::put('acertos-leitura/{acerto}/aprovar', [LeituraEstimadaController::class, 'aprovarAcerto'])->name('acertos-leitura.aprovar');
         // Rotas de segmento fixo (emitir-lote, imprimir-lote) têm de vir ANTES do
         // resource, senão o {factura} do resource captura-as como se fossem um ID.
         Route::post('facturas/emitir-lote', [FacturaController::class, 'emitirLote'])->name('facturas.emitir-lote');
-        Route::post('facturas/email-lote', [FacturaController::class, 'enviarEmailLote'])->name('facturas.email-lote');
         Route::get('facturas/imprimir-lote', [FacturaController::class, 'imprimirLote'])->name('facturas.imprimir-lote');
         Route::get('clientes/{cliente}/imprimir', [ClienteController::class, 'imprimir'])->name('clientes.imprimir');
         Route::post('clientes/{cliente}/previsualizar-leitura-inicial', [ClienteController::class, 'previsualizarLeituraInicial'])->name('clientes.leitura-inicial.preview');
@@ -123,24 +128,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('facturas', FacturaController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::get('facturas/{factura}/imprimir', [FacturaController::class, 'imprimir'])->name('facturas.imprimir');
         Route::get('facturas/{factura}/pdf', [FacturaController::class, 'pdf'])->name('facturas.pdf');
-        Route::post('facturas/{factura}/email', [FacturaController::class, 'enviarEmail'])->name('facturas.email');
 
         // Cobrança: quem está em atraso, contactos feitos e promessas de pagamento.
         Route::get('cobranca', [CobrancaController::class, 'index'])->name('cobranca.index');
         Route::post('cobranca/contactos', [CobrancaController::class, 'storeContacto'])->name('cobranca.contactos.store');
-        Route::post('cobranca/clientes/{cliente}/email', [CobrancaController::class, 'enviarEmail'])->name('cobranca.email');
         Route::put('cobranca/promessas/{promessa}/cancelar', [CobrancaController::class, 'cancelarPromessa'])->name('cobranca.promessas.cancelar');
 
-        // Registo de todos os emails enviados aos clientes.
+        // Histórico dos códigos de acesso enviados pelo sistema.
         Route::get('emails', [EmailEnviadoController::class, 'index'])->name('emails.index');
         Route::get('emails/{envio}/ver', [EmailEnviadoController::class, 'ver'])->name('emails.ver');
         Route::get('notificacoes-sistema', [NotificacaoSistemaController::class, 'index'])->name('notificacoes-sistema.index');
 
         // Mensagens aos clientes (lembretes e avisos de atraso).
-        Route::get('notificacoes', [NotificacaoController::class, 'index'])->name('notificacoes.index');
-        Route::post('notificacoes/gerar', [NotificacaoController::class, 'gerar'])->name('notificacoes.gerar');
-        Route::post('notificacoes/{notificacao}/enviar', [NotificacaoController::class, 'enviar'])->name('notificacoes.enviar');
-        Route::delete('notificacoes/{notificacao}', [NotificacaoController::class, 'destroy'])->name('notificacoes.destroy');
     });
 
     // Caixa recebe pagamentos
@@ -159,6 +158,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Técnico regista leituras
     Route::middleware(['role:administrador|gestor|tecnico'])->group(function () {
+        Route::get('leituras-estimadas', [LeituraEstimadaController::class, 'index'])->name('leituras-estimadas.index');
+        Route::post('leituras-estimadas/prever', [LeituraEstimadaController::class, 'prever'])->name('leituras-estimadas.prever');
+        Route::post('leituras-estimadas', [LeituraEstimadaController::class, 'store'])->name('leituras-estimadas.store');
         Route::post('leituras/previsualizar', [LeituraController::class, 'previsualizar'])->name('leituras.preview');
         Route::post('leituras/{leitura}/previsualizar', [LeituraController::class, 'previsualizarActualizacao'])->name('leituras.update.preview');
         Route::put('leituras/confirmar-todas', [LeituraController::class, 'confirmarTodas'])->name('leituras.confirmar-todas');
@@ -258,7 +260,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('operacoes/cache', [DevOperacoesController::class, 'limparCache'])->name('operacoes.cache');
             Route::post('operacoes/manutencao', [DevOperacoesController::class, 'ligarManutencao'])->name('operacoes.manutencao.ligar');
             Route::delete('operacoes/manutencao', [DevOperacoesController::class, 'desligarManutencao'])->name('operacoes.manutencao.desligar');
-            Route::post('emails/{envio}/reenviar', [DevEmailsController::class, 'reenviar'])->name('emails.reenviar');
             Route::delete('email/google', [DevEmailConfigController::class, 'desligar'])->name('email.desligar');
             Route::put('email/automatico', [DevEmailConfigController::class, 'automatico'])->name('email.automatico');
             Route::post('email/teste', [DevEmailConfigController::class, 'testar'])->name('email.testar');

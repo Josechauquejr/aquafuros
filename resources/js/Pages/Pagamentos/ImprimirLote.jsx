@@ -9,6 +9,7 @@ import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/Formato
 import ReciboTermico58mm from "@/Components/print/ReciboTermico58mm";
 import useFormatoImpressao from "@/hooks/useFormatoImpressao";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { consumoLeitura } from "@/lib/consumoLeitura";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -50,7 +51,7 @@ function chunk(array, size) {
 function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl, empresa }) {
     const factura = pagamento.factura;
     const leitura = factura?.leitura;
-    const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
+    const consumo = leitura ? consumoLeitura(leitura) : null;
     const estadoFactura = factura ? estadoFacturaConfig[factura.estado] : null;
 
     return (

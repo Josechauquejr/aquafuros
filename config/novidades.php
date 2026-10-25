@@ -14,27 +14,27 @@ return [
     [
         'id' => '2026-10-01-emails-automaticos',
         'data' => '2026-10-01',
-        'titulo' => 'Facturas e emails mais automáticos',
-        'resumo' => 'Confirmar uma leitura passa a emitir a factura e enviá-la ao cliente. Tudo o que o sistema envia fica registado.',
+        'titulo' => 'Email reservado a acessos e senhas',
+        'resumo' => 'O email do sistema é usado para links de definição de senha para contas novas, verificação e reposição de senha.',
         'novidades' => [
             [
-                'titulo' => 'Factura emitida e enviada ao confirmar a leitura',
-                'texto' => 'Ao confirmar uma leitura, a factura é emitida e enviada por email aos clientes que têm email. Pode ligar ou desligar cada passo em Administração > Email.',
+                'titulo' => 'Senha inicial de novos utilizadores',
+                'texto' => 'Quando o developer cria uma conta, o utilizador recebe um link pessoal para definir a senha. A senha não é enviada em texto simples.',
                 'roles' => ['administrador', 'gestor', 'tecnico'],
             ],
             [
-                'titulo' => 'Emails enviados',
-                'texto' => 'Nova página com todos os emails enviados aos clientes: para quem, quando, o que dizia, se foi automático ou manual e se falhou.',
+                'titulo' => 'Histórico de emails de autenticação',
+                'texto' => 'Consulte os envios de códigos de verificação e links de senha, incluindo falhas.',
                 'roles' => ['administrador', 'gestor'],
             ],
             [
-                'titulo' => 'Recibo e cobrança por email',
-                'texto' => 'Depois de um pagamento, o cliente recebe o recibo. Quem tem dívidas recebe emails de cobrança com as facturas em anexo.',
+                'titulo' => 'Reposição de senha',
+                'texto' => 'O utilizador recebe um link seguro por email e define uma nova senha sem receber uma senha em texto simples.',
                 'roles' => ['administrador', 'gestor', 'caixa'],
             ],
             [
                 'titulo' => 'Notificações do sistema',
-                'texto' => 'Os alertas para a equipa têm agora página própria, com pesquisa e filtro por urgência, separados dos emails para clientes.',
+                'texto' => 'Os alertas para a equipa têm agora página própria, com pesquisa e filtro por urgência, separados dos códigos de autenticação.',
                 'roles' => ['administrador', 'gestor'],
             ],
             [

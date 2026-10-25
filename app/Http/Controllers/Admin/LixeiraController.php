@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cliente;
+use App\Models\AjusteLeitura;
 use App\Models\Leitura;
 use App\Models\Pagamento;
 use App\Support\BuscaDifusa;
@@ -17,9 +18,10 @@ use Inertia\Inertia;
  * Lixeira administrativa numa só página (com pesquisa, período, filtro por
  * tipo e ordenação, como as outras listas): clientes, e leituras/pagamentos
  * eliminados isoladamente (não como parte de apagar um cliente; esses já
- * ficam cobertos pela lixeira do próprio cliente). 30 dias para restaurar
- * ou apagar definitivamente. Não há tarefa agendada (cron) configurada no
- * alojamento actual, por isso a purga de quem já passou os 30 dias corre
+ * ficam cobertos pela lixeira do próprio cliente). Clientes e leituras sem
+ * histórico financeiro ficam 30 dias; pagamentos anulados são preservados
+ * para auditoria. Não há tarefa agendada (cron) configurada no alojamento
+ * actual, por isso a purga das leituras expiradas corre
  * aqui mesmo, sempre que a página é aberta — suficiente para o volume desta
  * app, sem depender de infra extra.
  */
@@ -106,8 +108,8 @@ class LixeiraController extends Controller
             'id' => $linha->id,
             'tipo' => $tipo,
             'eliminado_em' => $linha->deleted_at,
-            'dias_restantes' => $this->diasRestantes($linha->deleted_at),
-            'preservado' => false,
+            'dias_restantes' => $tipo === 'pagamentos' ? null : $this->diasRestantes($linha->deleted_at),
+            'preservado' => $tipo === 'pagamentos',
         ];
 
         return match ($tipo) {
@@ -153,6 +155,11 @@ class LixeiraController extends Controller
     public function destroyDefinitivo(int $id)
     {
         $cliente = Cliente::onlyTrashed()->findOrFail($id);
+
+        if ($this->temHistoricoFinanceiro($cliente)) {
+            return $this->voltar('clientes')->with('error', 'Este cliente tem facturas ou pagamentos no histórico. Recupere o cliente; os registos financeiros não podem ser apagados definitivamente.');
+        }
+
         $nome = $cliente->nome;
 
         $this->purgarCliente($cliente);
@@ -162,7 +169,16 @@ class LixeiraController extends Controller
 
     public function restaurarLeitura(int $id)
     {
-        Leitura::onlyTrashed()->findOrFail($id)->restore();
+        $leitura = Leitura::onlyTrashed()->findOrFail($id);
+        $ajusteRevertido = AjusteLeitura::where('leitura_id', $leitura->id)
+            ->whereIn('tipo', ['insercao_retroactiva'])
+            ->whereHas('reversao')
+            ->exists();
+        if ($ajusteRevertido) {
+            return $this->voltar('leituras')->with('error', 'Esta leitura foi removida por uma reversão auditada e não pode ser restaurada pela lixeira.');
+        }
+
+        $leitura->restore();
 
         return $this->voltar('leituras')->with('status', 'Leitura recuperada com sucesso.');
     }
@@ -188,9 +204,9 @@ class LixeiraController extends Controller
 
     public function destroyPagamentoDefinitivo(int $id)
     {
-        Pagamento::onlyTrashed()->findOrFail($id)->forceDelete();
+        Pagamento::onlyTrashed()->findOrFail($id);
 
-        return $this->voltar('pagamentos')->with('status', 'Pagamento eliminado definitivamente.');
+        return $this->voltar('pagamentos')->with('error', 'Pagamentos anulados são mantidos no histórico de auditoria e não podem ser apagados definitivamente.');
     }
 
     private function voltar(string $tipo)
@@ -218,19 +234,15 @@ class LixeiraController extends Controller
                 $this->purgarCliente($cliente);
             });
 
-        // Leituras e pagamentos eliminados isoladamente (sem factura / com
-        // cliente activo) — os restantes seguem o ciclo de vida do cliente
-        // ou da factura anulada.
+        // Leituras eliminadas isoladamente (sem factura e com cliente activo).
         Leitura::onlyTrashed()
             ->whereDoesntHave('factura')
             ->whereHas('cliente', fn ($q) => $q->whereNull('deleted_at'))
             ->where('deleted_at', '<=', $limite)
             ->forceDelete();
 
-        Pagamento::onlyTrashed()
-            ->whereHas('cliente', fn ($q) => $q->whereNull('deleted_at'))
-            ->where('deleted_at', '<=', $limite)
-            ->forceDelete();
+        // Pagamentos anulados permanecem no histórico de auditoria, sem prazo
+        // automático ou remoção manual definitiva.
     }
 
     private function temHistoricoFinanceiro(Cliente $cliente): bool
@@ -242,6 +254,7 @@ class LixeiraController extends Controller
     private function purgarCliente(Cliente $cliente): void
     {
         DB::transaction(function () use ($cliente) {
+            // Só se chega aqui quando não há histórico financeiro associado.
             $cliente->pagamentos()->withTrashed()->forceDelete();
             $cliente->facturas()->withTrashed()->forceDelete();
             $cliente->leituras()->withTrashed()->forceDelete();

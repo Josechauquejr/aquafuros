@@ -10,7 +10,6 @@ use App\Support\NumeracaoDocumentos;
 use App\Models\Cliente;
 use App\Models\Configuracao;
 use App\Support\BuscaDifusa;
-use App\Support\FacturaEmail;
 use App\Support\Facturacao;
 use App\Support\FacturaPdf;
 use App\Support\ListaQuery;
@@ -19,6 +18,7 @@ use App\Support\ResumoMensal;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
@@ -37,11 +37,13 @@ class FacturaController extends Controller
         $query = Factura::with([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'leitura' => fn ($q) => $q->withTrashed(),
+            'leituraEstimada',
             'geradaPor' => fn ($q) => $q->withTrashed(),
             'anuladaPor' => fn ($q) => $q->withTrashed(),
             'pagamentos',
             'facturaSeguinte',
-            'ultimoEnvio',
+            'origensSaldo' => fn ($q) => $q->with(['pagamentos', 'cliente.tarifa'])
+                ->orderBy('ano')->orderBy('mes')->orderBy('facturas.id'),
         ]);
 
         $filtros = $this->aplicarFiltros($query, $request);
@@ -59,6 +61,7 @@ class FacturaController extends Controller
         ], 'factura', 'desc');
 
         $facturas = $query->paginate(15)->withQueryString();
+        $historico = $this->historicoParaPagina($facturas->getCollection());
         $facturas->getCollection()->each(function (Factura $factura) {
             $factura->total_pago = $factura->totalPago();
             $factura->em_falta = $factura->emFalta();
@@ -69,16 +72,16 @@ class FacturaController extends Controller
         return Inertia::render('Facturas/Index', [
             'facturas' => $facturas,
             'primeirasLeituras' => collect($facturas->items())->mapWithKeys(
-                fn ($factura) => [$factura->id => $factura->leitura?->ehPrimeira() ?? false],
+                fn ($factura) => [$factura->id => $historico[$factura->id]['primeira']],
             ),
             'consumosAnteriores' => collect($facturas->items())->mapWithKeys(
-                fn ($factura) => [$factura->id => $this->consumoAnterior($factura->leitura)],
+                fn ($factura) => [$factura->id => $historico[$factura->id]['consumo_anterior']],
             ),
             'facturasAnteriores' => collect($facturas->items())->mapWithKeys(
-                fn ($factura) => [$factura->id => $this->facturaAnterior($factura)],
+                fn ($factura) => [$factura->id => $historico[$factura->id]['factura_anterior']],
             ),
             'facturasIniciaisEditaveis' => collect($facturas->items())->mapWithKeys(
-                fn ($factura) => [$factura->id => $this->podeEditarFacturaInicial($factura)],
+                fn ($factura) => [$factura->id => $historico[$factura->id]['factura_inicial_editavel']],
             ),
             'qrUrls' => collect($facturas->items())->mapWithKeys(
                 fn ($factura) => [$factura->id => $this->qrUrl($factura)],
@@ -87,13 +90,57 @@ class FacturaController extends Controller
                 ->where('confirmado', true)
                 ->with(['cliente' => fn ($q) => $q->withTrashed()])
                 ->orderByDesc('ano')->orderByDesc('mes')->get(),
-            'emailAutomatico' => Facturacao::enviarAoEmitir(),
             'resumoMensal' => $this->resumoMensal(),
             'totais' => ResumoMensal::facturas($mesRef->month, $mesRef->year),
             'mesReferencia' => MesReferencia::paraSeletor($mesRef),
             'filtros' => [...$filtros, 'mes' => MesReferencia::foiPedido($request) ? $mesRef->format('Y-m') : '', 'sort' => $sort, 'dir' => $dir],
             ...$this->facturaAlvo($request),
         ]);
+    }
+
+    /** Calcula em lote o histórico usado por cada factura da página. */
+    private function historicoParaPagina(Collection $facturas): array
+    {
+        if ($facturas->isEmpty()) {
+            return [];
+        }
+
+        $clienteIds = $facturas->pluck('cliente_id')->unique()->values();
+        $leiturasPorCliente = Leitura::whereIn('cliente_id', $clienteIds)
+            ->get(['id', 'cliente_id', 'ano', 'mes', 'leitura_actual', 'leitura_anterior'])
+            ->groupBy('cliente_id');
+        $clientesComLeituras = Leitura::withTrashed()->whereIn('cliente_id', $clienteIds)
+            ->distinct()->pluck('cliente_id')->flip();
+        $facturasPorCliente = Factura::whereIn('cliente_id', $clienteIds)
+            ->get(['id', 'cliente_id', 'ano', 'mes', 'valor_consumo', 'multa', 'total_pagar'])
+            ->groupBy('cliente_id');
+
+        return $facturas->mapWithKeys(function (Factura $factura) use ($leiturasPorCliente, $clientesComLeituras, $facturasPorCliente) {
+            $leitura = $factura->leitura;
+            $periodo = fn ($registo) => sprintf('%04d-%02d', $registo->ano, $registo->mes);
+            $anterioresLeitura = $leitura
+                ? $leiturasPorCliente->get($factura->cliente_id, collect())
+                    ->filter(fn ($anterior) => $periodo($anterior) < $periodo($leitura))
+                    ->sortByDesc($periodo)
+                : collect();
+            $leituraAnterior = $anterioresLeitura->first();
+            $facturaAnterior = $facturasPorCliente->get($factura->cliente_id, collect())
+                ->filter(fn ($anterior) => $periodo($anterior) < $periodo($factura))
+                ->sortByDesc($periodo)
+                ->first();
+            $cliente = $factura->cliente;
+
+            return [$factura->id => [
+                'primeira' => $leitura !== null && $leituraAnterior === null,
+                'consumo_anterior' => $leituraAnterior ? $leituraAnterior->consumo() : null,
+                'factura_anterior' => $facturaAnterior,
+                'factura_inicial_editavel' => $cliente !== null
+                    && $factura->tipo !== 'ligacao'
+                    && $factura->leitura_id === null
+                    && $factura->leitura_estimada_id === null
+                    && ! $clientesComLeituras->has($factura->cliente_id),
+            ]];
+        })->all();
     }
 
     /**
@@ -111,7 +158,7 @@ class FacturaController extends Controller
             return ['facturaAlvo' => null, 'accaoAlvo' => null];
         }
 
-        $factura = Factura::with(['cliente' => fn ($q) => $q->withTrashed(), 'leitura' => fn ($q) => $q->withTrashed(), 'pagamentos'])
+        $factura = Factura::with(['cliente' => fn ($q) => $q->withTrashed(), 'leitura' => fn ($q) => $q->withTrashed(), 'leituraEstimada', 'pagamentos'])
             ->find((int) $request->query($accao));
 
         if ($factura) {
@@ -203,10 +250,9 @@ class FacturaController extends Controller
         }
 
         $factura = $this->criarFactura($leitura, $request->user()->id);
-        $envio = Facturacao::enviarPorEmail([$factura], $request->user()->id);
 
         return redirect()->route('facturas.index')
-            ->with('status', 'Factura emitida com sucesso.'.($envio['comEmail'] ? ' A enviar por email ao cliente.' : ''))
+            ->with('status', 'Factura emitida com sucesso.')
             // Permite ao frontend perguntar "deseja efectuar o pagamento
             // agora?" logo a seguir, sem precisar de adivinhar o id criado.
             ->with('novaFactura', [
@@ -226,38 +272,44 @@ class FacturaController extends Controller
         $data = $request->validate([
             'mes' => 'required|integer|min:1|max:12',
             'ano' => 'required|integer|min:2000|max:2100',
-            'enviar_email' => 'nullable|boolean',
         ]);
 
-        $leituras = Leitura::whereDoesntHave('factura')
-            ->where('confirmado', true)
-            ->where('mes', $data['mes'])
-            ->where('ano', $data['ano'])
-            ->with('cliente.tarifa')
-            ->get();
+        $geradaPor = $request->user()->id;
+        $criadas = DB::transaction(function () use ($geradaPor, $data) {
+            $emitidas = collect();
+            $candidatas = Leitura::where('confirmado', true)
+                ->where('mes', $data['mes'])
+                ->where('ano', $data['ano'])
+                ->orderBy('id')
+                ->get(['id', 'cliente_id']);
 
-        if ($leituras->isEmpty()) {
+            foreach ($candidatas as $candidata) {
+                // Serializa lotes concorrentes pelo cliente e pela leitura.
+                // A verificação é repetida depois dos bloqueios para que uma
+                // segunda execução simplesmente ignore o que já foi emitido.
+                $cliente = Cliente::with('tarifa')->lockForUpdate()->find($candidata->cliente_id);
+                $leitura = Leitura::whereKey($candidata->id)->lockForUpdate()->first();
+
+                if (! $cliente || ! $leitura
+                    || ! $leitura->confirmado
+                    || (int) $leitura->mes !== (int) $data['mes']
+                    || (int) $leitura->ano !== (int) $data['ano']
+                    || Factura::withTrashed()->where('leitura_id', $leitura->id)->exists()) {
+                    continue;
+                }
+
+                $leitura->setRelation('cliente', $cliente);
+                $emitidas->push($this->criarFactura($leitura, $geradaPor));
+            }
+
+            return $emitidas;
+        });
+
+        if ($criadas->isEmpty()) {
             return back()->with('error', 'Não há leituras confirmadas por facturar nesse período.');
         }
 
-        $geradaPor = $request->user()->id;
-        $criadas = collect();
-
-        DB::transaction(function () use ($leituras, $geradaPor, &$criadas) {
-            foreach ($leituras as $leitura) {
-                $criadas->push($this->criarFactura($leitura, $geradaPor));
-            }
-        });
-
-        $mensagem = "{$leituras->count()} factura(s) emitida(s) com sucesso.";
-
-        // Segue por email aos clientes que têm email: por omissão como está em Administração > Email;
-        // a opção da janela "Facturar mês" pode forçar o envio deste lote.
-        $quer = $request->has('enviar_email') ? $request->boolean('enviar_email') : Facturacao::enviarAoEmitir();
-        if ($quer) {
-            $envio = Facturacao::enviarPorEmail($criadas, $geradaPor, true);
-            $mensagem .= " A enviar {$envio['comEmail']} por email".($envio['semEmail'] ? " ({$envio['semEmail']} cliente(s) sem email ficaram de fora)." : '.');
-        }
+        $mensagem = "{$criadas->count()} factura(s) emitida(s) com sucesso.";
 
         return redirect()->route('facturas.index')->with('status', $mensagem);
     }
@@ -268,51 +320,72 @@ class FacturaController extends Controller
     }
 
     /**
-     * Actualizar uma factura — apenas dívida anterior, multa e estado podem
-     * ser corrigidos manualmente; o valor do consumo vem sempre da leitura.
+     * Actualizar valores de uma factura pendente. O estado só muda através
+     * dos fluxos próprios de pagamento e anulação.
      */
     public function update(Request $request, Factura $factura)
     {
-        // Uma factura só pode ser corrigida enquanto ainda não tem nenhum
-        // pagamento registado — editar dívida/multa/estado de uma factura já
-        // paga ou parcialmente paga desalinharia o que o cliente já recebeu
-        // do que o sistema mostra.
-        if ($factura->estado !== 'pendente') {
-            return back()->with('error', 'Só é possível editar facturas pendentes, sem pagamentos registados.');
-        }
-
-        if ($factura->pagamentos()->exists()) {
-            return back()->with('error', 'Esta factura já tem pagamentos registados e não pode ser editada.');
-        }
-
         $inicialEditavel = $this->podeEditarFacturaInicial($factura);
         $data = $request->validate([
             'divida_anterior' => 'nullable|numeric|min:0',
             'multa' => 'required|numeric|min:0',
             'valor_consumo' => $inicialEditavel ? 'required|numeric|min:0' : 'nullable|numeric|min:0',
-            'estado' => 'required|in:pendente,paga,parcial,anulada',
+            'estado' => 'prohibited',
         ]);
 
-        if (array_key_exists('valor_consumo', $data)
-            && ! $inicialEditavel
-            && (float) $data['valor_consumo'] !== (float) $factura->valor_consumo) {
+        $resultado = DB::transaction(function () use ($factura, $data) {
+            $bloqueada = Factura::whereKey($factura->id)->lockForUpdate()->firstOrFail();
+            if ($bloqueada->estado !== 'pendente') {
+                return 'estado';
+            }
+            if ($bloqueada->pagamentos()->exists()) {
+                return 'pagamentos';
+            }
+            if ($bloqueada->tipo === 'consumo_estimado') {
+                return 'consumo_estimado';
+            }
+
+            $inicialEditavel = $this->podeEditarFacturaInicial($bloqueada);
+            if (array_key_exists('valor_consumo', $data)
+                && ! $inicialEditavel
+                && (float) $data['valor_consumo'] !== (float) $bloqueada->valor_consumo) {
+                return 'consumo';
+            }
+
+            $valorConsumo = $inicialEditavel
+                ? (float) ($data['valor_consumo'] ?? $bloqueada->valor_consumo)
+                : (float) $bloqueada->valor_consumo;
+            $multa = (float) $data['multa'];
+            $dividaAnterior = $bloqueada->divida_anterior_incluida && isset($data['divida_anterior'])
+                ? (float) $data['divida_anterior']
+                : (float) $bloqueada->divida_anterior;
+
+            $bloqueada->update([
+                'valor_consumo' => $valorConsumo,
+                'multa' => $multa,
+                'divida_anterior' => $dividaAnterior,
+                'total_pagar' => $valorConsumo + (float) $bloqueada->saldo_inicial + $multa + (float) $bloqueada->multa_anterior
+                    + ($bloqueada->divida_anterior_incluida ? $dividaAnterior : 0) + (float) $bloqueada->valor_acerto_leitura,
+            ]);
+
+            return 'actualizada';
+        });
+
+        if ($resultado === 'estado') {
+            return back()->with('error', 'Só é possível editar facturas pendentes, sem pagamentos registados.');
+        }
+        if ($resultado === 'pagamentos') {
+            return back()->with('error', 'Esta factura já tem pagamentos registados e não pode ser editada.');
+        }
+        if ($resultado === 'consumo') {
             return back()->with('error', 'O valor do consumo só pode ser alterado na factura inicial do cliente, antes da primeira leitura.');
         }
-        $data['valor_consumo'] = $inicialEditavel ? (float) ($data['valor_consumo'] ?? $factura->valor_consumo) : $factura->valor_consumo;
-
-        // Só as facturas antigas (dívida incluída no total) deixam editar a dívida anterior.
-        if (! $factura->divida_anterior_incluida || ! isset($data['divida_anterior'])) {
-            $data['divida_anterior'] = $factura->divida_anterior;
+        if ($resultado === 'consumo_estimado') {
+            return back()->with('error', 'A factura estimada preserva o valor aprovado. Anule-a com motivo e registe uma nova estimativa se ainda não tiver pagamentos.');
         }
-
-        $data['total_pagar'] = $data['valor_consumo'] + (float) $factura->saldo_inicial + $data['multa'] + (float) $factura->multa_anterior
-            + ($factura->divida_anterior_incluida ? $data['divida_anterior'] : 0);
-
-        $factura->update($data);
 
         return redirect()->route('facturas.index')->with('status', 'Factura actualizada com sucesso.');
     }
-
     /** Facturas de consumo ainda sem leitura podem ser corrigidas antes do primeiro registo de leitura. */
     private function podeEditarFacturaInicial(Factura $factura): bool
     {
@@ -321,6 +394,7 @@ class FacturaController extends Controller
         return $cliente !== null
             && $factura->tipo !== 'ligacao'
             && $factura->leitura_id === null
+            && $factura->leitura_estimada_id === null
             && ! $cliente->leituras()->withTrashed()->exists();
     }
 
@@ -335,36 +409,63 @@ class FacturaController extends Controller
             'motivo_anulacao' => 'required|string|min:5|max:1000',
         ]);
 
-        // Não zera nada manualmente na dívida do cliente: o saldo em aberto
-        // é sempre calculado a partir das facturas pendentes/parciais
-        // actuais (Cliente::saldoEmAberto()), por isso uma factura anulada
-        // deixa automaticamente de contar assim que muda de estado.
-        // Anular com dinheiro já recebido deixava recibos sem factura e a taxa de
-        // cobrança inflacionada: primeiro estornam-se os pagamentos (só o administrador).
-        if ($factura->pagamentos()->exists()) {
+        // A anulacao iniciada pela factura usa a mesma ordem dos locks da
+        // anulacao iniciada pela leitura: leitura e depois factura.
+        $leituraId = $factura->leitura_id;
+        $resultado = DB::transaction(function () use ($factura, $leituraId, $data, $request) {
+            $leitura = $leituraId
+                ? Leitura::withTrashed()->whereKey($leituraId)->lockForUpdate()->first()
+                : null;
+
+            $facturaBloqueada = Factura::whereKey($factura->id)->lockForUpdate()->firstOrFail();
+
+            if ($leitura && \App\Models\AcertoLeitura::where('cliente_id', $facturaBloqueada->cliente_id)
+                ->whereHas('leituraReal', fn ($q) => $q->where(fn ($q) => $q->where('ano', '>', $leitura->ano)
+                    ->orWhere(fn ($q) => $q->where('ano', $leitura->ano)->where('mes', '>=', $leitura->mes))))
+                ->exists()) {
+                return 'ciclo_estimado';
+            }
+
+            if ($facturaBloqueada->pagamentos()->exists()) {
+                return 'pagamentos';
+            }
+
+            if ($facturaBloqueada->estado === 'anulada') {
+                return 'anulada';
+            }
+
+            $facturaBloqueada->update([
+                'estado' => 'anulada',
+                'motivo_anulacao' => $data['motivo_anulacao'],
+                'anulada_por' => $request->user()->id,
+                'anulada_em' => now(),
+            ]);
+
+            if ($facturaBloqueada->leitura_estimada_id) {
+                \App\Models\LeituraEstimada::whereKey($facturaBloqueada->leitura_estimada_id)
+                    ->where('estado', 'facturada')->update(['estado' => 'factura_anulada']);
+            }
+
+            if ($leitura && ! $leitura->trashed()) {
+                $leitura->delete();
+            }
+
+            return 'anulada_com_sucesso';
+        });
+
+        if ($resultado === 'pagamentos') {
             return back()->with('error', 'Esta factura tem pagamentos registados. Estorne os pagamentos primeiro (apenas administradores) e só depois anule a factura.');
         }
-
-        $factura->update([
-            'estado' => 'anulada',
-            'motivo_anulacao' => $data['motivo_anulacao'],
-            'anulada_por' => $request->user()->id,
-            'anulada_em' => now(),
-        ]);
-
-        // A leitura vai para a lixeira junto com a factura — se ficasse
-        // activa, voltaria a aparecer como "confirmada sem factura" e podia
-        // ser facturada uma segunda vez. Ao ficar apenas na lixeira (nunca
-        // apagada de vez), sai de todos os cálculos automaticamente —
-        // Leitura::anterior() e Leitura::ehPrimeira() já ignoram registos na
-        // lixeira, por isso a leitura seguinte deste cliente volta a usar a
-        // última leitura válida como "anterior", não a que foi anulada.
-        $factura->leitura?->delete();
+        if ($resultado === 'ciclo_estimado') {
+            return back()->with('error', 'Esta factura pertence a uma sequência que sustenta um ciclo estimado reconciliado e não pode ser anulada.');
+        }
+        if ($resultado === 'anulada') {
+            return back()->with('error', 'Esta factura já está anulada.');
+        }
 
         return redirect()->route('facturas.index')->with('status', 'Factura anulada com sucesso. A leitura associada também foi anulada.');
     }
-
-    /** A factura em PDF (a mesma que segue por email), aberta no browser. */
+    /** A factura em PDF, aberta no browser. */
     public function pdf(Factura $factura)
     {
         return response(FacturaPdf::gerar($factura), 200, [
@@ -372,41 +473,6 @@ class FacturaController extends Controller
             'Content-Disposition' => 'inline; filename="'.FacturaPdf::nomeFicheiro($factura).'"',
         ]);
     }
-
-    /** Envia uma factura por email ao cliente. */
-    public function enviarEmail(Request $request, Factura $factura)
-    {
-        $resultado = FacturaEmail::enviar($factura, $request->user()->id);
-
-        return back()->with($resultado['ok'] ? 'status' : 'error', $resultado['mensagem']);
-    }
-
-    /**
-     * Envia várias facturas (as seleccionadas na lista) por email. Corre depois
-     * de responder; o resultado de cada uma fica registado e aparece na lista.
-     */
-    public function enviarEmailLote(Request $request)
-    {
-        $data = $request->validate([
-            'ids' => 'required|array|min:1|max:300',
-            'ids.*' => 'integer|exists:facturas,id',
-        ]);
-
-        $facturas = Factura::whereIn('id', $data['ids'])->where('estado', '!=', 'anulada')
-            ->with(['cliente' => fn ($q) => $q->withTrashed()])->get();
-        $comEmail = $facturas->filter(fn (Factura $f) => filled($f->cliente?->email))->values();
-        $semEmail = $facturas->count() - $comEmail->count();
-
-        if ($comEmail->isEmpty()) {
-            return back()->with('error', 'Nenhum dos clientes seleccionados tem email registado.');
-        }
-
-        $utilizador = $request->user()->id;
-        dispatch(fn () => FacturaEmail::enviarVarias($comEmail, $utilizador, 'manual'))->afterResponse();
-
-        return back()->with('status', "A enviar {$comEmail->count()} factura(s) por email".($semEmail ? " — {$semEmail} cliente(s) sem email ficaram de fora." : '.'));
-    }
-
     /**
      * Vista de impressão da factura, com os dados da leitura actual e
      * anterior. Se for a primeira leitura do cliente, assinala-se para o
@@ -417,6 +483,7 @@ class FacturaController extends Controller
         $factura->load([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'leitura' => fn ($q) => $q->withTrashed(),
+            'leituraEstimada',
             'geradaPor' => fn ($q) => $q->withTrashed(),
             'pagamentos' => fn ($q) => $q->orderBy('created_at'),
         ]);
@@ -446,6 +513,7 @@ class FacturaController extends Controller
         $query = Factura::with([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'leitura' => fn ($q) => $q->withTrashed(),
+            'leituraEstimada',
             'geradaPor' => fn ($q) => $q->withTrashed(),
             'pagamentos',
         ]);

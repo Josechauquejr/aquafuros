@@ -65,6 +65,11 @@ class Leitura extends Model
         return $this->hasOne(Factura::class);
     }
 
+    public function acertoLeitura()
+    {
+        return $this->hasOne(AcertoLeitura::class, 'leitura_real_id');
+    }
+
     // A correcção mais recente ainda por desfazer (só o administrador corrige leituras confirmadas).
     public function correccaoActiva()
     {
@@ -108,8 +113,25 @@ class Leitura extends Model
             ->first();
     }
 
+    public static function consumoEntre($actual, $anterior): float
+    {
+        return max(0.0, (float) $actual - (float) $anterior);
+    }
+
+    /** Expressão SQL equivalente a consumoEntre(), para ordenação/agregação. */
+    public static function expressaoConsumoSql(string $actual, string $anterior): string
+    {
+        foreach ([$actual, $anterior] as $coluna) {
+            if (! preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/', $coluna)) {
+                throw new \InvalidArgumentException('Coluna SQL inválida para calcular consumo.');
+            }
+        }
+
+        return "CASE WHEN {$actual} > {$anterior} THEN {$actual} - {$anterior} ELSE 0 END";
+    }
+
     public function consumo(): float
     {
-        return max(0, (float) $this->leitura_actual - (float) $this->leitura_anterior);
+        return static::consumoEntre($this->leitura_actual, $this->leitura_anterior);
     }
 }

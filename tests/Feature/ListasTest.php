@@ -290,6 +290,42 @@ class ListasTest extends TestCase
         $this->actingAs($gestor)->get('/lixeira')->assertForbidden();
     }
 
+    public function test_pagamento_anulado_com_mais_de_30_dias_permanece_preservado_e_nao_pode_ser_apagado(): void
+    {
+        $cliente = $this->cliente('Ana');
+        $pagamento = $this->pagamento($cliente, 'REC-RETIDO', 100);
+        $pagamento->delete();
+        $pagamento->forceFill(['deleted_at' => now()->subDays(40)])->saveQuietly();
+
+        $this->actingAs($this->admin)->get('/lixeira?tipo=pagamentos')
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('linhas.data', 1)
+                ->where('linhas.data.0.titulo', 'REC-RETIDO')
+                ->where('linhas.data.0.preservado', true)
+                ->where('linhas.data.0.dias_restantes', null));
+
+        $this->assertSoftDeleted('pagamentos', ['id' => $pagamento->id]);
+
+        $this->actingAs($this->admin)->delete("/pagamentos/lixeira/{$pagamento->id}")
+            ->assertSessionHas('error');
+
+        $this->assertSoftDeleted('pagamentos', ['id' => $pagamento->id]);
+    }
+
+    public function test_cliente_com_registo_financeiro_nao_pode_ser_apagado_definitivamente(): void
+    {
+        $cliente = $this->cliente('Ana');
+        $pagamento = $this->pagamento($cliente, 'REC-CLIENTE', 100);
+        $pagamento->delete();
+        $cliente->delete();
+
+        $this->actingAs($this->admin)->delete("/clientes/lixeira/{$cliente->id}")
+            ->assertSessionHas('error');
+
+        $this->assertSoftDeleted('clientes', ['id' => $cliente->id]);
+        $this->assertSoftDeleted('pagamentos', ['id' => $pagamento->id]);
+    }
+
     public function test_paineis_mostram_o_mes_pedido_e_ignoram_meses_invalidos_ou_futuros(): void
     {
         $ana = $this->cliente('Ana');
@@ -361,11 +397,10 @@ class ListasTest extends TestCase
         $this->assertEquals(1500, $painel['totalFacturado']);
         $this->assertEquals(900, $painel['totalRecebido']);
 
-        // Facturas: facturado, recebido (incl. parciais) e o que FALTA pagar
+        // Facturas: facturado e o que falta pagar. Recebido pertence à página de Pagamentos.
         $this->assertEquals($painel['totalFacturado'], $facturas['totalFacturado']);
-        $this->assertEquals($painel['totalRecebido'], $facturas['recebidoNoMes']);
         $this->assertEquals(600, $facturas['emAberto']);
-        $this->assertEquals($facturas['totalFacturado'], $facturas['recebidoNoMes'] + $facturas['emAberto']);
+        $this->assertArrayNotHasKey('recebidoNoMes', $facturas);
 
         // Pagamentos: o mesmo dinheiro recebido no mês
         $this->assertEquals($painel['totalRecebido'], $pagamentos['totalRecebido']);

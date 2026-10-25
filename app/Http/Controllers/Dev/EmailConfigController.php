@@ -6,14 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Configuracao;
 use App\Models\EmpresaPerfil;
 use App\Support\Facturacao;
-use App\Support\Notificacoes;
 use App\Support\GmailOAuth;
 use App\Support\RegistoEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
-/** Ligação do Gmail para o envio de facturas (só desenvolvedor). */
+/** Ligação do Gmail para emails de autenticação (só developer). */
 class EmailConfigController extends Controller
 {
     public function index()
@@ -28,12 +27,7 @@ class EmailConfigController extends Controller
             'redirect' => GmailOAuth::urlRedirecionamento(),
             'transporte' => config('mail.default'),
             'remetente' => config('mail.from.address'),
-            'automatico' => [
-                'facturar_ao_confirmar' => Facturacao::facturarAoConfirmar(),
-                'enviar_ao_emitir' => Facturacao::enviarAoEmitir(),
-                'cobranca_automatica' => Notificacoes::automaticas(),
-                'intervalo_cobranca_dias' => (int) Configuracao::valor('email_intervalo_cobranca_dias', config('notificacoes.intervalo_minimo_dias', 7)),
-            ],
+            'automatico' => ['facturar_ao_confirmar' => Facturacao::facturarAoConfirmar()],
         ]);
     }
 
@@ -69,23 +63,14 @@ class EmailConfigController extends Controller
     }
 
     /** Interruptores do envio automático (facturas e cobranças). */
+    /** Ajusta apenas a emissão automática de facturas; não envia emails a clientes. */
     public function automatico(Request $request)
     {
-        $data = $request->validate([
-            'facturar_ao_confirmar' => 'required|boolean',
-            'enviar_ao_emitir' => 'required|boolean',
-            'cobranca_automatica' => 'required|boolean',
-            'intervalo_cobranca_dias' => 'sometimes|nullable|integer|min:0|max:365',
-        ]);
-
+        $data = $request->validate(['facturar_ao_confirmar' => 'required|boolean']);
         Configuracao::definir('email_facturar_ao_confirmar', $data['facturar_ao_confirmar'] ? 1 : 0);
-        Configuracao::definir('email_enviar_ao_emitir', $data['enviar_ao_emitir'] ? 1 : 0);
-        Configuracao::definir('email_cobranca_automatica', $data['cobranca_automatica'] ? 1 : 0);
-        Configuracao::definir('email_intervalo_cobranca_dias', (int) ($data['intervalo_cobranca_dias'] ?? Configuracao::valor('email_intervalo_cobranca_dias', 7)));
 
-        return back()->with('status', 'Envio automático actualizado.');
+        return back()->with('status', 'Emissão automática de facturas actualizada.');
     }
-
     public function desligar()
     {
         GmailOAuth::desligar();
@@ -96,8 +81,7 @@ class EmailConfigController extends Controller
     /** Envia um email de teste ao próprio desenvolvedor (ou ao endereço indicado). */
     public function testar(Request $request)
     {
-        $data = $request->validate(['para' => 'nullable|email']);
-        $destino = $data['para'] ?? $request->user()->email;
+        $destino = $request->user()->email;
         $empresa = EmpresaPerfil::atual()->nome;
 
         $mail = new class($empresa) extends \Illuminate\Mail\Mailable {

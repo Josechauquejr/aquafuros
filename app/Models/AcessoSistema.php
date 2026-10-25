@@ -15,7 +15,7 @@ class AcessoSistema extends Model
 
     protected $table = 'acessos_sistema';
 
-    protected $fillable = ['user_id', 'url', 'metodo', 'ip', 'user_agent', 'status_code', 'duracao_ms', 'tempo_bd_ms'];
+    protected $fillable = ['user_id', 'url', 'metodo', 'ip', 'user_agent', 'status_code', 'duracao_ms', 'tempo_bd_ms', 'consultas'];
 
     public function user()
     {

@@ -122,7 +122,6 @@ export default function Saude({ servicos, aplicacao, alertas }) {
                         <Cartao icone={Clock} titulo="Agendador" estado={estadoAgendador}>
                             <Linha rotulo="Último pulso">{agendador.ultimo_pulso ? new Date(agendador.ultimo_pulso * 1000).toLocaleString("pt-PT") : "Nunca"}</Linha>
                             <Linha rotulo="Há">{agendador.ha_min == null ? "—" : `${agendador.ha_min} min`}</Linha>
-                            <Linha rotulo="Tarefa diária">notificacoes:gerar às 08:00</Linha>
                         </Cartao>
 
                         <Cartao icone={MemoryStick} titulo="Cache" estado={cache.ok ? "ok" : "erro"}>

@@ -22,6 +22,7 @@ class RegistarAcesso
     public function handle(Request $request, Closure $next): Response
     {
         $request->attributes->set('_inicio_pedido', microtime(true));
+        DB::flushQueryLog();
         DB::enableQueryLog();
 
         return $next($request);
@@ -44,6 +45,7 @@ class RegistarAcesso
                     'status_code' => $response->getStatusCode(),
                     'duracao_ms' => $duracaoMs,
                     'tempo_bd_ms' => $tempoBdMs,
+                    'consultas' => count(DB::getQueryLog()),
                     'created_at' => now(),
                 ]);
             }
@@ -52,6 +54,7 @@ class RegistarAcesso
             // a resposta já foi enviada ao browser a esta altura.
         }
 
+        DB::flushQueryLog();
         DB::disableQueryLog();
     }
 }

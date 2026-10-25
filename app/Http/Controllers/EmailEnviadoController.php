@@ -6,23 +6,15 @@ use App\Models\EnvioEmail;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
-/**
- * Registo de todos os emails que o sistema envia (facturas, lembretes, avisos
- * de atraso e cobranças): quem recebeu, quando, o que dizia, se foi automático
- * ou à mão, e se falhou.
- */
+/** Histórico de emails de autenticação. */
 class EmailEnviadoController extends Controller
 {
     public const TIPOS = [
-        'factura' => 'Factura',
-        'lembrete_vencimento' => 'Lembrete de vencimento',
-        'atraso' => 'Atraso',
-        'atraso_grave' => 'Atraso grave',
-        'cobranca' => 'Cobrança',
-        'recibo' => 'Recibo de pagamento',
         'teste' => 'Email de teste',
         'codigo_verificacao' => 'Código de verificação',
         'codigo_recuperacao' => 'Código de recuperação',
+        'senha_inicial' => 'Definição de senha inicial',
+        'senha_reposicao' => 'Link para repor senha',
     ];
 
     public function index(Request $request)
@@ -33,7 +25,7 @@ class EmailEnviadoController extends Controller
         $search = trim((string) $request->query('search', ''));
 
         // O corpo (HTML) só se carrega ao abrir o email — não vai na lista.
-        $query = EnvioEmail::select(['id', 'factura_id', 'cliente_id', 'tipo', 'origem', 'email', 'assunto', 'estado', 'tentativas', 'erro', 'anexos', 'enviado_por', 'created_at'])
+        $query = EnvioEmail::whereIn('tipo', array_keys(self::TIPOS))->select(['id', 'factura_id', 'cliente_id', 'tipo', 'origem', 'email', 'assunto', 'estado', 'tentativas', 'erro', 'anexos', 'enviado_por', 'created_at'])
             ->selectRaw('(corpo is not null) as tem_corpo')
             ->with(['cliente', 'factura:id,numero_factura', 'enviadoPor:id,name'])
             ->orderByDesc('id');
@@ -59,10 +51,10 @@ class EmailEnviadoController extends Controller
             'envios' => $query->paginate(20)->withQueryString(),
             'tipos' => self::TIPOS,
             'totais' => [
-                'hoje' => EnvioEmail::whereDate('created_at', now()->toDateString())->where('estado', 'enviado')->count(),
-                'enviados' => EnvioEmail::where('estado', 'enviado')->count(),
-                'falharam' => EnvioEmail::where('estado', 'falhou')->count(),
-                'automaticos' => EnvioEmail::where('estado', 'enviado')->where('origem', 'automatico')->count(),
+                'hoje' => EnvioEmail::whereIn('tipo', array_keys(self::TIPOS))->whereDate('created_at', now()->toDateString())->where('estado', 'enviado')->count(),
+                'enviados' => EnvioEmail::whereIn('tipo', array_keys(self::TIPOS))->where('estado', 'enviado')->count(),
+                'falharam' => EnvioEmail::whereIn('tipo', array_keys(self::TIPOS))->where('estado', 'falhou')->count(),
+                'automaticos' => EnvioEmail::whereIn('tipo', array_keys(self::TIPOS))->where('estado', 'enviado')->where('origem', 'automatico')->count(),
             ],
             'filtros' => ['search' => $search, 'tipo' => $tipo, 'estado' => $estado, 'origem' => $origem],
         ]);
@@ -71,6 +63,7 @@ class EmailEnviadoController extends Controller
     /** O email tal como foi enviado, para abrir numa janela (isolado: sem scripts, sem ligações externas). */
     public function ver(EnvioEmail $envio)
     {
+        abort_unless(array_key_exists($envio->tipo, self::TIPOS), 404);
         $corpo = $envio->corpo ?: '<p style="font-family:Arial;padding:24px;color:#64748b">O conteúdo deste email não ficou guardado.</p>';
 
         return response($corpo, 200, [

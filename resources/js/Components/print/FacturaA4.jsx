@@ -16,6 +16,7 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
     const estado = estadoDocumento(factura);
     const resumo = resumoDocumento(factura);
     const leitura = factura.leitura;
+    const estimada = factura.tipo === "consumo_estimado";
     const tarifa = factura.cliente?.tarifa;
     const ligacao = factura.tipo === "ligacao";
     const prazo = factura.data_vencimento ? new Date(factura.data_vencimento).toLocaleDateString("pt-PT", { day: "2-digit", month: "long", year: "numeric" }) : null;
@@ -45,7 +46,10 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
             </section>
             {ligacao ? <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600">Taxa de ligação de água. Encargo único associado ao início do contrato de fornecimento.</p> : <section>
                 <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Registo de consumo de água</h2>
-                <div className="grid grid-cols-3 gap-3">
+                {estimada ? <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+                    <p className="font-semibold">Consumo estimado · {volumeDocumento(resumo.consumo)}</p>
+                    <p className="mt-1 text-[11px]">Não foi registada uma leitura do visor neste período.</p>
+                </div> : <div className="grid grid-cols-3 gap-3">
                     {[
                         ["Leitura anterior", leitura?.leitura_anterior, false],
                         ["Leitura actual", leitura?.leitura_actual, false],
@@ -54,8 +58,8 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                         <p className="text-[12px] text-slate-600">{label}</p>
                         <p className="mt-1 whitespace-nowrap text-2xl font-semibold tabular-nums">{volumeDocumento(valor)}</p>
                     </div>)}
-                </div>
-                {(primeiraLeitura || consumoAnterior != null) && <p className="mt-2 text-[11px] text-slate-600">
+                </div>}
+                {!estimada && (primeiraLeitura || consumoAnterior != null) && <p className="mt-2 text-[11px] text-slate-600">
                     {primeiraLeitura ? "Leitura anterior correspondente à leitura inicial do contrato." : `Consumo do período anterior: ${volumeDocumento(consumoAnterior)}.`}
                 </p>}
             </section>}
@@ -63,6 +67,7 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                 <h2 className="mb-1 text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Discriminação da factura</h2>
                 <table className="w-full border-collapse"><tbody>
                     <LinhaValor descricao={ligacao ? "Taxa de ligação de água" : "Valor do consumo do período"} valor={resumo.consumoEmitido} />
+                    {resumo.acertoLeitura > 0 && <LinhaValor descricao="Acerto de leituras estimadas" valor={resumo.acertoLeitura} />}
                     {resumo.tarifaMinima && !ligacao && <tr className="border-b border-slate-200"><td colSpan={2} className="pb-2 pt-1 text-[11px] text-slate-600">Tarifa mínima de {moedaDocumento(tarifa.taxa_minima)}, aplicável ao consumo até {volumeDocumento(tarifa.consumo_minimo_m3)}.</td></tr>}
                     {resumo.anterior > 0 && <LinhaValor descricao="Saldo anterior em dívida (sem penalizações)" valor={resumo.anterior} />}
                     {resumo.penalizacoesAnteriores > 0 && <LinhaValor descricao="Penalizações anteriores" valor={resumo.penalizacoesAnteriores} />}

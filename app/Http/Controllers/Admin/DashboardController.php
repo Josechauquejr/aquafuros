@@ -299,6 +299,8 @@ class DashboardController extends Controller
      */
     private function dadosPainel(Carbon $hoje): array
     {
+        $resumos = ResumoMensal::serie($hoje, 6);
+
         return [
             'contadores' => [
                 'clientesActivos' => Cliente::where('estado', 'ativo')->count(),
@@ -312,9 +314,9 @@ class DashboardController extends Controller
             ],
             'alertas' => Alertas::para(true),
             'mesReferencia' => MesReferencia::paraSeletor($hoje),
-            'mesActual' => $this->resumoPeriodo($hoje->month, $hoje->year),
+            'mesActual' => $resumos[$hoje->format('Y-m')] ?? $this->resumoPeriodo($hoje->month, $hoje->year),
             // 6 meses: só para o mini-gráfico dos cartões — a análise completa está nos KPIs.
-            'evolucaoMensal' => $this->evolucaoMensal($hoje, 6),
+            'evolucaoMensal' => $this->evolucaoMensal($hoje, 6, $resumos),
             'dividaTotal' => Cliente::dividaTotalEmAtraso(),
             'clientesNovosMes' => Cliente::whereMonth('data_adesao', $hoje->month)
                 ->whereYear('data_adesao', $hoje->year)
@@ -322,7 +324,7 @@ class DashboardController extends Controller
             'consumoTotalMes' => (float) Leitura::where('mes', $hoje->month)
                 ->where('ano', $hoje->year)
                 ->get()
-                ->sum(fn ($l) => max(0, $l->leitura_actual - $l->leitura_anterior)),
+                ->sum(fn ($l) => $l->consumo()),
             'facturasVencidas' => $this->facturasVencidas(),
         ];
     }
@@ -332,7 +334,7 @@ class DashboardController extends Controller
         return ResumoMensal::calcular($mes, $ano);
     }
 
-    private function evolucaoMensal(Carbon $referencia, int $meses): array
+    private function evolucaoMensal(Carbon $referencia, int $meses, array $resumos = []): array
     {
         // startOfMonth() antes de subtrair: subtrair meses a partir do dia 31
         // pode "transbordar" para o mês seguinte em meses mais curtos
@@ -344,8 +346,8 @@ class DashboardController extends Controller
             ->reverse()
             ->values();
 
-        return $periodos->map(function (Carbon $periodo) {
-            $resumo = $this->resumoPeriodo($periodo->month, $periodo->year);
+        return $periodos->map(function (Carbon $periodo) use ($resumos) {
+            $resumo = $resumos[$periodo->format('Y-m')] ?? $this->resumoPeriodo($periodo->month, $periodo->year);
 
             return [
                 'mes' => $periodo->month,
@@ -376,7 +378,7 @@ class DashboardController extends Controller
                 [$periodo->copy()->startOfMonth(), $periodo->copy()->endOfMonth()],
             )
                 ->get()
-                ->sum(fn ($l) => max(0, $l->leitura_actual - $l->leitura_anterior));
+                ->sum(fn ($l) => $l->consumo());
 
             return [
                 'mes' => $periodo->month,

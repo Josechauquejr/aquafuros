@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from "@inertiajs/react";
-import { Ban, CalendarCheck, Mail, PhoneCall, Search } from "lucide-react";
+import { Ban, CalendarCheck, PhoneCall, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
@@ -29,11 +29,9 @@ const tomPromessa = { pendente: "amber", cumprida: "emerald", falhada: "rose", c
 const selectClasses =
     "mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
-export default function Index({ linhas, clientesEmail, totais, zonas, filtros }) {
+export default function Index({ linhas, totais, zonas, filtros }) {
     const [search, setSearch] = useState(filtros.search);
     const [alvo, setAlvo] = useState(null);
-    const [paraEmail, setParaEmail] = useState(null);
-    const [clienteEmailId, setClienteEmailId] = useState("");
     const form = useForm({ cliente_id: "", canal: "telefone", resultado: "sem_resposta", nota: "", valor: "", data_prometida: "" });
 
     const navegar = (extra = {}) =>
@@ -114,37 +112,6 @@ export default function Index({ linhas, clientesEmail, totais, zonas, filtros })
                         </select>
                     </div>
 
-                    <ExpandableCard title="Enviar cobrança por email" description="Escolha um cliente e envie todas as facturas vencidas" icon={Mail} defaultOpen={false}>
-                    <AnimatedPanel className="border-0 shadow-none rounded-none flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
-                        <div className="min-w-0 flex-1">
-                            <InputLabel htmlFor="cliente_email" value="Enviar cobrança por email" />
-                            <select
-                                id="cliente_email"
-                                value={clienteEmailId}
-                                onChange={(e) => setClienteEmailId(e.target.value)}
-                                className={selectClasses}
-                            >
-                                <option value="">Escolha um cliente com facturas por pagar</option>
-                                {clientesEmail.map((cliente) => (
-                                    <option key={cliente.id} value={cliente.id}>
-                                        {cliente.nome} — {cliente.facturas} factura(s) — {formatMoney(cliente.valor)}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <PrimaryButton
-                            type="button"
-                            disabled={!clienteEmailId}
-                            onClick={() => {
-                                const cliente = clientesEmail.find((item) => String(item.id) === String(clienteEmailId));
-                                if (cliente) setParaEmail({ cliente, facturas: cliente.facturas, valor: cliente.valor });
-                            }}
-                        >
-                            <Mail className="mr-1.5 h-4 w-4" aria-hidden="true" /> Enviar email
-                        </PrimaryButton>
-                    </AnimatedPanel>
-                    </ExpandableCard>
-
                     <ExpandableCard title="Lista de clientes em atraso" description="Contactos, promessas e pagamentos" icon={Users}>
                     <AnimatedPanel className="border-0 shadow-none rounded-none overflow-hidden">
                         {linhas.length === 0 ? (
@@ -211,21 +178,7 @@ export default function Index({ linhas, clientesEmail, totais, zonas, filtros })
                                                     )}
                                                 </td>
                                                 <td className="px-5 py-4">
-                                                    <div className="flex flex-wrap justify-end gap-2">
-                                                        {l.cliente.email ? (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setParaEmail(l)}
-                                                                className="inline-flex items-center gap-1.5 rounded-md border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-200"
-                                                            >
-                                                                <Mail className="h-3.5 w-3.5" aria-hidden="true" /> Enviar email
-                                                            </button>
-                                                        ) : (
-                                                            <span className="inline-flex items-center gap-1.5 px-2 py-2 text-xs text-slate-400" title="O cliente não tem email registado — adicione-o na página de Clientes.">
-                                                                <Mail className="h-3.5 w-3.5" aria-hidden="true" /> sem email
-                                                            </span>
-                                                        )}
-                                                        <SecondaryButton type="button" onClick={() => abrir(l)}>
+                                                    <div className="flex flex-wrap justify-end gap-2"><SecondaryButton type="button" onClick={() => abrir(l)}>
                                                             <PhoneCall className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Registar contacto
                                                         </SecondaryButton>
                                                         <Link href={`/pagamentos?search=${encodeURIComponent(l.cliente.nome)}`} className="inline-flex items-center rounded-md px-2 py-2 text-xs font-semibold text-cyan-700 hover:underline dark:text-cyan-300">
@@ -256,16 +209,6 @@ export default function Index({ linhas, clientesEmail, totais, zonas, filtros })
                     </ExpandableCard>
                 </div>
             </div>
-
-            <ConfirmDialog
-                show={Boolean(paraEmail)}
-                onClose={() => setParaEmail(null)}
-                onConfirm={() => router.post(`/cobranca/clientes/${paraEmail.cliente.numero_cliente}/email`, {}, { preserveScroll: true, onFinish: () => { setParaEmail(null); setClienteEmailId(""); } })}
-                tone="primary"
-                title="Enviar email de cobrança"
-                confirmLabel="Enviar"
-                description={paraEmail ? `Enviar a ${paraEmail.cliente.nome} (${paraEmail.cliente.email}) um email com as ${paraEmail.facturas} factura(s) vencidas (${formatMoney(paraEmail.valor)}) e os PDFs em anexo?` : ""}
-            />
 
             <Modal show={Boolean(alvo)} onClose={() => setAlvo(null)} title={alvo ? `Contacto — ${alvo.cliente.nome}` : ""} maxWidth="lg">
                 <form onSubmit={guardar} className="space-y-4">

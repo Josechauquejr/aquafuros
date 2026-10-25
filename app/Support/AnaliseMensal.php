@@ -147,7 +147,7 @@ class AnaliseMensal
      */
     public static function consumo(Carbon $mes, array $base): array
     {
-        $consumoDe = fn (Leitura $l) => max(0.0, (float) $l->leitura_actual - (float) $l->leitura_anterior);
+        $consumoDe = fn (Leitura $l) => $l->consumo();
 
         $leituras = Leitura::where('mes', $mes->month)->where('ano', $mes->year)
             ->with(['cliente' => fn ($q) => $q->withTrashed(), 'factura'])
@@ -158,15 +158,27 @@ class AnaliseMensal
             ->filter(fn ($l) => $l->factura && $l->factura->estado !== 'anulada')
             ->sum($consumoDe);
 
-        $anomalias = $leituras->map(function (Leitura $l) use ($mes, $consumoDe) {
-            $anteriores = Leitura::where('cliente_id', $l->cliente_id)
-                ->whereRaw('(ano * 12 + mes) < ?', [$mes->year * 12 + $mes->month])
-                ->orderByDesc('ano')->orderByDesc('mes')->limit(3)->get();
+        $limitePeriodo = $mes->year * 12 + $mes->month;
+        $anterioresPorCliente = $leituras->isEmpty() ? collect() : DB::query()
+            ->fromSub(
+                Leitura::query()
+                    ->whereIn('cliente_id', $leituras->pluck('cliente_id')->unique())
+                    ->whereRaw('(ano * 12 + mes) < ?', [$limitePeriodo])
+                    ->select(['cliente_id', 'leitura_actual', 'leitura_anterior', 'ano', 'mes'])
+                    ->selectRaw('ROW_NUMBER() OVER (PARTITION BY cliente_id ORDER BY ano DESC, mes DESC) AS posicao'),
+                'historico_leituras',
+            )
+            ->where('posicao', '<=', 3)
+            ->get()
+            ->groupBy('cliente_id');
+
+        $anomalias = $leituras->map(function (Leitura $l) use ($consumoDe, $anterioresPorCliente) {
+            $anteriores = $anterioresPorCliente->get($l->cliente_id, collect());
             if ($anteriores->isEmpty()) {
                 return null;
             }
 
-            $media = (float) $anteriores->avg($consumoDe);
+            $media = (float) $anteriores->avg(fn ($anterior) => Leitura::consumoEntre($anterior->leitura_actual, $anterior->leitura_anterior));
             $consumo = $consumoDe($l);
             $anormal = ($media > 0 && $consumo >= $media * 1.5 && $consumo - $media >= 1)
                 || ($consumo == 0.0 && $media >= 1);

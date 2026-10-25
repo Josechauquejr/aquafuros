@@ -7,6 +7,7 @@ import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
 import SeletorMes from "@/Components/SeletorMes";
 import { itemVariants, listVariants } from "@/lib/motion";
+import { consumoLeitura } from "@/lib/consumoLeitura";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -109,7 +110,7 @@ export default function Dashboard({ mesReferencia, contadores, leiturasPorConfir
                                                     </p>
                                                 </div>
                                                 <span className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">
-                                                    {(Number(leitura.leitura_actual) - Number(leitura.leitura_anterior)).toFixed(2)} m&sup3;
+                                                    {consumoLeitura(leitura).toFixed(2)} m&sup3;
                                                 </span>
                                             </Link>
                                         </motion.div>

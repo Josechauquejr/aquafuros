@@ -11,7 +11,7 @@ use Symfony\Component\Process\Process;
 
 /**
  * A factura em PDF (A4), gerada no servidor — é o ficheiro que segue em anexo
- * no email e o mesmo que se pode descarregar. Mostra o mesmo que a factura
+ * e o mesmo que se pode descarregar. Mostra o mesmo que a factura
  * impressa: dados do cliente, leitura, valores e estado.
  */
 class FacturaPdf
@@ -26,12 +26,13 @@ class FacturaPdf
         $factura->loadMissing([
             'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
             'leitura' => fn ($q) => $q->withTrashed(),
+            'leituraEstimada',
             'geradaPor' => fn ($q) => $q->withTrashed(),
             'pagamentos',
         ]);
 
         $leitura = $factura->leitura;
-        $consumo = $leitura ? max(0.0, (float) $leitura->leitura_actual - (float) $leitura->leitura_anterior) : null;
+        $consumo = $leitura?->consumo() ?? $factura->consumo_m3;
         $anterior = $leitura?->anterior();
         $tarifa = $factura->cliente?->tarifa;
         $factura->multa_prevista = $factura->multaAtrasoPrevista();
@@ -44,6 +45,7 @@ class FacturaPdf
             'empresa' => $empresa,
             'logotipo' => self::logotipoBase64($empresa),
             'leitura' => $leitura,
+            'leituraEstimada' => $factura->leituraEstimada,
             'primeiraLeitura' => $leitura?->ehPrimeira() ?? false,
             'consumo' => $consumo,
             'consumoAnterior' => $anterior ? round($anterior->consumo(), 2) : null,

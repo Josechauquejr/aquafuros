@@ -90,9 +90,9 @@ class VerificacoesIntegridade
             ],
             'facturas_total_nao_bate' => [
                 'titulo' => 'Total da factura não bate com as parcelas', 'gravidade' => 'alto', 'tabela' => 'facturas',
-                'descricao' => 'Numa factura de consumo, o total deve ser consumo + multa actual + multas anteriores + dívida anterior quando incluída.',
-                'consulta' => fn () => DB::table('facturas')->whereNull('deleted_at')->where('tipo', 'consumo')
-                    ->whereRaw('abs(total_pagar - (valor_consumo + saldo_inicial + multa + multa_anterior + (case when divida_anterior_incluida then divida_anterior else 0 end))) > 0.01')
+                'descricao' => 'Numa factura de consumo, o total deve incluir consumo, acerto de leitura, multas e dívida anterior quando incluída.',
+                'consulta' => fn () => DB::table('facturas')->whereNull('deleted_at')->whereIn('tipo', ['consumo', 'consumo_estimado'])
+                    ->whereRaw('abs(total_pagar - (valor_consumo + coalesce(valor_acerto_leitura, 0) + saldo_inicial + multa + multa_anterior + (case when divida_anterior_incluida then divida_anterior else 0 end))) > 0.01')
                     ->select('id', 'numero_factura', 'total_pagar', 'valor_consumo', 'multa'),
                 'formato' => fn ($r) => "Factura {$r->numero_factura}: total {$dinheiro($r->total_pagar)} ≠ consumo {$dinheiro($r->valor_consumo)} + multa {$dinheiro($r->multa)}",
             ],
@@ -188,7 +188,7 @@ class VerificacoesIntegridade
             ],
             'clientes_email_invalido' => [
                 'titulo' => 'Clientes com email de aspecto inválido', 'gravidade' => 'baixo', 'tabela' => 'clientes',
-                'descricao' => 'Os emails de cobrança e de facturas vão falhar para estes clientes.',
+                'descricao' => 'O endereço de email guardado no cadastro não tem um formato reconhecido.',
                 'consulta' => fn () => DB::table('clientes')->whereNull('deleted_at')->whereNotNull('email')->where('email', '<>', '')
                     ->where('email', 'not like', '%_@_%._%')->select('id', 'numero_cliente', 'nome', 'email'),
                 'formato' => fn ($r) => "{$r->numero_cliente}: {$r->nome} ({$r->email})",

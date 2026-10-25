@@ -145,7 +145,7 @@ function Lentidao({ dados }) {
                 <p className="px-4 pt-4 text-sm font-semibold text-slate-950 dark:text-white">Rotas mais lentas (últimos 7 dias, {dados.amostra} pedidos analisados)</p>
                 {dados.rotas.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Ainda sem pedidos suficientes.</p> : (
                     <table className="mt-2 min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                        <thead className="bg-slate-50 text-left dark:bg-slate-900"><tr><th className={th}>Rota</th><th className={cn(th, "text-right")}>Pedidos</th><th className={cn(th, "text-right")}>Média</th><th className={cn(th, "text-right")}>p95</th><th className={cn(th, "text-right")}>Máx.</th><th className={cn(th, "text-right")}>BD (média)</th></tr></thead>
+                        <thead className="bg-slate-50 text-left dark:bg-slate-900"><tr><th className={th}>Rota</th><th className={cn(th, "text-right")}>Pedidos</th><th className={cn(th, "text-right")}>Média</th><th className={cn(th, "text-right")}>p95</th><th className={cn(th, "text-right")}>Máx.</th><th className={cn(th, "text-right")}>BD (média)</th><th className={cn(th, "text-right")}>Consultas (média / p95)</th></tr></thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {dados.rotas.map((r) => (
                                 <tr key={r.rota}>
@@ -155,6 +155,7 @@ function Lentidao({ dados }) {
                                     <td className="px-4 py-2 text-right"><StatusBadge tone={tom(r.p95_ms)}>{r.p95_ms} ms</StatusBadge></td>
                                     <td className="px-4 py-2 text-right tabular-nums">{r.max_ms} ms</td>
                                     <td className="px-4 py-2 text-right tabular-nums">{r.bd_media_ms} ms</td>
+                                    <td className="px-4 py-2 text-right tabular-nums">{r.consultas_media ?? "—"} / {r.consultas_p95 ?? "—"}</td>
                                 </tr>
                             ))}
                         </tbody>

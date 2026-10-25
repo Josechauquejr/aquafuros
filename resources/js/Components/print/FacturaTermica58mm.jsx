@@ -2,6 +2,7 @@ import { usePage } from "@inertiajs/react";
 import { QRCodeSVG } from "qrcode.react";
 import { formatDate } from "@/lib/format";
 import { avisoPenalizacao, moedaDocumento as formatCurrency, resumoDocumento, estadoDocumento, telefonePagamento } from "@/lib/facturaDocumento";
+import { consumoLeitura } from "@/lib/consumoLeitura";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -28,7 +29,8 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
     const resumo = resumoDocumento(factura);
     const ehLigacao = factura.tipo === "ligacao";
     const leitura = factura.leitura;
-    const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
+    const consumo = leitura ? consumoLeitura(leitura) : (factura.consumo_m3 ?? null);
+    const estimada = factura.tipo === "consumo_estimado";
     const tarifa = factura.cliente?.tarifa;
     const ehTarifaMinima = consumo !== null && tarifa && consumo <= Number(tarifa.consumo_minimo_m3);
 
@@ -72,13 +74,13 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
                             {primeiraLeitura ? " (inicial)" : ""}
                         </p>
                     )}
-            {consumo !== null && <p>Consumo actual: {consumo.toFixed(2)} m3</p>}
-                    <p>
+            {estimada ? <p>Consumo estimado: {Number(consumo ?? 0).toFixed(2)} m3 · sem leitura do visor</p> : consumo !== null && <p>Consumo actual: {consumo.toFixed(2)} m3</p>}
+                    {!estimada && <p>
                         Consumo mês ant.:{" "}
                         {consumoAnterior !== null && consumoAnterior !== undefined
                             ? `${Number(consumoAnterior).toFixed(2)} m3`
                             : "—"}
-                    </p>
+                    </p>}
                 </>
             )}
             <Linha />
@@ -87,6 +89,7 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
                     <span>Valor consumo</span>
                 <span>{formatCurrency(resumo.consumoEmitido)}</span>
             </div>
+            {resumo.acertoLeitura > 0 && <div className="flex justify-between"><span>Acerto de estimativas</span><span>{formatCurrency(resumo.acertoLeitura)}</span></div>}
             {ehTarifaMinima && (
                 <p className="text-[9px] font-normal">
                     Tarifa mínima até {Number(tarifa.consumo_minimo_m3).toFixed(0)} m³

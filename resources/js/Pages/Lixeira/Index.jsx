@@ -29,6 +29,7 @@ const filtrosConfig = [
 ];
 
 function Expira({ linha }) {
+    if (linha.tipo === "pagamentos") return <StatusBadge tone="cyan">Preservado — auditoria</StatusBadge>;
     if (linha.preservado) return <StatusBadge tone="cyan">Preservado — tem histórico</StatusBadge>;
 
     return (
@@ -62,7 +63,7 @@ export default function Index({ linhas, diasRetencao, filtros }) {
             ordenavel: true,
             render: (linha) => formatDateTime(linha.eliminado_em),
         },
-        { chave: "expira", titulo: "Prazo", render: (linha) => <Expira linha={linha} /> },
+        { chave: "expira", titulo: filtros.tipo === "pagamentos" ? "Retenção" : "Prazo", render: (linha) => <Expira linha={linha} /> },
     ];
 
     const cartao = (linha) => (
@@ -81,7 +82,7 @@ export default function Index({ linhas, diasRetencao, filtros }) {
             <>
                 <Destaques>
                     <Destaque rotulo="Eliminado em">{formatDateTime(linha.eliminado_em)}</Destaque>
-                    <Destaque rotulo="Prazo para recuperar">
+                    <Destaque rotulo={linha.tipo === "pagamentos" ? "Retenção" : "Prazo para recuperar"}>
                         <Expira linha={linha} />
                     </Destaque>
                 </Destaques>
@@ -91,8 +92,10 @@ export default function Index({ linhas, diasRetencao, filtros }) {
                     </Campo>
                 </Campos>
                 <Explicacao tom="info" titulo="O que acontece a seguir" className="mt-5">
-                    {linha.preservado
-                        ? "Este cliente tem facturas ou pagamentos no histórico, por isso nunca é apagado automaticamente. Pode ser recuperado ou apagado definitivamente por um administrador."
+                    {linha.tipo === "pagamentos"
+                        ? "Pagamentos anulados permanecem no histórico de auditoria e não são apagados definitivamente. Pode recuperar este registo."
+                        : linha.preservado
+                        ? "Este cliente tem facturas ou pagamentos no histórico e não é apagado automaticamente. Pode recuperar o cliente e os respectivos registos."
                         : `Fica aqui ${diasRetencao} dias. Pode ser recuperado ou apagado definitivamente antes disso; depois desse prazo é apagado automaticamente.`}
                 </Explicacao>
             </>
@@ -109,13 +112,13 @@ export default function Index({ linhas, diasRetencao, filtros }) {
         },
         menu: [
             { icone: Eye, rotulo: "Ver detalhe", expandir: true },
-            {
+            ...(!linha.preservado ? [{
                 icone: Trash2,
                 rotulo: "Apagar definitivamente",
                 tone: "danger",
                 separadorAntes: true,
                 onClick: () => setParaEliminar(linha),
-            },
+            }] : []),
         ],
     });
 
@@ -131,9 +134,8 @@ export default function Index({ linhas, diasRetencao, filtros }) {
                     <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Administração</p>
                     <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Lixeira</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        O que é eliminado fica aqui {diasRetencao} dias — pode ser recuperado ou apagado definitivamente
-                        antes disso. Depois do prazo é apagado automaticamente, excepto clientes com facturas ou
-                        pagamentos no histórico (esses ficam preservados).
+                        Clientes e leituras sem histórico ficam aqui {diasRetencao} dias. Pagamentos anulados e
+                        registos financeiros de clientes são preservados para auditoria.
                     </p>
                 </div>
             }

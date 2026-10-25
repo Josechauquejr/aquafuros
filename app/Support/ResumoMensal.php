@@ -98,7 +98,7 @@ class ResumoMensal
             'confirmadas' => $todas->where('confirmado', true)->count(),
             'pendentes' => $todas->where('confirmado', false)->count(),
             'semFactura' => (clone $leituras)->where('confirmado', true)->whereDoesntHave('factura')->count(),
-            'consumoM3' => round((float) $todas->sum(fn ($l) => max(0, (float) $l->leitura_actual - (float) $l->leitura_anterior)), 2),
+            'consumoM3' => round((float) $todas->sum(fn ($l) => $l->consumo()), 2),
         ];
     }
 
@@ -125,5 +125,64 @@ class ResumoMensal
             'numeroFacturas' => (clone $facturas)->count(),
             'numeroPagamentos' => (clone $pagamentos)->count(),
         ];
+    }
+
+    /** Resumos de vários meses com duas agregações, em vez de consultar cada mês separadamente. */
+    public static function serie(Carbon $referencia, int $quantidade): array
+    {
+        if ($quantidade < 1) {
+            return [];
+        }
+
+        $periodos = collect(range(0, max(0, $quantidade - 1)))
+            ->map(fn ($i) => $referencia->copy()->startOfMonth()->subMonths($i))
+            ->reverse()->values();
+
+        if ($periodos->isEmpty()) {
+            return [];
+        }
+
+        $facturaSelects = [];
+        $facturaBindings = [];
+        $pagamentoSelects = [];
+        $pagamentoBindings = [];
+
+        foreach ($periodos as $i => $periodo) {
+            $inicio = $periodo->copy()->startOfMonth();
+            $fim = $periodo->copy()->endOfMonth();
+            $facturaSelects[] = 'COALESCE(SUM(CASE WHEN created_at BETWEEN ? AND ? THEN '.Factura::SQL_VALOR_PROPRIO.' ELSE 0 END), 0) AS facturado_'.$i;
+            $facturaSelects[] = 'COUNT(CASE WHEN created_at BETWEEN ? AND ? THEN 1 END) AS facturas_'.$i;
+            array_push($facturaBindings, $inicio, $fim, $inicio, $fim);
+            $pagamentoSelects[] = 'COALESCE(SUM(CASE WHEN pago_em BETWEEN ? AND ? THEN valor_pago ELSE 0 END), 0) AS recebido_'.$i;
+            $pagamentoSelects[] = 'COUNT(CASE WHEN pago_em BETWEEN ? AND ? THEN 1 END) AS pagamentos_'.$i;
+            array_push($pagamentoBindings, $inicio, $fim, $inicio, $fim);
+        }
+
+        $inicioGeral = $periodos->first()->copy()->startOfMonth();
+        $fimGeral = $periodos->last()->copy()->endOfMonth();
+        $facturas = Factura::whereBetween('created_at', [$inicioGeral, $fimGeral])
+            ->where('estado', '!=', 'anulada')
+            ->selectRaw(implode(', ', $facturaSelects), $facturaBindings)
+            ->first();
+        $pagamentos = Pagamento::whereBetween('pago_em', [$inicioGeral, $fimGeral])
+            ->selectRaw(implode(', ', $pagamentoSelects), $pagamentoBindings)
+            ->first();
+
+        $resultado = [];
+        foreach ($periodos as $i => $periodo) {
+            $facturado = round((float) $facturas->{'facturado_'.$i}, 2);
+            $recebido = round((float) $pagamentos->{'recebido_'.$i}, 2);
+            $resultado[$periodo->format('Y-m')] = [
+                'mes' => $periodo->month,
+                'ano' => $periodo->year,
+                'totalFacturado' => $facturado,
+                'totalRecebido' => $recebido,
+                'taxaCobranca' => $facturado > 0 ? round(($recebido / $facturado) * 100, 1) : null,
+                'numeroFacturas' => (int) $facturas->{'facturas_'.$i},
+                'numeroPagamentos' => (int) $pagamentos->{'pagamentos_'.$i},
+            ];
+        }
+
+        return $resultado;
     }
 }

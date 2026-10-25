@@ -12,8 +12,6 @@ use App\Support\ListaQuery;
 use App\Support\MesReferencia;
 use App\Support\ResumoMensal;
 use App\Support\NumeracaoDocumentos;
-use App\Support\RegistoEmail;
-use App\Mail\ReciboMail;
 use Illuminate\Http\Request;
 use App\Models\Credito;
 use Illuminate\Support\Carbon;
@@ -70,7 +68,7 @@ class PagamentoController extends Controller
         return Inertia::render('Pagamentos/Index', [
             'pagamentos' => $this->comTotalDoLote($query->paginate(15)->withQueryString()),
             'facturasEmAberto' => Factura::whereIn('estado', ['pendente', 'parcial'])
-                ->with(['cliente' => fn ($q) => $q->withTrashed()->with('tarifa')])
+                ->with(['cliente' => fn ($q) => $q->withTrashed()->with('tarifa'), 'pagamentos'])
                 ->withSum('pagamentos', 'valor_pago')
                 ->orderByDesc('ano')->orderByDesc('mes')->get()
                 ->each(function (Factura $factura) {
@@ -158,6 +156,8 @@ class PagamentoController extends Controller
         }
 
         $principal = DB::transaction(function () use ($factura, $data, $valorCredito, $valorPago, $excesso, $pagoEm, $request) {
+            User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $this->validarCaixaAberta($request->user()->id);
             Cliente::withTrashed()->whereKey($factura->cliente_id)->lockForUpdate()->firstOrFail();
             $factura = Factura::with('cliente.tarifa')->whereKey($factura->id)->lockForUpdate()->firstOrFail();
             if (! in_array($factura->estado, ['pendente', 'parcial'], true)) {
@@ -215,8 +215,6 @@ class PagamentoController extends Controller
 
             return $normal ?? $comCredito;
         });
-
-        $this->enviarReciboEmail(collect([$principal->fresh(['cliente', 'factura'])]), $request->user()->id);
 
         // Vai directo para o recibo — evita o passo extra de procurar o
         // pagamento acabado de registar na lista.
@@ -289,6 +287,8 @@ class PagamentoController extends Controller
         $lote = (string) Str::uuid();
 
         $pagamentos = DB::transaction(function () use ($data, $facturas, $lote, $pagoEm, $request) {
+            User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $this->validarCaixaAberta($request->user()->id);
             Cliente::withTrashed()->whereKey($facturas->first()->cliente_id)->lockForUpdate()->firstOrFail();
             $totalParcelas = round(collect($data['parcelas'])->sum('valor_pago'), 2);
             $creditoRestante = ! empty($data['usar_credito']) ? min(Credito::saldoDe($facturas->first()->cliente_id), $totalParcelas) : 0.0;
@@ -354,7 +354,6 @@ class PagamentoController extends Controller
         });
 
         $pagamentos->each(fn (Pagamento $pagamento) => $pagamento->load(['cliente', 'factura']));
-        $this->enviarReciboEmail($pagamentos, $request->user()->id);
 
         // Um só recibo com todas as facturas (os recibos individuais continuam a existir).
         return redirect()
@@ -392,23 +391,48 @@ class PagamentoController extends Controller
             return back()->with('error', 'Apenas administradores podem estornar pagamentos.');
         }
 
-        $pagamentos = Pagamento::where('lote', $lote)->get();
-        abort_if($pagamentos->isEmpty(), 404);
+        $ids = Pagamento::where('lote', $lote)->orderBy('id')->pluck('id');
+        abort_if($ids->isEmpty(), 404);
 
-        DB::transaction(function () use ($pagamentos) {
-            foreach ($pagamentos as $pagamento) {
-                $factura = $pagamento->factura()->with('cliente.tarifa')->first();
-                $pagamento->delete();
+        $resultado = DB::transaction(function () use ($ids) {
+            $referencias = Pagamento::whereIn('id', $ids)->get(['id', 'recebido_por', 'cliente_id', 'factura_id']);
 
-                if ($factura) {
-                    $this->recalcularFacturaEDivida($factura);
+            // Serializar o estorno com o fecho e os registos de pagamento.
+            User::whereIn('id', $referencias->pluck('recebido_por')->filter()->unique())
+                ->orderBy('id')->lockForUpdate()->get();
+            Cliente::withTrashed()->whereIn('id', $referencias->pluck('cliente_id')->unique())
+                ->orderBy('id')->lockForUpdate()->get();
+            $facturas = Factura::with('cliente.tarifa')->whereIn('id', $referencias->pluck('factura_id')->filter()->unique())
+                ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $pagamentos = Pagamento::whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get();
+
+            $creditosGerados = Credito::whereIn('pagamento_id', $pagamentos->pluck('id'))
+                ->where('tipo', 'entrada')->lockForUpdate()->get();
+            foreach ($creditosGerados->groupBy('cliente_id') as $clienteId => $entradas) {
+                if (Credito::saldoDe((int) $clienteId) + 0.005 < (float) $entradas->sum('valor')) {
+                    return ['erro' => 'O crédito gerado por este lote já foi usado noutras facturas. Estorne primeiro esses pagamentos.'];
                 }
             }
+
+            Credito::whereIn('pagamento_id', $pagamentos->pluck('id'))->lockForUpdate()->get();
+            foreach ($pagamentos as $pagamento) {
+                Credito::where('pagamento_id', $pagamento->id)->delete();
+                $pagamento->delete();
+
+                if ($facturas->has($pagamento->factura_id)) {
+                    $this->recalcularFacturaEDivida($facturas[$pagamento->factura_id]);
+                }
+            }
+
+            return ['erro' => null, 'total' => $pagamentos->count()];
         });
 
-        return redirect()->route('pagamentos.index')->with('status', "{$pagamentos->count()} pagamentos estornados com sucesso.");
-    }
+        if ($resultado['erro']) {
+            return back()->with('error', $resultado['erro']);
+        }
 
+        return redirect()->route('pagamentos.index')->with('status', "{$resultado['total']} pagamentos estornados com sucesso.");
+    }
     /**
      * Data em que o dinheiro foi realmente pago. Por omissão é agora; aceita
      * qualquer data passada para permitir regularizar pagamentos históricos.
@@ -473,28 +497,46 @@ class PagamentoController extends Controller
             return back()->with('error', 'Apenas administradores podem estornar pagamentos.');
         }
 
-        // Crédito ligado a este pagamento: o excesso que gerou sai (se ainda não foi usado)
-        // e o crédito que usou volta para o cliente.
-        $entradas = Credito::where('pagamento_id', $pagamento->id)->where('tipo', 'entrada')->get();
-        if ($entradas->isNotEmpty() && Credito::saldoDe($pagamento->cliente_id) + 0.005 < (float) $entradas->sum('valor')) {
-            return back()->with('error', 'O crédito que este pagamento gerou já foi usado noutras facturas — estorne primeiro esses pagamentos.');
-        }
+        $ids = [$pagamento->id];
+        $resultado = DB::transaction(function () use ($ids) {
+            $referencia = Pagamento::whereKey($ids[0])->firstOrFail();
 
-        $factura = $pagamento->factura()->with('cliente.tarifa')->first();
+            // O fecho guarda uma fotografia do caixa no momento em que e
+            // confirmado. O lock define se o estorno entra nessa fotografia
+            // ou fica registado como movimento posterior, sem a reescrever.
+            if ($referencia->recebido_por) {
+                User::whereKey($referencia->recebido_por)->lockForUpdate()->firstOrFail();
+            }
+            Cliente::withTrashed()->whereKey($referencia->cliente_id)->lockForUpdate()->firstOrFail();
+            $factura = $referencia->factura_id
+                ? Factura::with('cliente.tarifa')->whereKey($referencia->factura_id)->lockForUpdate()->first()
+                : null;
+            $pagamentoBloqueado = Pagamento::whereKey($referencia->id)->lockForUpdate()->firstOrFail();
 
-        DB::transaction(function () use ($pagamento, $entradas) {
-            Credito::whereIn('id', $entradas->pluck('id'))->delete();
-            Credito::where('pagamento_id', $pagamento->id)->where('tipo', 'utilizacao')->delete();
-            $pagamento->delete();
+            $entradas = Credito::where('pagamento_id', $pagamentoBloqueado->id)
+                ->where('tipo', 'entrada')->lockForUpdate()->get();
+            if ($entradas->isNotEmpty()
+                && Credito::saldoDe($pagamentoBloqueado->cliente_id) + 0.005 < (float) $entradas->sum('valor')) {
+                return ['erro' => 'O crédito que este pagamento gerou já foi usado noutras facturas — estorne primeiro esses pagamentos.'];
+            }
+
+            Credito::where('pagamento_id', $pagamentoBloqueado->id)->lockForUpdate()->get();
+            Credito::where('pagamento_id', $pagamentoBloqueado->id)->delete();
+            $pagamentoBloqueado->delete();
+
+            if ($factura) {
+                $this->recalcularFacturaEDivida($factura);
+            }
+
+            return ['erro' => null];
         });
 
-        if ($factura) {
-            $this->recalcularFacturaEDivida($factura);
+        if ($resultado['erro']) {
+            return back()->with('error', $resultado['erro']);
         }
 
         return redirect()->route('pagamentos.index')->with('status', 'Pagamento estornado com sucesso.');
     }
-
     /**
      * Vista de impressão do recibo, incluindo os dados da leitura actual e
      * anterior da factura relacionada.
@@ -620,29 +662,37 @@ class PagamentoController extends Controller
         $utilizador = $request->user();
         $hoje = now()->toDateString();
 
-        if (FechoCaixa::where('utilizador_id', $utilizador->id)->where('data', $hoje)->exists()) {
-            return back()->with('error', 'A caixa de hoje já está fechada.');
-        }
+        $fechado = DB::transaction(function () use ($utilizador, $hoje, $dados) {
+            User::whereKey($utilizador->id)->lockForUpdate()->firstOrFail();
+            if (FechoCaixa::where('utilizador_id', $utilizador->id)->where('data', $hoje)->exists()) {
+                return false;
+            }
 
-        $pagamentos = Pagamento::where('recebido_por', $utilizador->id)
+            $pagamentos = Pagamento::where('recebido_por', $utilizador->id)
             ->where('origem_credito', false)
             ->whereDate('created_at', $hoje)
             ->get();
-        $adiantamentos = Credito::where('tipo', 'entrada')->where('recebido_por', $utilizador->id)->whereDate('created_at', $hoje)->get();
-        [$porMetodo, $geral] = $this->totaisDoDia($pagamentos, $adiantamentos);
+            $adiantamentos = Credito::where('tipo', 'entrada')->where('recebido_por', $utilizador->id)->whereDate('created_at', $hoje)->get();
+            [$porMetodo, $geral] = $this->totaisDoDia($pagamentos, $adiantamentos);
 
-        $esperadoDinheiro = (float) ($porMetodo['dinheiro'] ?? 0);
+            $esperadoDinheiro = (float) ($porMetodo['dinheiro'] ?? 0);
 
-        FechoCaixa::create([
-            'utilizador_id' => $utilizador->id,
-            'data' => $hoje,
-            'valor_contado' => $dados['valor_contado'],
-            'diferenca' => round((float) $dados['valor_contado'] - $esperadoDinheiro, 2),
-            'total_geral' => $geral,
-            'total_por_metodo' => $porMetodo,
-            'numero_pagamentos' => $pagamentos->count() + $adiantamentos->count(),
-            'fechado_por' => $utilizador->id,
-        ]);
+            FechoCaixa::create([
+                'utilizador_id' => $utilizador->id,
+                'data' => $hoje,
+                'valor_contado' => $dados['valor_contado'],
+                'diferenca' => round((float) $dados['valor_contado'] - $esperadoDinheiro, 2),
+                'total_geral' => $geral,
+                'total_por_metodo' => $porMetodo,
+                'numero_pagamentos' => $pagamentos->count() + $adiantamentos->count(),
+                'fechado_por' => $utilizador->id,
+            ]);
+            return true;
+        });
+
+        if (! $fechado) {
+            return back()->with('error', 'A caixa de hoje já está fechada.');
+        }
 
         return redirect()->route('pagamentos.fecho-caixa')->with('status', 'Caixa fechada com sucesso.');
     }
@@ -669,6 +719,16 @@ class PagamentoController extends Controller
         return FechoCaixa::where('utilizador_id', $utilizadorId)
             ->where('data', now()->toDateString())
             ->exists();
+    }
+
+    /** Deve ser chamado dentro da transacção e depois de bloquear a linha do utilizador. */
+    private function validarCaixaAberta(int $utilizadorId): void
+    {
+        if ($this->caixaFechadaHoje($utilizadorId)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'caixa' => 'A caixa já está fechada; não é possível registar mais movimentos hoje.',
+            ]);
+        }
     }
 
     /**
@@ -698,29 +758,12 @@ class PagamentoController extends Controller
         return URL::signedRoute('verificacao.pagamento', ['pagamento' => $pagamento]);
     }
 
-    private function enviarReciboEmail($pagamentos, int $enviadoPor): void
-    {
-        $pagamentos = collect($pagamentos)->filter(fn (Pagamento $pagamento) => filled($pagamento->cliente?->email))->values();
-        $cliente = $pagamentos->first()?->cliente;
-
-        if (! $cliente) {
-            return;
-        }
-
-        RegistoEmail::enviar(new ReciboMail($pagamentos), $cliente->email, [
-            'tipo' => 'recibo',
-            'origem' => 'automatico',
-            'cliente_id' => $cliente->id,
-            'factura_id' => $pagamentos->count() === 1 ? $pagamentos->first()->factura_id : null,
-            'enviado_por' => $enviadoPor,
-        ]);
-    }
-
     private function proximoRecibo(Carbon $data): string
     {
         // withTrashed(): mesma razão do numero_factura — um recibo na
         // lixeira ainda ocupa o número.
         return NumeracaoDocumentos::proximoNumero(
+            sprintf('REC-%04d%02d', $data->year, $data->month),
             Pagamento::withTrashed()->where('numero_recibo', 'like', sprintf('REC-%04d%02d-', $data->year, $data->month).'%'),
             'numero_recibo',
             sprintf('REC-%04d%02d-', $data->year, $data->month).'%04d',

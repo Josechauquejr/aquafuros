@@ -62,12 +62,14 @@ class CorrigirLeituraTest extends TestCase
     {
         $factura = $this->facturar();
         $this->assertEquals(700, $factura->total_pagar);
+        $this->leitura->cliente->tarifa->update(['preco_m3' => 100]);
 
         $this->actingAs($this->admin)->put('/leituras/'.$this->leitura->id.'/corrigir', ['leitura_actual' => 20, 'motivo' => 'número mal lido'])
             ->assertSessionHas('status');
 
         $this->assertEquals(20, $this->leitura->fresh()->leitura_actual);
         $this->assertEquals(1400, $factura->fresh()->total_pagar);
+        $this->assertEquals(70, $factura->fresh()->emissao_original['tarifa']['preco_m3']);
 
         $correccao = LeituraCorreccao::firstOrFail();
         $this->actingAs($this->admin)->post('/leituras/correccoes/'.$correccao->id.'/desfazer')->assertSessionHas('status');
@@ -105,5 +107,48 @@ class CorrigirLeituraTest extends TestCase
     {
         $this->actingAs($this->admin)->post('/leituras', ['cliente_id' => $this->leitura->cliente_id, 'mes' => 11, 'ano' => 2026, 'leitura_actual' => 25])
             ->assertSessionHas('leituraRegistada.leitura_actual');
+    }
+
+    public function test_anular_leitura_sem_factura_nao_exige_campos_de_edicao(): void
+    {
+        $this->actingAs($this->admin)->delete('/leituras/'.$this->leitura->id, [
+            'motivo_anulacao' => 'Leitura duplicada',
+        ])->assertSessionHas('status');
+
+        $this->assertSoftDeleted('leituras', ['id' => $this->leitura->id]);
+        $this->assertSame('Leitura duplicada', Leitura::withTrashed()->findOrFail($this->leitura->id)->motivo_anulacao);
+    }
+
+    public function test_anular_leitura_anula_factura_pendente_na_mesma_operacao(): void
+    {
+        $factura = $this->facturar();
+
+        $this->actingAs($this->admin)->delete('/leituras/'.$this->leitura->id, [
+            'motivo_anulacao' => 'Leitura duplicada',
+        ])->assertSessionHas('status');
+
+        $this->assertSoftDeleted('leituras', ['id' => $this->leitura->id]);
+        $this->assertSame('anulada', $factura->fresh()->estado);
+        $this->assertSame('Leitura anulada: Leitura duplicada', $factura->fresh()->motivo_anulacao);
+    }
+
+    public function test_nao_anula_leitura_quando_factura_tem_pagamento(): void
+    {
+        $factura = $this->facturar();
+        Pagamento::forceCreate([
+            'factura_id' => $factura->id,
+            'cliente_id' => $factura->cliente_id,
+            'numero_recibo' => 'REC-2026-0099',
+            'valor_pago' => 100,
+            'metodo_pagamento' => 'dinheiro',
+            'recebido_por' => $this->admin->id,
+        ]);
+
+        $this->actingAs($this->admin)->delete('/leituras/'.$this->leitura->id, [
+            'motivo_anulacao' => 'Leitura duplicada',
+        ])->assertSessionHasErrors('motivo_anulacao');
+
+        $this->assertNotSoftDeleted('leituras', ['id' => $this->leitura->id]);
+        $this->assertSame('parcial', $factura->fresh()->estado);
     }
 }

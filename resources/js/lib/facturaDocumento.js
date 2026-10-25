@@ -1,4 +1,5 @@
 import { formatNumero } from "@/lib/format";
+import { consumoLeitura } from "@/lib/consumoLeitura";
 
 export const mesesFactura = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 export const numeroDocumento = (valor) => formatNumero(valor).replaceAll("\u00a0", ".");
@@ -33,13 +34,14 @@ export function resumoDocumento(factura) {
     const pago = cobranca?.pagamentos_apos_emissao ?? (factura.pagamentos ?? []).reduce((soma, pagamento) => soma + Number(pagamento.valor_pago || 0), 0);
     const anterior = cobranca?.principal_anterior_emitido ?? (factura.divida_anterior_incluida ? Number(factura.divida_anterior || 0) : 0);
     const penalizacoesAnteriores = cobranca?.multas_anteriores_emitidas ?? Number(factura.multa_anterior || 0);
-    const consumo = factura.leitura ? Number(factura.leitura.leitura_actual) - Number(factura.leitura.leitura_anterior) : null;
+    const consumo = factura.leitura ? consumoLeitura(factura.leitura) : (factura.consumo_m3 ?? null);
     return {
         consumo, pago, anterior, penalizacoesAnteriores,
         saldoAnterior: cobranca?.saldo_anterior_actual ?? anterior + penalizacoesAnteriores,
         aPagar: cobranca?.saldo_actual ?? (["paga", "anulada", "transferida"].includes(factura.estado) ? 0 : Math.max(0, Number(factura.total_pagar) - pago)),
         totalEmitido: cobranca?.total_emitido ?? Number(factura.total_pagar),
         consumoEmitido: cobranca?.consumo_emitido ?? Number(factura.valor_consumo),
+        acertoLeitura: Number(factura.valor_acerto_leitura ?? factura.emissao_original?.valor_acerto_leitura ?? 0),
         multaEmitida: cobranca?.multa_emitida ?? Number(factura.multa),
         ajustesPosteriores: cobranca?.ajustamentos_posteriores ?? 0,
         multaPeriodoPosterior: cobranca?.multa_periodo_posterior ?? 0,

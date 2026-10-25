@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\AjusteLeitura;
 use App\Models\Configuracao;
 use App\Models\Zona;
 use App\Models\Factura;
@@ -167,6 +168,25 @@ class ClienteController extends Controller
 
         return Inertia::render('Clientes/Show', [
             'cliente' => $cliente,
+            'ajustesLeitura' => AjusteLeitura::with(['user', 'reversao.user'])
+                ->where('cliente_id', $cliente->id)
+                ->whereIn('tipo', ['insercao_retroactiva', 'leitura_inicial', 'reversao'])
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn (AjusteLeitura $ajuste) => [
+                    'id' => $ajuste->id,
+                    'tipo' => $ajuste->tipo,
+                    'motivo' => $ajuste->motivo,
+                    'criado_em' => $ajuste->created_at,
+                    'utilizador' => $ajuste->user?->name,
+                    'ajuste_revertido_id' => $ajuste->ajuste_revertido_id,
+                    'reversao' => $ajuste->reversao ? [
+                        'id' => $ajuste->reversao->id,
+                        'motivo' => $ajuste->reversao->motivo,
+                        'criado_em' => $ajuste->reversao->created_at,
+                        'utilizador' => $ajuste->reversao->user?->name,
+                    ] : null,
+                ])->values(),
             'zonas' => Zona::orderBy('nome')->get(['id', 'nome']),
             'tarifas' => Tarifa::orderBy('nome')->get(['id', 'nome']),
         ]);
@@ -417,7 +437,7 @@ class ClienteController extends Controller
 
     private function proximoNumeroCliente(): string
     {
-        return NumeracaoDocumentos::proximoNumero(Cliente::withTrashed(), 'numero_cliente', 'CLI-%04d');
+        return NumeracaoDocumentos::proximoNumero('CLI', Cliente::withTrashed(), 'numero_cliente', 'CLI-%04d');
     }
 
     private function proximoNumeroFactura(int $ano, int $mes): string
@@ -425,6 +445,7 @@ class ClienteController extends Controller
         // withTrashed(): mesma razão do proximoNumeroCliente() — uma factura
         // na lixeira ainda ocupa o número.
         return NumeracaoDocumentos::proximoNumero(
+            sprintf('FAT-%04d%02d', $ano, $mes),
             Factura::withTrashed()->where('numero_factura', 'like', sprintf('FAT-%04d%02d-', $ano, $mes).'%'),
             'numero_factura',
             sprintf('FAT-%04d%02d-', $ano, $mes).'%04d',

@@ -21,11 +21,6 @@ use Illuminate\Support\Carbon;
  */
 class AnaliseOperacional
 {
-    private static function consumoDe(Leitura $l): float
-    {
-        return max(0.0, (float) $l->leitura_actual - (float) $l->leitura_anterior);
-    }
-
     /**
      * Perdas = água produzida − água facturada (m³ das leituras com factura válida).
      * Se houver registo do sistema todo usa-o; senão soma o das zonas. Por zona
@@ -38,17 +33,17 @@ class AnaliseOperacional
             ->whereHas('factura', fn ($q) => $q->where('estado', '!=', 'anulada'))
             ->with('cliente:id,zona_id')->get();
 
-        $facturadoTotal = (float) $leituras->sum(fn ($l) => self::consumoDe($l));
+        $facturadoTotal = (float) $leituras->sum(fn ($l) => $l->consumo());
         $global = $producoes->whereNull('zona_id')->first();
         $porZona = $producoes->whereNotNull('zona_id');
 
         $produzido = $global ? (float) $global->volume_m3 : (float) $porZona->sum('volume_m3');
         // Sem registo do sistema todo, só se compara a água das zonas com produção registada.
         $facturadoComparavel = $global ? $facturadoTotal
-            : (float) $leituras->filter(fn ($l) => $porZona->pluck('zona_id')->contains($l->cliente?->zona_id))->sum(fn ($l) => self::consumoDe($l));
+            : (float) $leituras->filter(fn ($l) => $porZona->pluck('zona_id')->contains($l->cliente?->zona_id))->sum(fn ($l) => $l->consumo());
 
         $detalhe = $porZona->map(function ($p) use ($leituras) {
-            $fact = (float) $leituras->filter(fn ($l) => $l->cliente?->zona_id === $p->zona_id)->sum(fn ($l) => self::consumoDe($l));
+            $fact = (float) $leituras->filter(fn ($l) => $l->cliente?->zona_id === $p->zona_id)->sum(fn ($l) => $l->consumo());
             $prod = (float) $p->volume_m3;
 
             return [
@@ -91,7 +86,7 @@ class AnaliseOperacional
             'clientes' => $clientes->filter(fn ($c) => $c->zona_id === $zonaId && $c->estado === 'ativo')->count(),
             'facturado' => round((float) $facturas->filter(fn ($f) => $zonaDe($f->cliente_id) === $zonaId)->sum(fn ($f) => $f->valorProprio()), 2),
             'recebido' => round((float) $pagamentos->filter(fn ($p) => $zonaDe($p->cliente_id) === $zonaId)->sum('valor_pago'), 2),
-            'consumoM3' => round((float) $consumos->filter(fn ($l) => $zonaDe($l->cliente_id) === $zonaId)->sum(fn ($l) => max(0, (float) $l->leitura_actual - (float) $l->leitura_anterior)), 2),
+            'consumoM3' => round((float) $consumos->filter(fn ($l) => $zonaDe($l->cliente_id) === $zonaId)->sum(fn ($l) => $l->consumo()), 2),
             'emAtraso' => round((float) $vencidas->filter(fn ($f) => $zonaDe($f->cliente_id) === $zonaId)
                 ->sum(fn ($f) => max(0, (float) $f->total_pagar - (float) ($f->pagamentos_sum_valor_pago ?? 0))), 2),
             'ocorrenciasAbertas' => $ocorrencias->where('zona_id', $zonaId)->count(),

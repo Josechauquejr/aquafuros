@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-/** Registo de uma factura enviada (ou que falhou ao enviar) por email a um cliente. */
+/** Registo de um email enviado ou falhado pelo sistema. */
 class EnvioEmail extends Model
 {
     protected $table = 'envios_email';

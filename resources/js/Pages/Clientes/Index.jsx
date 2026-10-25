@@ -706,7 +706,7 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
                     </div>
 
                     <div>
-                        <InputLabel htmlFor="email" value="Email (para receber as facturas)" />
+                        <InputLabel htmlFor="email" value="Email de contacto" />
                         <TextInput
                             id="email"
                             type="email"

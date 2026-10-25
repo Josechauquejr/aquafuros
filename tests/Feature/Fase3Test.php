@@ -355,7 +355,41 @@ class Fase3Test extends TestCase
         $this->assertEquals(0, FechoCaixa::first()->diferenca);
 
         $this->actingAs($this->admin)->get('/pagamentos')->assertInertia(fn (Assert $p) => $p
-            ->where('resumoMes.recebidoNoMes', 0)->where('creditos.'.$this->ana->id, 700));
+            ->where('metricas.totalRecebido', 0)->where('creditos.'.$this->ana->id, 700));
+    }
+
+    public function test_caixa_fechado_bloqueia_pagamentos_em_lote_e_adiantamentos(): void
+    {
+        $caixa = $this->utilizador('caixa');
+        $facturaA = $this->factura('F-CAIXA-A', 500, now()->addDays(10)->toDateString());
+        $facturaB = $this->factura('F-CAIXA-B', 600, now()->addDays(10)->toDateString());
+
+        FechoCaixa::create([
+            'utilizador_id' => $caixa->id, 'data' => now()->toDateString(), 'total_geral' => 0,
+            'total_por_metodo' => [], 'valor_contado' => 0, 'diferenca' => 0,
+            'numero_pagamentos' => 0, 'fechado_por' => $caixa->id,
+        ]);
+
+        $this->post('/pagamentos', [
+            'factura_id' => $facturaA->id, 'valor_pago' => 100, 'metodo_pagamento' => 'dinheiro',
+        ])->assertRedirect();
+
+        $this->post('/pagamentos/multiplo', [
+            'parcelas' => [
+                ['factura_id' => $facturaA->id, 'valor_pago' => 100],
+                ['factura_id' => $facturaB->id, 'valor_pago' => 100],
+            ],
+            'metodo_pagamento' => 'dinheiro',
+        ])->assertRedirect();
+
+        $this->post('/creditos', [
+            'cliente_id' => $this->ana->id, 'valor' => 100, 'metodo_pagamento' => 'dinheiro',
+        ])->assertRedirect();
+
+        $this->assertSame(0, Pagamento::count());
+        $this->assertSame(0, Credito::count());
+        $this->assertSame('pendente', $facturaA->fresh()->estado);
+        $this->assertSame('pendente', $facturaB->fresh()->estado);
     }
 
     public function test_usar_credito_e_guardar_excesso_ao_pagar(): void

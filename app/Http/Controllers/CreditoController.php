@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Cliente;
 use App\Models\Credito;
 use App\Models\FechoCaixa;
+use App\Models\User;
 use App\Support\NumeracaoDocumentos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 /**
@@ -31,17 +33,28 @@ class CreditoController extends Controller
             'nota' => 'nullable|string|max:255',
         ]);
 
-        $credito = Credito::create([
-            ...$data,
-            'tipo' => 'entrada',
-            'numero_recibo' => NumeracaoDocumentos::proximoNumero(
-                Credito::whereNotNull('numero_recibo')->where('numero_recibo', 'like', 'ADI-'.now()->format('Ym'). '-%'),
-                'numero_recibo',
-                'ADI-'.now()->format('Ym'). '-%04d',
-            ),
-            'recebido_por' => $request->user()->id,
-            'pago_em' => now(),
-        ]);
+        $credito = DB::transaction(function () use ($data, $request) {
+            User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $referencia = now();
+            if (FechoCaixa::where('utilizador_id', $request->user()->id)->where('data', $referencia->toDateString())->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'caixa' => 'A caixa já está fechada; não é possível registar mais movimentos hoje.',
+                ]);
+            }
+
+            return Credito::create([
+                ...$data,
+                'tipo' => 'entrada',
+                'numero_recibo' => NumeracaoDocumentos::proximoNumero(
+                    'ADI-'.$referencia->format('Ym'),
+                    Credito::whereNotNull('numero_recibo')->where('numero_recibo', 'like', 'ADI-'.$referencia->format('Ym'). '-%'),
+                    'numero_recibo',
+                    'ADI-'.$referencia->format('Ym'). '-%04d',
+                ),
+                'recebido_por' => $request->user()->id,
+                'pago_em' => $referencia,
+            ]);
+        });
 
         return redirect()->route('creditos.recibo', $credito)
             ->with('status', 'Adiantamento de MZN '.number_format((float) $data['valor'], 2, ',', ' ').' registado como crédito do cliente.');

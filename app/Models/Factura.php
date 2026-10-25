@@ -21,7 +21,7 @@ class Factura extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['divida_anterior', 'divida_anterior_incluida', 'multa', 'multa_anterior', 'total_pagar', 'estado', 'motivo_anulacao'])
+            ->logOnly(['divida_anterior', 'divida_anterior_incluida', 'multa', 'multa_anterior', 'valor_acerto_leitura', 'total_pagar', 'estado', 'motivo_anulacao'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('factura')
@@ -34,11 +34,14 @@ class Factura extends Model
         'numero_factura',
         'cliente_id',
         'leitura_id',
+        'leitura_estimada_id',
         'tipo',
         'mes',
         'ano',
         'data_vencimento',
         'valor_consumo',
+        'consumo_m3',
+        'valor_acerto_leitura',
         'divida_anterior',
         'divida_anterior_incluida',
         'transferida_para_id',
@@ -59,6 +62,8 @@ class Factura extends Model
         'anulada_em' => 'datetime',
         'divida_anterior_incluida' => 'boolean',
         'emissao_original' => 'array',
+        'consumo_m3' => 'decimal:2',
+        'valor_acerto_leitura' => 'decimal:2',
     ];
 
     protected static function booted(): void
@@ -213,6 +218,11 @@ class Factura extends Model
     public function leitura()
     {
         return $this->belongsTo(Leitura::class);
+    }
+
+    public function leituraEstimada()
+    {
+        return $this->belongsTo(LeituraEstimada::class, 'leitura_estimada_id');
     }
 
     public function geradaPor()

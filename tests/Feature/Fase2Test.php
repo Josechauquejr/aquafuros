@@ -103,8 +103,8 @@ class Fase2Test extends TestCase
         ]);
 
         $this->actingAs($this->admin)->get('/pagamentos?mes='.$mesPassado->format('Y-m'))
-            ->assertInertia(fn (Assert $p) => $p->has('pagamentos.data', 1)->where('resumoMes.recebidoNoMes', 120));
-        $this->get('/pagamentos')->assertInertia(fn (Assert $p) => $p->where('resumoMes.recebidoNoMes', 0));
+            ->assertInertia(fn (Assert $p) => $p->has('pagamentos.data', 1)->where('metricas.totalRecebido', 120));
+        $this->get('/pagamentos')->assertInertia(fn (Assert $p) => $p->where('metricas.totalRecebido', 0));
     }
 
     public function test_fecho_de_caixa_exige_o_dinheiro_contado_e_regista_a_diferenca(): void

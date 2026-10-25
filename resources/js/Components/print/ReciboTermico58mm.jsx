@@ -1,6 +1,7 @@
 import { usePage } from "@inertiajs/react";
 import { QRCodeSVG } from "qrcode.react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { consumoLeitura } from "@/lib/consumoLeitura";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -31,7 +32,7 @@ export default function ReciboTermico58mm({ pagamento, primeiraLeitura, qrUrl })
     const { empresa } = usePage().props;
     const factura = pagamento.factura;
     const leitura = factura?.leitura;
-    const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
+    const consumo = leitura ? consumoLeitura(leitura) : null;
 
     return (
         <div className="w-full text-[12px] font-semibold leading-tight text-black" style={{ breakInside: "avoid" }}>

@@ -13,7 +13,6 @@ import {
     FileText,
     GitCompare,
     Loader2,
-    Mail,
     Pencil,
     Plus,
     Printer,
@@ -42,6 +41,7 @@ import Textarea from "@/Components/Textarea";
 import TextInput from "@/Components/TextInput";
 import FacturaA4 from "@/Components/print/FacturaA4";
 import { cn, formatDate, formatDateTime, formatMoney, formatNumero, formatVolume } from "@/lib/utils";
+import { consumoLeitura } from "@/lib/consumoLeitura";
 import { baixarElementoComoPdf } from "@/lib/pdf";
 
 const meses = [
@@ -59,6 +59,7 @@ const estadoFacturaConfig = {
 
 const tipoConfig = {
     consumo: { label: "Consumo", tone: "cyan" },
+    consumo_estimado: { label: "Consumo estimado", tone: "amber" },
     ligacao: { label: "Ligação", tone: "amber" },
 };
 
@@ -67,8 +68,7 @@ const periodoOrdinal = (p) => Number(p.ano) * 12 + Number(p.mes);
 // Valores que o servidor assume quando o parâmetro não vem no URL.
 const padroes = { periodo: "todos", estado: "todos", com_multa: "0", sort: "factura", dir: "desc" };
 
-const consumoDe = (factura) =>
-    factura.leitura ? Number(factura.leitura.leitura_actual) - Number(factura.leitura.leitura_anterior) : null;
+const consumoDe = (factura) => factura.leitura ? consumoLeitura(factura.leitura) : (factura.consumo_m3 ?? null);
 
 // "Vencida" não é um estado guardado: pendente/parcial com o prazo ultrapassado.
 const estaVencida = (factura) =>
@@ -178,6 +178,7 @@ const colunas = [
                 <p className="flex items-center gap-1.5">
                     <FacturaLink factura={factura} />
                     {factura.tipo === "ligacao" && <StatusBadge tone={tipoConfig.ligacao.tone}>{tipoConfig.ligacao.label}</StatusBadge>}
+                    {factura.tipo === "consumo_estimado" && <StatusBadge tone={tipoConfig.consumo_estimado.tone}>{tipoConfig.consumo_estimado.label}</StatusBadge>}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(factura.created_at)}</p>
             </>
@@ -216,6 +217,7 @@ const cartaoFactura = (factura) => (
             <p className="flex flex-wrap items-center gap-1.5">
                 <FacturaLink factura={factura} />
                 {factura.tipo === "ligacao" && <StatusBadge tone={tipoConfig.ligacao.tone}>{tipoConfig.ligacao.label}</StatusBadge>}
+                {factura.tipo === "consumo_estimado" && <StatusBadge tone={tipoConfig.consumo_estimado.tone}>{tipoConfig.consumo_estimado.label}</StatusBadge>}
             </p>
             <p className="truncate text-sm text-slate-600 dark:text-slate-300">
                 {factura.cliente?.nome ?? "Cliente removido"}
@@ -304,6 +306,7 @@ const detalheFactura = {
                         <Campo rotulo="Tipo">{tipoConfig[factura.tipo]?.label ?? tipoConfig.consumo.label}</Campo>
                         <Campo rotulo="Consumo">{consumo !== null ? formatVolume(consumo) : null}</Campo>
                         <Campo rotulo="Valor do consumo">{formatMoney(factura.valor_consumo)}</Campo>
+                        {Number(factura.valor_acerto_leitura) > 0 && <Campo rotulo="Acerto de leituras estimadas">{formatMoney(factura.valor_acerto_leitura)}</Campo>}
                         <Campo rotulo="Saldo anterior actual">{formatMoney(factura.cobranca?.saldo_anterior_actual ?? factura.divida_anterior)}</Campo>
                         {factura.cobranca && <Campo rotulo="Total na emissão">{formatMoney(factura.cobranca.total_emitido)}</Campo>}
                         {factura.cobranca && <Campo rotulo="Saldo actual, incluindo anteriores">{formatMoney(factura.cobranca.saldo_actual)}</Campo>}
@@ -312,14 +315,6 @@ const detalheFactura = {
                         {factura.factura_seguinte && <Campo rotulo="Saldo apresentado anteriormente em"><FacturaLink factura={factura.factura_seguinte} /></Campo>}
                         <Campo rotulo="Emitida em">{formatDateTime(factura.created_at)}</Campo>
                         <Campo rotulo="Emitida por">{factura.gerada_por?.name}</Campo>
-                        <Campo rotulo="Email">{factura.cliente?.email}</Campo>
-                        <Campo rotulo="Enviada por email">
-                            {factura.ultimo_envio
-                                ? factura.ultimo_envio.estado === "enviado"
-                                    ? `Sim — ${formatDateTime(factura.ultimo_envio.created_at)}`
-                                    : `Falhou — ${factura.ultimo_envio.erro ?? ""}`
-                                : "Ainda não"}
-                        </Campo>
                     </Campos>
                 </MaisDetalhes>
             </>
@@ -336,7 +331,7 @@ export default function Index({
     facturasIniciaisEditaveis = {},
     qrUrls = {},
     resumoMensal: resumoMensalProp,
-    emailAutomatico = false,
+
     totais,
     mesReferencia,
     filtros,
@@ -361,9 +356,8 @@ export default function Index({
     const pdfRef = useRef(null);
     const ultimaFacturaTratadaRef = useRef(null);
 
-    const form = useForm({ divida_anterior: "", multa: "", valor_consumo: "", estado: "pendente" });
-    const loteForm = useForm({ mes: "", ano: "", enviar_email: emailAutomatico });
-    const [paraEnviar, setParaEnviar] = useState(null);
+    const form = useForm({ divida_anterior: "", multa: "", valor_consumo: "" });
+    const loteForm = useForm({ mes: "", ano: "" });
     const anularForm = useForm({ motivo_anulacao: "" });
 
     // Filtros do painel. "Anulada" só aparece ao administrador; "mes_ano"
@@ -485,7 +479,6 @@ export default function Index({
             divida_anterior: factura.divida_anterior,
             multa: factura.multa,
             valor_consumo: factura.valor_consumo,
-            estado: factura.estado,
         });
         form.clearErrors();
         setShowModal(true);
@@ -619,13 +612,6 @@ export default function Index({
                     onClick: () => iniciarDescarga(factura),
                 },
                 {
-                    icone: Mail,
-                    rotulo: factura.ultimo_envio?.estado === "enviado" ? "Reenviar por email" : "Enviar por email",
-                    disabled: !factura.cliente?.email || factura.estado === "anulada",
-                    motivo: factura.estado === "anulada" ? "Uma factura anulada não se envia." : "O cliente não tem email registado — adicione-o na página de Clientes.",
-                    onClick: () => setParaEnviar(factura),
-                },
-                {
                     icone: GitCompare,
                     rotulo: "Comparar com período anterior",
                     disabled: !facturasAnteriores[factura.id],
@@ -655,11 +641,6 @@ export default function Index({
     const selecao = {
         acoes: [
             {
-                rotulo: "Enviar por email",
-                icone: Mail,
-                onClick: (ids, limpar) => router.post("/facturas/email-lote", { ids }, { preserveScroll: true, onSuccess: limpar }),
-            },
-            {
                 rotulo: "Imprimir / PDF",
                 icone: Printer,
                 href: (ids) => `/facturas/imprimir-lote?ids=${ids.join(",")}`,
@@ -667,7 +648,6 @@ export default function Index({
             },
         ],
     };
-
     return (
         <AdminLayout
             header={
@@ -880,7 +860,7 @@ export default function Index({
                                                 </p>
                                             </div>
                                             <span className="shrink-0 text-xs font-semibold text-cyan-700 dark:text-cyan-300">
-                                                {formatVolume(Number(leitura.leitura_actual) - Number(leitura.leitura_anterior))}
+                                                {formatVolume(consumoLeitura(leitura))}
                                             </span>
                                         </>
                                     )}
@@ -952,21 +932,6 @@ export default function Index({
                             </div>
                         </div>
 
-                        <div>
-                            <InputLabel htmlFor="estado" value="Estado" />
-                            <select
-                                id="estado"
-                                value={form.data.estado}
-                                onChange={(event) => form.setData("estado", event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                <option value="pendente">Pendente</option>
-                                <option value="parcial">Parcial</option>
-                                <option value="paga">Paga</option>
-                                <option value="anulada">Anulada</option>
-                            </select>
-                        </div>
-
                         <div className="rounded-md border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-semibold text-cyan-900 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-100">
                             Novo total a pagar:{" "}
                             {formatMoney(
@@ -1016,16 +981,6 @@ export default function Index({
                             Não há leituras confirmadas por facturar em nenhum período.
                         </p>
                     )}
-
-                    <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
-                        <input
-                            type="checkbox"
-                            checked={loteForm.data.enviar_email}
-                            onChange={(event) => loteForm.setData("enviar_email", event.target.checked)}
-                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
-                        />
-                        <span>Enviar por email aos clientes que têm email (os outros ficam de fora). {emailAutomatico ? "Está activo por omissão em Administração › Email." : ""}</span>
-                    </label>
 
                     <div className="flex justify-end gap-3 pt-2">
                         <SecondaryButton type="button" onClick={() => setShowLoteModal(false)}>
@@ -1176,18 +1131,6 @@ export default function Index({
                     </div>
                 )}
             </Modal>
-
-            <ConfirmDialog
-                show={Boolean(paraEnviar)}
-                onClose={() => setParaEnviar(null)}
-                onConfirm={() => {
-                    router.post(`/facturas/${paraEnviar.numero_factura}/email`, {}, { preserveScroll: true, onFinish: () => setParaEnviar(null) });
-                }}
-                tone="primary"
-                title="Enviar factura por email"
-                confirmLabel="Enviar"
-                description={paraEnviar ? `Enviar a factura ${paraEnviar.numero_factura} em PDF para ${paraEnviar.cliente?.email}?` : ""}
-            />
 
             <ConfirmDialog
                 show={Boolean(facturaParaPagar)}

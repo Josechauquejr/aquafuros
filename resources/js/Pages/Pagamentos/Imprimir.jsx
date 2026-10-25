@@ -10,6 +10,7 @@ import RodapeDocumento from "@/Components/print/RodapeDocumento";
 import DiscriminacaoRecibo from "@/Components/print/DiscriminacaoRecibo";
 import useFormatoImpressao from "@/hooks/useFormatoImpressao";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { consumoLeitura } from "@/lib/consumoLeitura";
 
 const meses = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -36,7 +37,7 @@ export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
     const conteudoRef = useRef(null);
     const factura = pagamento.factura;
     const leitura = factura?.leitura;
-    const consumo = leitura ? Number(leitura.leitura_actual) - Number(leitura.leitura_anterior) : null;
+    const consumo = leitura ? consumoLeitura(leitura) : null;
     const estadoFactura = factura ? estadoFacturaConfig[factura.estado] : null;
 
     return (

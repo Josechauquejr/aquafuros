@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePage } from "@inertiajs/react";
-import { ArrowDown, ArrowLeft, ArrowUp, Pencil, Droplets } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Pencil, Droplets, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
@@ -14,6 +14,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import TextInput from "@/Components/TextInput";
 import { previewPost } from "@/lib/previewPost";
+import { consumoLeitura } from "@/lib/consumoLeitura";
 
 const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const estadosCliente = { ativo: ["Activo", "emerald"], inativo: ["Inactivo", "slate"], cortado: ["Cortado", "rose"] };
@@ -37,8 +38,8 @@ function criarRegistos(cliente) {
             leituraAnterior: leitura.leitura_anterior,
             leituraActual: leitura.leitura_actual,
             leituraHref: factura ? `/facturas/${factura.numero_factura}/imprimir` : null,
-            consumo: `${formatNumero(Number(leitura.leitura_actual) - Number(leitura.leitura_anterior))} m³`,
-            consumoOrdenacao: Number(leitura.leitura_actual) - Number(leitura.leitura_anterior),
+            consumo: `${formatNumero(consumoLeitura(leitura))} m³`,
+            consumoOrdenacao: consumoLeitura(leitura),
             valor: factura ? formatMoney(factura.total_pagar) : "—",
             valorOrdenacao: factura ? Number(factura.total_pagar) : null,
             factura: factura ? { rotulo: factura.numero_factura, href: `/facturas/${factura.numero_factura}/imprimir` } : null,
@@ -55,12 +56,14 @@ function criarRegistos(cliente) {
     }];
     return [...abertura, ...mensais];
 }
-export default function Show({ cliente, zonas = [], tarifas = [] }) {
+export default function Show({ cliente, zonas = [], tarifas = [], ajustesLeitura = [] }) {
     const { auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador");
     const [editar, setEditar] = useState(false);
     const [previewInicial, setPreviewInicial] = useState(null);
     const correcaoInicialForm = useForm({ leitura_inicial: "", confirmar_leitura_inicial: true, motivo_leitura_inicial: "" });
+    const [ajusteParaReverter, setAjusteParaReverter] = useState(null);
+    const reversaoForm = useForm({ motivo: "" });
     const form = useForm({ nome: "", endereco: "", zona_id: "", telefone: "", email: "", tarifa_id: "", estado: "ativo", leitura_inicial: "" });
     const [ordenacao, setOrdenacao] = useState({ campo: "dataOrdenacao", direccao: "desc" });
     const [estadoNome, estadoTom] = estadosCliente[cliente.estado] ?? [cliente.estado, "slate"];
@@ -104,6 +107,19 @@ export default function Show({ cliente, zonas = [], tarifas = [] }) {
         correcaoInicialForm.put(`/clientes/${cliente.numero_cliente}/leitura-inicial`, {
             preserveScroll: true,
             onSuccess: () => { setPreviewInicial(null); setEditar(false); },
+        });
+    };
+    const abrirReversao = (ajuste) => {
+        reversaoForm.reset();
+        reversaoForm.clearErrors();
+        setAjusteParaReverter(ajuste);
+    };
+    const confirmarReversao = (event) => {
+        event.preventDefault();
+        if (!ajusteParaReverter || reversaoForm.data.motivo.trim().length < 5) return;
+        reversaoForm.post(`/ajustes-leitura/${ajusteParaReverter.id}/reverter`, {
+            preserveScroll: true,
+            onSuccess: () => setAjusteParaReverter(null),
         });
     };
 
@@ -232,6 +248,33 @@ export default function Show({ cliente, zonas = [], tarifas = [] }) {
                             </table>
                         </div>
                     </AnimatedPanel>
+                    {ajustesLeitura.length > 0 && <AnimatedPanel className="p-5 sm:p-6">
+                        <div className="mb-4">
+                            <h2 className="text-lg font-semibold text-foreground">Auditoria de ajustes de leitura</h2>
+                            <p className="text-sm text-muted-foreground">Alterações à abertura e inserções retroactivas, com os motivos e reversões registados.</p>
+                        </div>
+                        <div className="space-y-3">
+                            {ajustesLeitura.map((ajuste) => {
+                                const tipo = ajuste.tipo === "insercao_retroactiva" ? "Inserção retroactiva" : ajuste.tipo === "leitura_inicial" ? "Alteração da leitura inicial" : "Reversão de ajuste";
+                                const podeReverter = ehAdministrador && ["insercao_retroactiva", "leitura_inicial"].includes(ajuste.tipo) && !ajuste.reversao;
+                                return <div key={ajuste.id} className="rounded-lg border border-border p-4">
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div>
+                                            <p className="font-semibold text-foreground">{tipo} <span className="text-xs font-normal text-muted-foreground">#{ajuste.id}</span></p>
+                                            <p className="mt-1 text-sm text-muted-foreground">{formatDate(ajuste.criado_em)} · {ajuste.utilizador ?? "Utilizador removido"}</p>
+                                            <p className="mt-2 text-sm">Motivo: {ajuste.motivo}</p>
+                                        </div>
+                                        {podeReverter && <AnimatedButton variant="secondary" onClick={() => abrirReversao(ajuste)}><RotateCcw className="h-4 w-4" aria-hidden="true" /> Reverter ajuste</AnimatedButton>}
+                                    </div>
+                                    {ajuste.reversao && <div className="mt-3 rounded-md bg-muted/50 p-3 text-sm">
+                                        <p className="font-medium">Revertido em {formatDate(ajuste.reversao.criado_em)} por {ajuste.reversao.utilizador ?? "Utilizador removido"}</p>
+                                        <p className="mt-1 text-muted-foreground">Motivo: {ajuste.reversao.motivo}</p>
+                                    </div>}
+                                    {ajuste.ajuste_revertido_id && <p className="mt-2 text-xs text-muted-foreground">Reversão do ajuste #{ajuste.ajuste_revertido_id}</p>}
+                                </div>;
+                            })}
+                        </div>
+                    </AnimatedPanel>}
                 </div>
             </div>
             <Modal show={editar} onClose={() => setEditar(false)} title={`Editar cliente · ${cliente.numero_cliente}`} maxWidth="lg">
@@ -259,6 +302,13 @@ export default function Show({ cliente, zonas = [], tarifas = [] }) {
                     {!previewInicial.pode_aplicar && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200">A factura afectada tem pagamentos ou não está pendente. Regularize-a antes de alterar a leitura inicial.</p>}
                     <div><InputLabel htmlFor="motivo-inicial-ficha" value="Motivo da alteração" /><textarea id="motivo-inicial-ficha" rows={3} required minLength={5} maxLength={1000} value={correcaoInicialForm.data.motivo_leitura_inicial} onChange={(e) => correcaoInicialForm.setData("motivo_leitura_inicial", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900" /><InputError message={correcaoInicialForm.errors.motivo_leitura_inicial} className="mt-1" /></div>
                     <div className="flex justify-end gap-2"><SecondaryButton type="button" onClick={() => setPreviewInicial(null)}>Cancelar</SecondaryButton><PrimaryButton type="submit" disabled={!previewInicial.pode_aplicar || correcaoInicialForm.processing}>{correcaoInicialForm.processing ? "A guardar…" : "Confirmar correcção"}</PrimaryButton></div>
+                </form>}
+            </Modal>
+            <Modal show={Boolean(ajusteParaReverter)} onClose={() => setAjusteParaReverter(null)} title="Reverter ajuste de leitura" maxWidth="md">
+                {ajusteParaReverter && <form onSubmit={confirmarReversao} className="space-y-4">
+                    <p className="text-sm text-muted-foreground">A reversão restaura os valores anteriores ao ajuste #{ajusteParaReverter.id}. A acção será auditada e será recusada se leituras, facturas ou pagamentos tiverem mudado desde então.</p>
+                    <div><InputLabel htmlFor="motivo-reversao-ajuste" value="Motivo da reversão" /><textarea id="motivo-reversao-ajuste" rows={3} required minLength={5} maxLength={1000} value={reversaoForm.data.motivo} onChange={(event) => reversaoForm.setData("motivo", event.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900" /><InputError message={reversaoForm.errors.motivo || reversaoForm.errors.ajuste} className="mt-1" /></div>
+                    <div className="flex justify-end gap-2 border-t border-border pt-4"><SecondaryButton type="button" onClick={() => setAjusteParaReverter(null)}>Cancelar</SecondaryButton><PrimaryButton type="submit" disabled={reversaoForm.processing || reversaoForm.data.motivo.trim().length < 5}>{reversaoForm.processing ? "A reverter…" : "Confirmar reversão"}</PrimaryButton></div>
                 </form>}
             </Modal>
         </AdminLayout>

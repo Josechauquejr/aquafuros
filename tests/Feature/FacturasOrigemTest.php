@@ -154,4 +154,27 @@ class FacturasOrigemTest extends TestCase
         $this->assertEquals(0, $quinta->cobranca['pagamentos_apos_emissao']);
         $this->assertEquals(0, $quinta->cobranca['ajustamentos_posteriores']);
     }
+
+    public function test_edicao_de_factura_nao_permite_alterar_estado_financeiro(): void
+    {
+        $factura = Factura::create([
+            'numero_factura' => 'FAT-ESTADO-TESTE',
+            'cliente_id' => $this->cliente->id,
+            'mes' => 10,
+            'ano' => 2026,
+            'valor_consumo' => 600,
+            'total_pagar' => 600,
+            'estado' => 'pendente',
+        ]);
+
+        foreach (['paga', 'parcial', 'anulada'] as $estado) {
+            $this->actingAs($this->caixa)->put('/facturas/'.$factura->numero_factura, [
+                'multa' => 0,
+                'estado' => $estado,
+            ])->assertSessionHasErrors('estado');
+
+            $this->assertSame('pendente', $factura->fresh()->estado);
+            $this->assertSame(0, Pagamento::where('factura_id', $factura->id)->count());
+        }
+    }
 }

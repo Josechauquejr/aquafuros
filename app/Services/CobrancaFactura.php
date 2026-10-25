@@ -10,8 +10,10 @@ class CobrancaFactura
     public function resumo(Factura $factura): array
     {
         $emissao = $factura->emissao_original ?? $factura->getAttributes();
-        $origens = $factura->origensSaldo()->with('pagamentos', 'cliente.tarifa')
-            ->orderBy('ano')->orderBy('mes')->orderBy('facturas.id')->get();
+        $origens = $factura->relationLoaded('origensSaldo')
+            ? $factura->origensSaldo->sort(fn (Factura $a, Factura $b) => [$a->ano, $a->mes, $a->id] <=> [$b->ano, $b->mes, $b->id])->values()
+            : $factura->origensSaldo()->with('pagamentos', 'cliente.tarifa')
+                ->orderBy('ano')->orderBy('mes')->orderBy('facturas.id')->get();
         $todas = $origens->concat([$factura->loadMissing('pagamentos')]);
         $principalAnterior = round($origens->sum(fn ($f) => $f->estado === 'anulada' ? 0 : $f->principalEmFalta()), 2);
         $multasAnteriores = round($origens->sum(fn ($f) => $f->estado === 'anulada' ? 0 : $f->multaEmFalta()), 2);

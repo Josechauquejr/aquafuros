@@ -1,5 +1,5 @@
 import { Head, router } from "@inertiajs/react";
-import { ExternalLink, Search, Send } from "lucide-react";
+import { ExternalLink, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
@@ -33,7 +33,6 @@ export default function Emails({ envios, tipos, totais, filtros }) {
     }, [search]);
 
     const verEmail = (envio) => window.open(`/dev/emails/${envio.id}/ver`, "_blank", "noopener");
-    const reenviar = (envio) => router.post(`/dev/emails/${envio.id}/reenviar`, {}, { preserveScroll: true });
 
     return (
         <DevLayout
@@ -42,7 +41,7 @@ export default function Emails({ envios, tipos, totais, filtros }) {
                     <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
                     <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Emails (técnico)</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        {totais.enviados} enviados · {totais.falhados} falhados ({totais.falhados_24h} nas últimas 24 h). Clique numa linha para ver tudo; facturas e recibos podem ser reenviados.
+                        {totais.enviados} enviados · {totais.falhados} falhados ({totais.falhados_24h} nas últimas 24 h). Clique numa linha para ver tudo; registos de códigos de acesso e links de definição ou reposição de senha.
                     </p>
                 </div>
             }
@@ -85,7 +84,6 @@ export default function Emails({ envios, tipos, totais, filtros }) {
                                             <td className="px-4 py-3">
                                                 <div className="flex justify-end gap-1">
                                                     {envio.tem_corpo ? <IconButton title="Ver o email" onClick={() => verEmail(envio)}><ExternalLink className="h-4 w-4" aria-hidden="true" /></IconButton> : null}
-                                                    {envio.reenviavel && <IconButton title="Reenviar" onClick={() => reenviar(envio)}><Send className="h-4 w-4" aria-hidden="true" /></IconButton>}
                                                 </div>
                                             </td>
                                         </tr>
@@ -107,7 +105,6 @@ export default function Emails({ envios, tipos, totais, filtros }) {
                     footer={
                         <div className="flex flex-wrap justify-end gap-2">
                             {e.tem_corpo ? <SecondaryButton type="button" onClick={() => verEmail(e)}><ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" /> Ver o email</SecondaryButton> : null}
-                            {e.reenviavel && <SecondaryButton type="button" onClick={() => { cartao.fechar(); reenviar(e); }}><Send className="mr-2 h-4 w-4" aria-hidden="true" /> Reenviar</SecondaryButton>}
                         </div>
                     }
                 >

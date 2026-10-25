@@ -138,6 +138,26 @@ class EmailFacturasTest extends TestCase
         Mail::assertSent(FacturaMail::class, 1);
     }
 
+    public function test_repetir_emissao_em_lote_nao_duplica_facturas(): void
+    {
+        $cliente = $this->cliente('Ana', null);
+        Leitura::create([
+            'cliente_id' => $cliente->id, 'mes' => 9, 'ano' => 2026,
+            'leitura_anterior' => 0, 'leitura_actual' => 10,
+            'confirmado' => true, 'registado_por' => $this->admin->id,
+        ]);
+
+        $dados = ['mes' => 9, 'ano' => 2026, 'enviar_email' => false];
+        $this->actingAs($this->admin)->post('/facturas/emitir-lote', $dados)
+            ->assertSessionHas('status', '1 factura(s) emitida(s) com sucesso.');
+        Factura::whereNotNull('leitura_id')->firstOrFail()->delete();
+
+        $this->post('/facturas/emitir-lote', $dados)
+            ->assertSessionHas('error', 'Não há leituras confirmadas por facturar nesse período.');
+
+        $this->assertSame(1, Factura::withTrashed()->whereNotNull('leitura_id')->count());
+    }
+
     public function test_so_administrador_e_gestor_enviam_e_o_email_do_cliente_e_validado(): void
     {
         Mail::fake();

@@ -87,7 +87,7 @@ class AnaliseRisco
             ->where(fn ($q) => $q->whereNull('data_adesao')->orWhere('data_adesao', '<=', $fim->toDateString()))->count();
         $leituras = Leitura::where('mes', $mes->month)->where('ano', $mes->year)->count();
         $confirmadas = Leitura::where('mes', $mes->month)->where('ano', $mes->year)->where('confirmado', true)->count();
-        $facturasConsumo = $emitidas->where('tipo', 'consumo')->count();
+        $facturasConsumo = $emitidas->whereIn('tipo', ['consumo', 'consumo_estimado'])->count();
 
         return [
             'eficaciaCoorte' => $facturado > 0 ? round($recebido / $facturado * 100, 1) : null,

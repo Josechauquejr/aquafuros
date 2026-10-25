@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, CircleHelp, FileText, HelpCircle, ListChecks, Mail, MousePointerClick, Sparkles, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleHelp, FileText, HelpCircle, ListChecks, MousePointerClick, Sparkles, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import IconButton from "@/Components/IconButton";
@@ -6,17 +6,16 @@ import IconButton from "@/Components/IconButton";
 const guias = {
     "/clientes": ["Clientes", "Cadastre clientes, organize zonas e consulte a situação financeira de cada ligação.", [[ListChecks, "Localizar", "Use pesquisa e filtros por nome, número, estado, zona ou dívida."], [MousePointerClick, "Abrir a ficha", "Expanda o cliente para consultar facturas, pagamentos e leituras."], [Sparkles, "Cadastrar ou editar", "Use Novo cliente. Também pode criar um bairro/zona directamente no formulário."], [CheckCircle2, "Acompanhar", "O estado mostra se está activo, inactivo ou cortado. Alterações ficam no histórico."]], "Confirme telefone, email, zona e leitura inicial antes de guardar."],
     "/leituras": ["Leituras", "Registe o consumo mensal para permitir o cálculo correcto da factura.", [[ListChecks, "Escolher", "Abra Nova leitura e pesquise o cliente pelo nome ou número."], [MousePointerClick, "Informar", "Digite a leitura actual; o sistema compara com a leitura anterior."], [AlertTriangle, "Verificar", "Consumos muito altos podem indicar erro, fuga ou problema no contador."], [CheckCircle2, "Confirmar", "A leitura confirmada fica pronta para facturação."]], "Confira o número directamente no contador antes de confirmar."],
-    "/facturas": ["Facturas", "Consulte valores facturados, pagamentos e documentos enviados aos clientes.", [[ListChecks, "Filtrar", "Pesquise por cliente e filtre por período, estado ou tipo."], [FileText, "Consultar", "Abra a factura para ver consumo, multas, total e pagamentos associados."], [Mail, "Enviar", "Envie uma factura individual ou várias em lote para clientes com email."], [CheckCircle2, "Acompanhar", "Pendente e parcial têm valor em aberto; paga e anulada não devem ser cobradas."]], "Antes de cobrar, confirme o estado e o valor em falta."],
-    "/pagamentos": ["Pagamentos", "Registe recebimentos, actualize facturas e disponibilize recibos.", [[ListChecks, "Seleccionar", "Pesquise o cliente e escolha a factura que está a ser paga."], [MousePointerClick, "Confirmar", "Informe valor, método de pagamento e referência quando existir."], [CheckCircle2, "Concluir", "A factura passa para paga ou parcial automaticamente."], [FileText, "Emitir recibo", "Imprima ou consulte o recibo depois do pagamento; ele também pode ser enviado por email."]], "Em pagamentos parciais, confirme o saldo restante antes de finalizar."],
-    "/cobranca": ["Cobrança", "Organize contactos com clientes em atraso e acompanhe promessas de pagamento.", [[ListChecks, "Priorizar", "Filtre por zona, falta de contacto, promessa pendente ou falhada."], [MousePointerClick, "Contactar", "Registe canal, resultado, nota, valor prometido e data combinada."], [Mail, "Enviar facturas", "Escolha um cliente para enviar todas as facturas vencidas num único email."], [CheckCircle2, "Actualizar", "Depois do pagamento, a dívida e a lista de atraso são actualizadas."]], "Registe também contactos sem resposta para evitar tentativas sem contexto."],
+    "/facturas": ["Facturas", "Consulte valores facturados, pagamentos e documentos.", [[ListChecks, "Filtrar", "Pesquise por cliente e filtre por período, estado ou tipo."], [FileText, "Consultar", "Abra a factura para ver consumo, multas, total e pagamentos associados."], [CheckCircle2, "Acompanhar", "Pendente e parcial têm valor em aberto; paga e anulada não devem ser cobradas."]], "Antes de cobrar, confirme o estado e o valor em falta."],
+    "/pagamentos": ["Pagamentos", "Registe recebimentos, actualize facturas e disponibilize recibos para consulta e impressão.", [[ListChecks, "Seleccionar", "Pesquise o cliente e escolha a factura que está a ser paga."], [MousePointerClick, "Confirmar", "Informe valor, método de pagamento e referência quando existir."], [CheckCircle2, "Concluir", "A factura passa para paga ou parcial automaticamente."], [FileText, "Emitir recibo", "Imprima ou consulte o recibo depois do pagamento."]], "Em pagamentos parciais, confirme o saldo restante antes de finalizar."],
+    "/cobranca": ["Cobrança", "Organize contactos com clientes em atraso e acompanhe promessas de pagamento.", [[ListChecks, "Priorizar", "Filtre por zona, falta de contacto, promessa pendente ou falhada."], [MousePointerClick, "Contactar", "Registe canal, resultado, nota, valor prometido e data combinada."], [CheckCircle2, "Actualizar", "Depois do pagamento, a dívida e a lista de atraso são actualizadas."]], "Registe também contactos sem resposta para evitar tentativas sem contexto."],
     "/ocorrencias": ["Ocorrências", "Acompanhe avarias, falta de água e reclamações até à resolução.", [[ListChecks, "Registar", "Informe tipo, descrição e, se possível, cliente e zona afectados."], [MousePointerClick, "Iniciar", "Use Iniciar quando alguém assumir o tratamento; passa para Em curso."], [CheckCircle2, "Resolver", "Descreva o que foi feito. Data e responsável ficam registados."], [AlertTriangle, "Reabrir", "Se o problema voltar, reabra para manter o trabalho visível."]], "Indique local, sintomas, horário e cliente afectado numa descrição concreta."],
-    "/notificacoes": ["Email e notificações", "Prepare mensagens de cobrança e acompanhe o resultado dos envios.", [[ListChecks, "Seleccionar", "Escolha o cliente e confirme as facturas vencidas que serão anexadas."], [Mail, "Enviar", "A mensagem inclui resumo da dívida e PDFs das facturas elegíveis."], [AlertTriangle, "Verificar falhas", "Consulte o erro e tente novamente depois de corrigir a configuração."], [CheckCircle2, "Consultar histórico", "Em Emails enviados veja destinatário, data, estado e tentativas."]], "O cliente precisa de email válido e o Gmail deve estar configurado."],
 };
 
 const resultados = {
     Clientes: "No final, o cliente fica registado e disponível para leituras, facturação, pagamentos e cobrança.",
     Leituras: "No final, a leitura confirmada pode gerar o consumo e a factura do período.",
-    Facturas: "No final, consegue saber o valor devido, enviar o documento e acompanhar o pagamento.",
+    Facturas: "No final, consegue saber o valor devido e acompanhar o pagamento.",
     Pagamentos: "No final, o saldo da factura é actualizado e o recibo fica disponível.",
     Cobrança: "No final, a equipa sabe quem foi contactado, o que foi prometido e quais dívidas continuam pendentes.",
     Ocorrências: "No final, a ocorrência fica resolvida ou reaberta com o responsável e a data registados.",
@@ -30,11 +29,9 @@ export default function PageHelp({ url }) {
     if (!chave) return null;
     const [titulo, objetivo, passos, dica] = guias[chave];
     const passosFluxo = chave === "/pagamentos"
-        ? [...passos.slice(0, 2), [CheckCircle2, "Concluir e entregar recibo", "A factura passa para paga ou parcial; o recibo fica disponível para imprimir ou enviar por email."]]
+        ? [...passos.slice(0, 2), [CheckCircle2, "Concluir e entregar recibo", "A factura passa para paga ou parcial; o recibo fica disponível para imprimir."]]
         : chave === "/ocorrencias"
             ? [...passos.slice(0, 2), [CheckCircle2, "Resolver ou reabrir", "Registe o que foi feito. Se o problema voltar, reabra a mesma ocorrência para preservar o histórico."]]
-            : chave === "/notificacoes"
-                ? [[CheckCircle2, "Confirmar configuração", "Antes do primeiro envio, confirme que a conta Gmail está ligada."], ...passos.slice(0, 2), [FileText, "Gerar mensagem", "O sistema prepara o resumo da dívida e os PDFs elegíveis."], passos[3]]
                 : passos;
     return <div className="relative">
         <IconButton title={`Ajuda: ${titulo}`} onClick={() => setAberto((v) => !v)} className="h-9 w-9 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">

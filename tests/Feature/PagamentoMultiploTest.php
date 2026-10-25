@@ -153,19 +153,16 @@ class PagamentoMultiploTest extends TestCase
         $f = $this->factura($this->ana, 'F-P', 500, $mesPassado->month);
         $f->forceFill(['created_at' => $mesPassado->copy()->addDays(2)])->saveQuietly();
 
-        foreach (['/facturas' => 'totais', '/pagamentos' => 'resumoMes', '/leituras' => 'resumoMes'] as $rota => $prop) {
-            $this->actingAs($this->caixa)
-                ->get($rota.'?mes='.$mesPassado->format('Y-m'))
-                ->assertInertia(fn (Assert $page) => $page
-                    ->where('mesReferencia.valor', $mesPassado->format('Y-m'))
-                    ->where($prop.'.totalFacturado', 500)
-                    ->where($prop.'.emAberto', 500));
+        $this->actingAs($this->caixa)->get('/facturas?mes='.$mesPassado->format('Y-m'))
+            ->assertInertia(fn (Assert $page) => $page->where('mesReferencia.valor', $mesPassado->format('Y-m'))->where('totais.totalFacturado', 500)->where('totais.emAberto', 500));
+        $this->get('/pagamentos?mes='.$mesPassado->format('Y-m'))
+            ->assertInertia(fn (Assert $page) => $page->where('mesReferencia.valor', $mesPassado->format('Y-m'))->where('metricas.totalRecebido', 0)->where('metricas.totalRegistados', 0));
+        $this->get('/leituras?mes='.$mesPassado->format('Y-m'))
+            ->assertInertia(fn (Assert $page) => $page->where('mesReferencia.valor', $mesPassado->format('Y-m'))->where('totais.total', 0)->where('totais.consumoM3', 0));
 
-            // mês actual: nada facturado
-            $this->get($rota)->assertInertia(fn (Assert $page) => $page
-                ->where('mesReferencia.eActual', true)
-                ->where($prop.'.totalFacturado', 0));
-        }
+        $this->get('/facturas')->assertInertia(fn (Assert $page) => $page->where('mesReferencia.eActual', true)->where('totais.totalFacturado', 0));
+        $this->get('/pagamentos')->assertInertia(fn (Assert $page) => $page->where('mesReferencia.eActual', true)->where('metricas.totalRecebido', 0));
+        $this->get('/leituras')->assertInertia(fn (Assert $page) => $page->where('mesReferencia.eActual', true)->where('totais.total', 0));
     }
 
     public function test_o_mes_escolhido_filtra_tambem_as_tabelas(): void
@@ -184,7 +181,7 @@ class PagamentoMultiploTest extends TestCase
 
         $this->actingAs($this->caixa);
 
-        // sem mês escolhido: tudo (facturas) — e o mês não vai para os filtros
+        // Sem mes escolhido, a lista de facturas nao recebe filtro de mes.
         $this->get('/facturas')->assertInertia(fn (Assert $p) => $p->has('facturas.data', 2)->where('filtros.mes', ''));
 
         $this->get('/facturas?mes='.$mesPassado->format('Y-m'))

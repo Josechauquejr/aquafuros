@@ -12,14 +12,10 @@ use Illuminate\Support\Str;
 class Agendador
 {
     /** Só estas tarefas se podem correr à mão pelo painel (lista fechada). */
-    public const EXECUTAVEIS = [
-        'notificacoes:gerar' => 'Gera e ENVIA os lembretes de vencimento e avisos de atraso aos clientes (emails reais).',
-    ];
+    public const EXECUTAVEIS = [];
 
     /** O pulso corre todos os minutos e tem a sua própria chave de cache: não se regista aqui. */
     private const IGNORADAS = ['pulso-agendador'];
-
-    /** "php artisan notificacoes:gerar" (ou o nome de uma tarefa de função) → "notificacoes:gerar". */
     public static function nome(?string $comando, ?string $descricao = null): string
     {
         $comando = str_replace(["'", '"'], '', (string) $comando);

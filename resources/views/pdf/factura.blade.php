@@ -21,6 +21,7 @@
             $estadoCor = '#be123c'; $estadoFundo = '#fff1f2';
         }
         $ligacao = $factura->tipo === 'ligacao';
+        $estimada = $factura->tipo === 'consumo_estimado';
         $cliente = $factura->cliente;
         $cobranca = $factura->cobranca;
         $anterior = $cobranca['principal_anterior_emitido'] ?? ($factura->divida_anterior_incluida ? (float) $factura->divida_anterior : 0);
@@ -103,21 +104,26 @@
     @else
         <div class="section">
             <div class="heading">Registo de consumo de água</div>
-            <table><tr>
-                <td style="width: 32%;"><div class="card"><div class="muted small">Leitura anterior</div><div class="card-value">{{ $volume($leitura?->leitura_anterior) }}</div></div></td>
-                <td style="width: 2%;"></td>
-                <td style="width: 32%;"><div class="card"><div class="muted small">Leitura actual</div><div class="card-value">{{ $volume($leitura?->leitura_actual) }}</div></div></td>
-                <td style="width: 2%;"></td>
-                <td style="width: 32%;"><div class="card" style="background: #ecfeff; border-color: #a5f3fc; color: #164e63;"><div class="muted small">Consumo apurado</div><div class="card-value">{{ $volume($consumo) }}</div></div></td>
-            </tr></table>
-            @if ($primeiraLeitura)<div class="muted small" style="margin-top: 5px;">Leitura anterior correspondente à leitura inicial do contrato.</div>
-            @elseif ($consumoAnterior !== null)<div class="muted small" style="margin-top: 5px;">Consumo do período anterior: {{ $volume($consumoAnterior) }}.</div>@endif
+            @if ($estimada)
+                <div class="card" style="background: #fffbeb; border-color: #fde68a; color: #78350f;"><strong>Consumo estimado:</strong> {{ $volume($consumo) }}. Não foi registada uma leitura do visor neste período.</div>
+            @else
+                <table><tr>
+                    <td style="width: 32%;"><div class="card"><div class="muted small">Leitura anterior</div><div class="card-value">{{ $volume($leitura?->leitura_anterior) }}</div></div></td>
+                    <td style="width: 2%;"></td>
+                    <td style="width: 32%;"><div class="card"><div class="muted small">Leitura actual</div><div class="card-value">{{ $volume($leitura?->leitura_actual) }}</div></div></td>
+                    <td style="width: 2%;"></td>
+                    <td style="width: 32%;"><div class="card" style="background: #ecfeff; border-color: #a5f3fc; color: #164e63;"><div class="muted small">Consumo apurado</div><div class="card-value">{{ $volume($consumo) }}</div></div></td>
+                </tr></table>
+            @endif
+            @if (! $estimada && $primeiraLeitura)<div class="muted small" style="margin-top: 5px;">Leitura anterior correspondente à leitura inicial do contrato.</div>
+            @elseif (! $estimada && $consumoAnterior !== null)<div class="muted small" style="margin-top: 5px;">Consumo do período anterior: {{ $volume($consumoAnterior) }}.</div>@endif
         </div>
     @endif
     <div class="section">
         <div class="heading">Discriminação da factura</div>
         <table class="values">
             <tr><td class="muted">{{ $ligacao ? 'Taxa de ligação de água' : 'Valor do consumo do período' }}</td><td class="right number">{{ $mt($consumoEmitido) }}</td></tr>
+            @if ((float) $factura->valor_acerto_leitura > 0)<tr><td class="muted">Acerto de leituras estimadas</td><td class="right number">{{ $mt($factura->valor_acerto_leitura) }}</td></tr>@endif
             @if ($tarifaMinima && ! $ligacao)<tr><td colspan="2" class="small muted">Tarifa mínima de {{ $mt($tarifa->taxa_minima) }}, aplicável ao consumo até {{ $volume($tarifa->consumo_minimo_m3) }}.</td></tr>@endif
             @if ($anterior > 0)<tr><td class="muted">Saldo anterior em dívida (sem penalizações)</td><td class="right number">{{ $mt($anterior) }}</td></tr>@endif
             @if ($multaAnteriorEmitida > 0)<tr><td class="muted">Penalizações anteriores</td><td class="right number">{{ $mt($multaAnteriorEmitida) }}</td></tr>@endif

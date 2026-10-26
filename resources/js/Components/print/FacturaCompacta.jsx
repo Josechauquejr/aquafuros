@@ -27,7 +27,7 @@ export default function FacturaCompacta({ factura, empresa }) {
 
         <table className="w-full shrink-0 border-collapse text-[8pt]"><tbody>
             <tr className="border-b border-slate-200"><th colSpan="4" className="bg-slate-100 px-[2mm] py-[0.7mm] text-left font-bold uppercase tracking-wide">Dados do cliente</th></tr>
-            <tr className="border-b border-slate-200"><th className="w-[15%] px-[2mm] py-[0.7mm] text-left font-semibold">Nome</th><td className="w-[35%] px-[2mm] py-[0.7mm] font-black">{factura.cliente?.nome ?? "Cliente removido"}</td><th className="w-[15%] px-[2mm] py-[0.7mm] text-left font-semibold">Código</th><td className="px-[2mm] py-[0.7mm] font-semibold">{factura.cliente?.numero_cliente ?? "—"}</td></tr>
+            <tr className="border-b border-slate-200"><th className="w-[15%] px-[2mm] py-[0.7mm] text-left font-semibold">Nome</th><td className="w-[35%] px-[2mm] py-[0.7mm] text-[9pt] font-black">{factura.cliente?.nome ?? "Cliente removido"}</td><th className="w-[15%] px-[2mm] py-[0.7mm] text-left font-semibold">Código</th><td className="px-[2mm] py-[0.7mm] font-semibold">{factura.cliente?.numero_cliente ?? "—"}</td></tr>
             <tr className="border-b border-slate-200"><th className="px-[2mm] py-[0.7mm] text-left font-semibold">Morada</th><td className="px-[2mm] py-[0.7mm] font-semibold">{[factura.cliente?.endereco, factura.cliente?.bairro].filter(Boolean).join(" · ") || "Não indicada"}</td><th className="px-[2mm] py-[0.7mm] text-left font-semibold">Contador</th><td className="px-[2mm] py-[0.7mm] font-semibold">{factura.cliente?.numero_contador || "—"}</td></tr>
         </tbody></table>
 
@@ -39,7 +39,7 @@ export default function FacturaCompacta({ factura, empresa }) {
         <div className="min-h-[2mm] flex-1 basis-0" aria-hidden="true" />
         <div className="grid shrink-0 grid-cols-[1fr_1.2fr] items-stretch gap-[2mm]">
             <section className="rounded border border-slate-200 bg-slate-50 px-[2mm] py-[1mm]"><p className="mb-[0.5mm] text-[7.5pt] font-black uppercase tracking-wide">Formas de pagamento</p>{meios.length ? <div className="grid grid-cols-2 gap-[2mm]">{meios.map(([nome, numero, titular]) => <div key={nome} className="min-w-0"><p className="text-[7pt] font-semibold">{nome}</p><p className="text-[8pt] font-bold tabular-nums">{telefonePagamento(numero)}</p>{titular && <p className="truncate text-[7pt]">{titular}</p>}</div>)}</div> : <p className="text-[7pt]">Contacte a empresa para obter os meios de pagamento.</p>}</section>
-            <section className="rounded border border-amber-300 bg-amber-50 px-[2mm] py-[1mm] text-[7.5pt] font-semibold uppercase leading-snug"><p className="mb-[0.5mm] font-black uppercase tracking-wide">Aviso de multas e corte</p><p className="text-[6.5pt]">PAGUE A FACTURA NO PRAZO DE 15 DIAS. APÓS ESSE PRAZO, SERÁ APLICADA MULTA DE 30%. CASO NÃO PAGUE, O FORNECIMENTO DE ÁGUA PODERÁ SER CORTADO.</p></section>
+            <section className="rounded border border-amber-300 bg-amber-50 px-[2mm] py-[1mm] text-[7.5pt] font-semibold uppercase leading-snug"><p className="mb-[0.5mm] font-black uppercase tracking-wide">Aviso de multas e corte</p><p className="text-[6.5pt]">A FACTURA DEVE SER PAGA ATÉ AO DIA 10. APÓS ESSA DATA, PODERÁ SER APLICADA MULTA E O FORNECIMENTO DE ÁGUA PODERÁ SER CORTADO.</p></section>
         </div>
         <div className="min-h-[3mm] flex-1 basis-0" aria-hidden="true" />
     </article>;

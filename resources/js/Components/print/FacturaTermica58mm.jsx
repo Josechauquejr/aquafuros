@@ -48,7 +48,7 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
             <p className="text-center">Emitida {formatDate(factura.created_at)}</p>
             <Linha />
 
-            <p>Cliente: {factura.cliente?.nome ?? "Cliente removido"}</p>
+            <p className="text-[15px] font-black leading-snug">Cliente: {factura.cliente?.nome ?? "Cliente removido"}</p>
             <p>Nº: {factura.cliente?.numero_cliente ?? "—"}</p>
             <p>Tel: {factura.cliente?.telefone || "—"}</p>
             <p>End: {factura.cliente?.endereco || "—"}</p>

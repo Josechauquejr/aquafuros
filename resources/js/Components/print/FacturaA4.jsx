@@ -27,7 +27,7 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
             <section className="grid grid-cols-2 gap-8">
                 <div>
                     <h2 className="text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Dados do cliente</h2>
-                    <p className="mt-1 text-lg font-semibold leading-snug">{factura.cliente?.nome ?? "Cliente removido"}</p>
+                    <p className="mt-1 text-2xl font-bold leading-snug">{factura.cliente?.nome ?? "Cliente removido"}</p>
                     <p className="mt-1 text-slate-600">N.º de cliente: {factura.cliente?.numero_cliente ?? "—"}</p>
                     <p className="text-slate-600">Contacto: {factura.cliente?.telefone || "—"}</p>
                     <p className="text-slate-600">Endereço: {[factura.cliente?.endereco, factura.cliente?.bairro].filter(Boolean).join(" · ") || "—"}</p>

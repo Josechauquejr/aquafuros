@@ -2,20 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AcertoLeitura;
 use App\Models\Cliente;
 use App\Models\Factura;
 use App\Models\Leitura;
-use App\Models\LeituraEstimada;
 use App\Models\LeituraCorreccao;
+use App\Models\LeituraEstimada;
 use App\Services\BillingService;
+use App\Services\CicloLeiturasEstimadas;
 use App\Services\SequenciaLeituras;
 use App\Support\BuscaDifusa;
 use App\Support\Facturacao;
 use App\Support\ListaQuery;
 use App\Support\MesReferencia;
+use App\Support\NumeracaoDocumentos;
 use App\Support\ResumoMensal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class LeituraController extends Controller
@@ -63,14 +67,14 @@ class LeituraController extends Controller
             'consumo' => fn ($q, $d) => $q->orderByRaw(Leitura::expressaoConsumoSql('leituras.leitura_actual', 'leituras.leitura_anterior')." {$d}"),
             'estado' => fn ($q, $d) => $q->orderByRaw(
                 'CASE WHEN leituras.confirmado THEN '
-                ."(CASE WHEN EXISTS (SELECT 1 FROM facturas WHERE facturas.leitura_id = leituras.id AND facturas.deleted_at IS NULL) THEN 2 ELSE 1 END)"
+                .'(CASE WHEN EXISTS (SELECT 1 FROM facturas WHERE facturas.leitura_id = leituras.id AND facturas.deleted_at IS NULL) THEN 2 ELSE 1 END)'
                 ." ELSE 0 END {$d}",
             )->orderByDesc('leituras.ano')->orderByDesc('leituras.mes'),
         ], 'periodo', 'desc');
 
         $idsComLeituras = (clone $query)->reorder()
             ->select('leituras.cliente_id')->distinct();
-        $idsComAbertura = Cliente::withTrashed()->select('clientes.id as cliente_id')->whereNotNull('leitura_inicial');
+        $idsComAbertura = Cliente::query()->select('clientes.id as cliente_id')->whereNotNull('leitura_inicial');
         if ($idsClientes !== null) {
             $idsComAbertura->whereIn('clientes.id', $idsClientes);
         }
@@ -82,7 +86,7 @@ class LeituraController extends Controller
             ->selectRaw('MAX('.Leitura::expressaoConsumoSql('leituras.leitura_actual', 'leituras.leitura_anterior').') as consumo_ordem')
             ->selectRaw(
                 'MAX(CASE WHEN leituras.confirmado THEN '
-                ."(CASE WHEN EXISTS (SELECT 1 FROM facturas WHERE facturas.leitura_id = leituras.id AND facturas.deleted_at IS NULL) THEN 2 ELSE 1 END)"
+                .'(CASE WHEN EXISTS (SELECT 1 FROM facturas WHERE facturas.leitura_id = leituras.id AND facturas.deleted_at IS NULL) THEN 2 ELSE 1 END)'
                 .' ELSE 0 END) as estado_ordem',
             )
             ->groupBy('leituras.cliente_id');
@@ -101,7 +105,7 @@ class LeituraController extends Controller
         $idsNaPagina = $paginador->getCollection()->pluck('cliente_id')->unique()->values();
         $leituras = (clone $query)->whereIn('leituras.cliente_id', $idsNaPagina)->get();
         if ($idsNaPagina->isNotEmpty()) {
-            $aberturas = Cliente::withTrashed()->whereIn('id', $idsNaPagina)->whereNotNull('leitura_inicial')
+            $aberturas = Cliente::whereIn('id', $idsNaPagina)->whereNotNull('leitura_inicial')
                 ->orderBy('nome')->get(['id', 'numero_cliente', 'nome', 'leitura_inicial', 'created_at'])
                 ->map(function (Cliente $cliente) {
                     $abertura = new Leitura;
@@ -119,6 +123,7 @@ class LeituraController extends Controller
                     $abertura->setRelation('factura', null);
                     $abertura->setRelation('correccaoActiva', null);
                     $abertura->setRelation('registadoPor', null);
+
                     return $abertura;
                 })->values();
             // A abertura é a referência para todas as leituras seguintes;
@@ -209,6 +214,7 @@ class LeituraController extends Controller
                     'cliente' => ['nome' => $cliente->nome],
                 ]);
             }
+
             return back()->with('status', 'Leitura retroactiva registada. A leitura seguinte e as facturas pendentes foram recalculadas.');
         }
 
@@ -262,6 +268,7 @@ class LeituraController extends Controller
             'cliente_id' => 'required|exists:clientes,id', 'mes' => 'required|integer|min:1|max:12',
             'ano' => 'required|integer|min:2000|max:2100', 'leitura_actual' => 'required|numeric|min:0',
         ]);
+
         return response()->json(app(SequenciaLeituras::class)->planoInsercao(
             Cliente::findOrFail($data['cliente_id']), (int) $data['mes'], (int) $data['ano'], (float) $data['leitura_actual'],
         ));
@@ -273,6 +280,7 @@ class LeituraController extends Controller
             'mes' => 'required|integer|min:1|max:12', 'ano' => 'required|integer|min:2000|max:2100',
             'leitura_actual' => 'required|numeric|min:0',
         ]);
+
         return response()->json(app(SequenciaLeituras::class)->planoActualizacao(
             $leitura, (int) $data['mes'], (int) $data['ano'], (float) $data['leitura_actual'],
         ));
@@ -280,7 +288,7 @@ class LeituraController extends Controller
 
     private function proximoNumeroLeitura(int $ano, int $mes): string
     {
-        return \App\Support\NumeracaoDocumentos::proximoNumero(
+        return NumeracaoDocumentos::proximoNumero(
             sprintf('LEI-%04d%02d', $ano, $mes),
             Leitura::withTrashed()->where('numero_leitura', 'like', sprintf('LEI-%04d%02d-', $ano, $mes).'%'),
             'numero_leitura',
@@ -310,6 +318,7 @@ class LeituraController extends Controller
         $ano = (int) ($data['ano'] ?? $leitura->ano);
         if ($request->boolean('confirmar_impacto')) {
             app(SequenciaLeituras::class)->actualizar($leitura, $mes, $ano, (float) $data['leitura_actual'], $request->user()->id, (string) ($data['motivo'] ?? ''));
+
             return back()->with('status', 'Leitura actualizada. A sequência e as facturas pendentes afectadas foram recalculadas.');
         }
         if ($mes !== (int) $leitura->mes || $ano !== (int) $leitura->ano) {
@@ -322,6 +331,7 @@ class LeituraController extends Controller
                 return back()->withErrors(['leitura_actual' => 'Pré-visualize o impacto antes de alterar uma leitura com períodos seguintes.']);
             }
             app(SequenciaLeituras::class)->actualizar($leitura, $mes, $ano, (float) $data['leitura_actual'], $request->user()->id, 'Correcção de leitura pendente');
+
             return back()->with('status', 'Leitura actualizada com registo de auditoria.');
         }
 
@@ -334,7 +344,7 @@ class LeituraController extends Controller
 
         // Aprovada a leitura, a factura sai logo se o automatismo estiver ligado.
         if (! empty($data['confirmado'])) {
-            $acerto = app(\App\Services\CicloLeiturasEstimadas::class)->reconciliarAoConfirmar($leitura->fresh(), $request->user()->id);
+            $acerto = app(CicloLeiturasEstimadas::class)->reconciliarAoConfirmar($leitura->fresh(), $request->user()->id);
             $emitidas = Facturacao::aoConfirmar(collect([$leitura->fresh()]), $request->user()->id);
 
             if ($emitidas->isNotEmpty()) {
@@ -343,7 +353,9 @@ class LeituraController extends Controller
                 return back()->with('status', "Leitura confirmada e factura {$factura->numero_factura} emitida"
                     .($acerto ? ' Ha um acerto de leituras estimadas pendente de aprovação.' : '.'));
             }
-            if ($acerto) return back()->with('status', 'Leitura confirmada. A reconciliação das estimativas ficou pendente de aprovação.');
+            if ($acerto) {
+                return back()->with('status', 'Leitura confirmada. A reconciliação das estimativas ficou pendente de aprovação.');
+            }
         }
 
         return back()->with('status', 'Leitura actualizada com sucesso.');
@@ -380,11 +392,15 @@ class LeituraController extends Controller
 
         $acertosPendentes = 0;
         foreach (Leitura::whereIn('id', $alvo)->get() as $leitura) {
-            if (app(\App\Services\CicloLeiturasEstimadas::class)->reconciliarAoConfirmar($leitura, $request->user()->id)) $acertosPendentes++;
+            if (app(CicloLeiturasEstimadas::class)->reconciliarAoConfirmar($leitura, $request->user()->id)) {
+                $acertosPendentes++;
+            }
         }
 
         $mensagem = "{$total} leitura(s) confirmada(s) com sucesso.";
-        if ($acertosPendentes > 0) $mensagem .= " {$acertosPendentes} reconciliação(ões) de estimativas pendente(s) de aprovação.";
+        if ($acertosPendentes > 0) {
+            $mensagem .= " {$acertosPendentes} reconciliação(ões) de estimativas pendente(s) de aprovação.";
+        }
         $emitidas = Facturacao::aoConfirmar(Leitura::whereIn('id', $alvo)->get(), $request->user()->id);
 
         if ($emitidas->isNotEmpty()) {
@@ -408,17 +424,17 @@ class LeituraController extends Controller
 
         $factura = DB::transaction(function () use ($leitura, $data, $request) {
             $leitura = Leitura::whereKey($leitura->id)->lockForUpdate()->firstOrFail();
-            $cicloFechado = \App\Models\AcertoLeitura::where('cliente_id', $leitura->cliente_id)
+            $cicloFechado = AcertoLeitura::where('cliente_id', $leitura->cliente_id)
                 ->whereHas('leituraReal', fn ($q) => $q->where(fn ($q) => $q->where('ano', '>', $leitura->ano)
                     ->orWhere(fn ($q) => $q->where('ano', $leitura->ano)->where('mes', '>=', $leitura->mes))))
                 ->exists();
             if ($cicloFechado) {
-                throw \Illuminate\Validation\ValidationException::withMessages(['motivo_anulacao' => 'Esta leitura sustenta um ciclo de estimativas já reconciliado e não pode ser anulada.']);
+                throw ValidationException::withMessages(['motivo_anulacao' => 'Esta leitura sustenta um ciclo de estimativas já reconciliado e não pode ser anulada.']);
             }
             $factura = Factura::where('leitura_id', $leitura->id)->lockForUpdate()->first();
 
             if ($factura?->pagamentos()->exists()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'motivo_anulacao' => 'A factura desta leitura tem pagamentos registados. Estorne os pagamentos primeiro (apenas administradores) e só depois anule a leitura.',
                 ]);
             }
@@ -459,7 +475,7 @@ class LeituraController extends Controller
      */
     public function corrigir(Request $request, Leitura $leitura)
     {
-        if (\App\Models\AcertoLeitura::where('cliente_id', $leitura->cliente_id)
+        if (AcertoLeitura::where('cliente_id', $leitura->cliente_id)
             ->whereHas('leituraReal', fn ($q) => $q->where(fn ($q) => $q->where('ano', '>', $leitura->ano)
                 ->orWhere(fn ($q) => $q->where('ano', $leitura->ano)->where('mes', '>=', $leitura->mes))))
             ->exists()) {
@@ -480,6 +496,7 @@ class LeituraController extends Controller
         $anoNovo = (int) ($data['ano'] ?? $leitura->ano);
         if ($mesNovo !== (int) $leitura->mes || $anoNovo !== (int) $leitura->ano) {
             app(SequenciaLeituras::class)->actualizar($leitura, $mesNovo, $anoNovo, (float) $data['leitura_actual'], $request->user()->id, $data['motivo']);
+
             return back()->with('status', 'Período da leitura corrigido e sequência recalculada.');
         }
 
@@ -549,7 +566,7 @@ class LeituraController extends Controller
     {
         $leitura = $correccao->leitura;
 
-        if (\App\Models\AcertoLeitura::where('cliente_id', $leitura->cliente_id)
+        if (AcertoLeitura::where('cliente_id', $leitura->cliente_id)
             ->whereHas('leituraReal', fn ($q) => $q->where(fn ($q) => $q->where('ano', '>', $leitura->ano)
                 ->orWhere(fn ($q) => $q->where('ano', $leitura->ano)->where('mes', '>=', $leitura->mes))))
             ->exists()) {

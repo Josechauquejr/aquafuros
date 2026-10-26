@@ -163,6 +163,21 @@ class ClientesTest extends TestCase
                 ->where('clientes.0.consumo_medio', 20));
     }
 
+    public function test_leituras_nao_mostra_abertura_de_cliente_removido(): void
+    {
+        $cliente = $this->cliente('Ana', ['leitura_inicial' => 100]);
+        $this->cliente('Bia', ['leitura_inicial' => 200]);
+
+        $this->actingAs($this->admin)->delete('/clientes/'.$cliente->numero_cliente)
+            ->assertRedirect('/clientes');
+
+        $this->actingAs($this->admin)->get('/leituras')
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('leituras.data', 1)
+                ->where('leituras.data.0.abertura', true)
+                ->where('leituras.data.0.cliente.nome', 'Bia'));
+    }
+
     public function test_actualiza_a_leitura_inicial_pelo_endpoint_proprio_com_motivo(): void
     {
         $cliente = $this->cliente('Ana', ['leitura_inicial' => 100]);

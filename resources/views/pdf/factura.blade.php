@@ -82,7 +82,7 @@
     <table class="section"><tr>
         <td style="width: 57%; padding-right: 18px;">
             <div class="heading">Dados do cliente</div>
-            <div style="font-size: 13px; font-weight: bold;">{{ $cliente?->nome ?? 'Cliente removido' }}</div>
+            <div style="font-size: 18px; font-weight: bold;">{{ $cliente?->nome ?? 'Cliente removido' }}</div>
             <div class="muted">N.º de cliente: {{ $cliente?->numero_cliente ?? '—' }}</div>
             <div class="muted">Contacto: {{ $cliente?->telefone ?: '—' }}</div>
             <div class="muted">Endereço: {{ collect([$cliente?->endereco, $cliente?->bairro])->filter()->join(' · ') ?: '—' }}</div>
@@ -160,7 +160,7 @@
         </tr></table>
     </div>
     <div class="section small" style="border: 1px solid #fef3c7; background: #fffbeb; border-radius: 5px; padding: 10px 12px; color: #78350f;">
-        O pagamento após a data de vencimento poderá estar sujeito à aplicação de penalizações, nos termos das condições aplicáveis.
+        A factura deve ser paga até ao dia 10. Após essa data, poderão ser aplicadas multas e o fornecimento de água poderá ser cortado.
         @if ($multasPrevistas > 0)<div>Penalizações por atraso previstas: {{ $mt($multasPrevistas) }}. Valores sujeitos a confirmação no pagamento, ainda não incluídos no saldo actual.</div>@endif
         <div>Ao efectuar o pagamento, indique o número da factura e guarde o comprovativo.</div>
     </div>

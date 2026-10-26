@@ -12,7 +12,7 @@ export function telefonePagamento(valor) {
     if (digitos.startsWith("258") && digitos.length > 9) digitos = digitos.slice(3);
     return digitos.length === 9 ? digitos.match(/.{3}/g).join(" ") : valor;
 }
-export const avisoPenalizacao = "O pagamento após a data de vencimento poderá resultar em multas e corte do fornecimento, nos termos das condições aplicáveis.";
+export const avisoPenalizacao = "A factura deve ser paga até ao dia 10. Após essa data, poderão ser aplicadas multas e o fornecimento de água poderá ser cortado.";
 
 export function estadoDocumento(factura) {
     const estados = {

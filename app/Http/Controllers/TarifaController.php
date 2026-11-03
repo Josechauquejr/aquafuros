@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Configuracao;
+use App\Models\Factura;
 use App\Models\Tarifa;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -20,7 +22,38 @@ class TarifaController extends Controller
             'tarifas' => Tarifa::orderBy('nome')->get(),
             'taxaLigacao' => Configuracao::valor('taxa_ligacao_nova', 3250.00),
             'regrasConfig' => Configuracao::regrasDeCobranca(),
+            'mesesSemMulta' => Configuracao::mesesSemMulta(),
+            'mesAtual' => now()->format('Y-m'),
         ]);
+    }
+
+    public function actualizarMultaMensal(Request $request)
+    {
+        $data = $request->validate([
+            'mes' => 'required|date_format:Y-m',
+            'isenta' => 'required|boolean',
+        ]);
+        [$ano, $mes] = array_map('intval', explode('-', $data['mes']));
+
+        DB::transaction(function () use ($mes, $ano, $data) {
+            $isenta = (bool) $data['isenta'];
+            Configuracao::definirMultaIsenta($mes, $ano, $isenta);
+
+            if ($isenta) {
+                Factura::query()
+                    ->whereYear('created_at', $ano)
+                    ->whereMonth('created_at', $mes)
+                    ->where('multa', '>', 0)
+                    ->lockForUpdate()
+                    ->get()
+                    ->each(fn (Factura $factura) => $factura->dispensarMultaEmAberto());
+            }
+        });
+
+        return redirect()->route('tarifas.index')->with(
+            'status',
+            $data['isenta'] ? 'Multas desactivadas para o mês seleccionado; saldos de multas em aberto dispensados.' : 'Multas reactivadas para o mês seleccionado.',
+        );
     }
 
     /**
@@ -39,14 +72,11 @@ class TarifaController extends Controller
     }
 
     /**
-     * Prazos e limites da cobrança: dias até a factura vencer, dia do mês até
-     * ao qual as leituras devem estar feitas e quantos dias para trás se pode
-     * datar um pagamento.
+      * Limites gerais da cobrança e quantos dias para trás se pode datar um pagamento.
      */
     public function actualizarRegras(Request $request)
     {
         $data = $request->validate([
-            'dias_vencimento' => 'required|integer|min:1|max:90',
             'leituras_dia_limite' => 'required|integer|min:1|max:28',
             'pagamento_dias_retroactivos' => 'required|integer|min:0|max:60',
         ]);

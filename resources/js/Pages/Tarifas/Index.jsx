@@ -36,7 +36,7 @@ import { itemVariants, listVariants } from "@/lib/motion";
 const regras = [
     {
         titulo: "Prazo de pagamento",
-        descricao: "Em dias corridos após a emissão da factura (ver \"Prazos e limites\", acima). Passado o prazo, a factura fica \"Vencida\" (a multa tem a sua própria regra, abaixo).",
+        descricao: "A factura vence no dia 10 do mês seguinte à emissão. As emitidas entre os dias 20 e 29 vencem no dia 10 imediatamente seguinte.",
         icon: Clock,
     },
     {
@@ -78,7 +78,7 @@ const formVazio = {
     is_active: true,
 };
 
-export default function Index({ tarifas, taxaLigacao, regrasConfig }) {
+export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMulta, mesAtual }) {
     const { flash } = usePage().props;
     const [editandoId, setEditandoId] = useState(null);
     const [showModal, setShowModal] = useState(false);
@@ -88,9 +88,12 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig }) {
     const [editandoTaxaLigacao, setEditandoTaxaLigacao] = useState(false);
     const [taxaLigacaoEditada, setTaxaLigacaoEditada] = useState(String(taxaLigacao));
     const regrasForm = useForm({
-        dias_vencimento: regrasConfig.dias_vencimento,
         leituras_dia_limite: regrasConfig.leituras_dia_limite,
         pagamento_dias_retroactivos: regrasConfig.pagamento_dias_retroactivos,
+    });
+    const multaMensalForm = useForm({
+        mes: mesAtual,
+        isenta: mesesSemMulta.some((item) => item.referencia === mesAtual),
     });
 
     const form = useForm(formVazio);
@@ -479,10 +482,9 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig }) {
                                 evento.preventDefault();
                                 regrasForm.put("/tarifas/regras", { preserveScroll: true });
                             }}
-                            className="grid gap-4 p-6 sm:grid-cols-3"
+                            className="grid gap-4 p-6 sm:grid-cols-2"
                         >
                             {[
-                                ["dias_vencimento", "Prazo de pagamento (dias)", "Dias após a emissão até a factura ficar vencida", 1, 90],
                                 ["leituras_dia_limite", "Dia limite das leituras", "Dia do mês até ao qual as leituras devem estar feitas", 1, 28],
                                 ["pagamento_dias_retroactivos", "Pagamento com data anterior (dias)", "Até quantos dias atrás se pode datar um pagamento", 0, 60],
                             ].map(([chave, rotulo, ajuda, min, max]) => (
@@ -504,6 +506,58 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig }) {
                             <div className="flex justify-end sm:col-span-3">
                                 <PrimaryButton disabled={regrasForm.processing || !regrasForm.isDirty}>Guardar prazos</PrimaryButton>
                             </div>
+                        </form>
+                    </AnimatedPanel>
+
+                    <AnimatedPanel delay={0.27}>
+                        <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+                            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Multas por mês</h3>
+                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                Dispensa multas ainda em aberto em facturas emitidas no mês seleccionado. Valores já pagos e o vencimento no dia 10 do mês seguinte são mantidos.
+                            </p>
+                        </div>
+                        <form
+                            onSubmit={(evento) => {
+                                evento.preventDefault();
+                                multaMensalForm.put("/tarifas/multas-mensais", { preserveScroll: true });
+                            }}
+                            className="grid gap-4 p-6 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end"
+                        >
+                            <div>
+                                <InputLabel htmlFor="mes-multa" value="Mês de emissão" />
+                                <TextInput
+                                    id="mes-multa"
+                                    type="month"
+                                    value={multaMensalForm.data.mes}
+                                    onChange={(evento) => {
+                                        const mes = evento.target.value;
+                                        multaMensalForm.setData({
+                                            mes,
+                                            isenta: mesesSemMulta.some((item) => item.referencia === mes),
+                                        });
+                                    }}
+                                    className="mt-1 block w-full"
+                                />
+                                <InputError message={multaMensalForm.errors.mes} className="mt-1" />
+                            </div>
+                            <label className="flex min-h-10 items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(multaMensalForm.data.isenta)}
+                                    onChange={(evento) => multaMensalForm.setData("isenta", evento.target.checked)}
+                                    className="rounded border-slate-300 text-cyan-700 focus:ring-cyan-600"
+                                />
+                                Desactivar multas neste mês
+                            </label>
+                            <PrimaryButton disabled={multaMensalForm.processing || !multaMensalForm.data.mes}>
+                                Guardar mês
+                            </PrimaryButton>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 sm:col-span-3">
+                                Meses sem multa: {mesesSemMulta.length
+                                    ? mesesSemMulta.map((item) => item.referencia).join(", ")
+                                    : "nenhum"}
+                            </div>
+                            <InputError message={multaMensalForm.errors.isenta} className="sm:col-span-3" />
                         </form>
                     </AnimatedPanel>
 

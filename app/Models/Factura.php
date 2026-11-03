@@ -105,7 +105,7 @@ class Factura extends Model
     {
         return in_array($this->estado, ['pendente', 'parcial'], true)
             && $this->data_vencimento !== null
-            && $this->data_vencimento->isPast();
+            && $this->data_vencimento->toDateString() < now()->toDateString();
     }
 
     /** Soma dos pagamentos já registados (usa a relação se estiver carregada). */
@@ -138,7 +138,10 @@ class Factura extends Model
     /** Multa de atraso apresentada ao caixa, calculada uma única vez sobre o principal em aberto. */
     public function multaAtrasoPrevista(): float
     {
+        $dataEmissao = $this->created_at ?? now();
+
         if (! in_array($this->estado, ['pendente', 'parcial'], true)
+            || Configuracao::multaIsentaParaMes((int) $dataEmissao->month, (int) $dataEmissao->year)
             || ! $this->data_vencimento
             || $this->data_vencimento->toDateString() >= now()->toDateString()
             || (float) $this->multa > 0
@@ -201,6 +204,27 @@ class Factura extends Model
         $this->save();
 
         return $multa;
+    }
+
+    public function dispensarMultaEmAberto(): float
+    {
+        if ((float) $this->multa <= 0 || (float) $this->multa_anterior > 0 || $this->estado === 'anulada') {
+            return 0.0;
+        }
+
+        $dispensa = min((float) $this->multa, $this->multaEmFalta());
+        if ($dispensa <= 0) {
+            return 0.0;
+        }
+
+        $this->multa = round((float) $this->multa - $dispensa, 2);
+        $this->total_pagar = round((float) $this->total_pagar - $dispensa, 2);
+        if (in_array($this->estado, ['pendente', 'parcial'], true) && $this->totalPago() + 0.005 >= (float) $this->total_pagar) {
+            $this->estado = 'paga';
+        }
+        $this->save();
+
+        return round($dispensa, 2);
     }
 
     public function facturaSeguinte()

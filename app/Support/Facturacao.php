@@ -53,7 +53,7 @@ class Facturacao
             'mes' => $leitura->mes,
             'ano' => $leitura->ano,
             // Prazo em dias corridos após a emissão (Tarifas > Prazos e limites; 15 por omissão).
-            'data_vencimento' => now()->addDays((int) Configuracao::valor('dias_vencimento', 15))->toDateString(),
+            'data_vencimento' => self::dataVencimentoPadrao(),
             'valor_consumo' => $calculo['valor_consumo'],
             'consumo_m3' => $calculo['consumo_m3'],
             'valor_acerto_leitura' => $valorAcertos,
@@ -118,7 +118,7 @@ class Facturacao
                 'tipo' => 'consumo_estimado',
                 'mes' => $estimativa->mes,
                 'ano' => $estimativa->ano,
-                'data_vencimento' => now()->addDays((int) Configuracao::valor('dias_vencimento', 15))->toDateString(),
+                'data_vencimento' => self::dataVencimentoPadrao(),
                 'consumo_m3' => $calculo['consumo_m3'],
                 'valor_consumo' => $calculo['valor_consumo'],
                 'valor_acerto_leitura' => $valorAcertos,
@@ -153,6 +153,10 @@ class Facturacao
         });
     }
 
+    private static function dataVencimentoPadrao(): string
+    {
+        return now()->startOfMonth()->addMonth()->day(10)->toDateString();
+    }
     private static function acertosPendentes(int $clienteId, int $mes, int $ano): Collection
     {
         return AcertoLeitura::where('cliente_id', $clienteId)->where('estado', 'por_facturar')

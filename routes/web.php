@@ -82,6 +82,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Antes do resource: evita que "taxa-ligacao" seja capturado pelo
         // wildcard {tarifa} de PUT tarifas/{tarifa}.
         Route::put('tarifas/taxa-ligacao', [TarifaController::class, 'actualizarTaxaLigacao'])->name('tarifas.taxa-ligacao');
+        Route::put('tarifas/multas-mensais', [TarifaController::class, 'actualizarMultaMensal'])->name('tarifas.multas-mensais');
         // Correcção de leituras já confirmadas (e desfazer) — só o administrador.
         Route::put('leituras/{leitura}/corrigir', [LeituraController::class, 'corrigir'])->name('leituras.corrigir');
         Route::post('leituras/correccoes/{correccao}/desfazer', [LeituraController::class, 'desfazerCorreccao'])->name('leituras.correccoes.desfazer');

@@ -129,25 +129,26 @@ class Fase2Test extends TestCase
             ->where('controlo.diferencasCaixa.soma', -10));
     }
 
-    public function test_prazos_configuraveis_afectam_o_vencimento_das_novas_facturas(): void
+    public function test_factura_vence_no_dia_10_do_mes_seguinte_e_so_fica_atrasada_no_dia_11(): void
     {
-        $this->actingAs($this->admin)->put('/tarifas/regras', [
-            'dias_vencimento' => 30, 'leituras_dia_limite' => 20, 'pagamento_dias_retroactivos' => 3,
-        ])->assertSessionHasNoErrors();
-
-        $this->assertSame(['dias_vencimento' => 30, 'leituras_dia_limite' => 20, 'pagamento_dias_retroactivos' => 3], Configuracao::regrasDeCobranca());
+        $this->travelTo('2026-11-29 12:00:00');
 
         $leitura = Leitura::create([
-            'cliente_id' => $this->ana->id, 'mes' => now()->month, 'ano' => now()->year, 'leitura_anterior' => 0, 'leitura_actual' => 10,
+            'cliente_id' => $this->ana->id, 'mes' => 11, 'ano' => 2026, 'leitura_anterior' => 0, 'leitura_actual' => 10,
             'confirmado' => true, 'registado_por' => $this->admin->id,
         ]);
-        $this->post('/facturas', ['leitura_id' => $leitura->id]);
+        $this->actingAs($this->admin)->post('/facturas', ['leitura_id' => $leitura->id])->assertSessionHasNoErrors();
 
-        $this->assertSame(now()->addDays(30)->toDateString(), Factura::where('leitura_id', $leitura->id)->first()->data_vencimento->toDateString());
+        $factura = Factura::where('leitura_id', $leitura->id)->firstOrFail();
+        $this->assertSame('2026-12-10', $factura->data_vencimento->toDateString());
 
-        $this->put('/tarifas/regras', ['dias_vencimento' => 0, 'leituras_dia_limite' => 20, 'pagamento_dias_retroactivos' => 3])->assertSessionHasErrors('dias_vencimento');
+        $this->travelTo('2026-12-10 23:59:59');
+        $this->assertFalse($factura->fresh()->esta_vencida);
+        $this->assertSame(0.0, $factura->fresh()->multaAtrasoPrevista());
+
+        $this->travelTo('2026-12-11 00:01:00');
+        $this->assertTrue($factura->fresh()->esta_vencida);
     }
-
     public function test_recibo_unico_e_estorno_do_lote_completo(): void
     {
         $f1 = $this->factura('F-4', 100);

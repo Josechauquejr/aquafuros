@@ -132,6 +132,48 @@ class FacturasOrigemTest extends TestCase
         $this->assertEquals(2616, $this->cliente->saldoEmAberto());
     }
 
+    public function test_admin_isenta_multas_para_o_mes_de_emissao_escolhido(): void
+    {
+        $this->travelTo('2026-12-11 12:00:00');
+        $facturaNovembro = Factura::create([
+            'numero_factura' => 'FAT-NOV-2026', 'cliente_id' => $this->cliente->id, 'mes' => 10, 'ano' => 2026,
+            'valor_consumo' => 600, 'total_pagar' => 600, 'estado' => 'pendente', 'data_vencimento' => '2026-12-10',
+        ]);
+        $facturaNovembro->forceFill(['created_at' => '2026-11-25 12:00:00'])->save();
+        $facturaOutubro = Factura::create([
+            'numero_factura' => 'FAT-OUT-2026', 'cliente_id' => $this->cliente->id, 'mes' => 9, 'ano' => 2026,
+            'valor_consumo' => 600, 'total_pagar' => 600, 'estado' => 'pendente', 'data_vencimento' => '2026-11-10',
+        ]);
+        $facturaOutubro->forceFill(['created_at' => '2026-10-25 12:00:00'])->save();
+        $facturaComMultaPagaParcialmente = Factura::create([
+            'numero_factura' => 'FAT-NOV-MULTA', 'cliente_id' => $this->cliente->id, 'mes' => 10, 'ano' => 2026,
+            'valor_consumo' => 600, 'multa' => 72, 'total_pagar' => 672, 'estado' => 'pendente', 'data_vencimento' => '2026-12-10',
+        ]);
+        $facturaComMultaPagaParcialmente->forceFill(['created_at' => '2026-11-25 12:00:00'])->save();
+        $this->actingAs($this->caixa)->post('/pagamentos', [
+            'factura_id' => $facturaComMultaPagaParcialmente->id,
+            'valor_pago' => 630,
+            'incluir_multa' => true,
+            'metodo_pagamento' => 'dinheiro',
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($this->caixa)->put('/tarifas/multas-mensais', ['mes' => '2026-11', 'isenta' => true])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('configuracoes', ['chave' => 'multa_isenta_202611', 'valor' => 1]);
+        $this->assertSame(0.0, $facturaNovembro->fresh()->multaAtrasoPrevista());
+        $this->assertSame(600.0, $facturaNovembro->fresh()->emFalta());
+        $this->assertSame(72.0, $facturaOutubro->fresh()->multaAtrasoPrevista());
+        $facturaComMultaPagaParcialmente->refresh();
+        $this->assertSame(30.0, (float) $facturaComMultaPagaParcialmente->multa);
+        $this->assertSame(630.0, (float) $facturaComMultaPagaParcialmente->total_pagar);
+        $this->assertSame('paga', $facturaComMultaPagaParcialmente->estado);
+
+        $this->actingAs($this->caixa)->put('/tarifas/multas-mensais', ['mes' => '2026-11', 'isenta' => false])
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('configuracoes', ['chave' => 'multa_isenta_202611', 'valor' => 0]);
+        $this->assertSame(72.0, $facturaNovembro->fresh()->multaAtrasoPrevista());
+    }
     public function test_nao_cobra_multa_duas_vezes_e_nao_aceita_pagamento_duplicado(): void
     {
         [$anteriores] = $this->quatro();

@@ -1,6 +1,8 @@
 import { Head, router, useForm, usePage } from "@inertiajs/react";
 import {
     Check,
+    ChevronLeft,
+    ChevronRight,
     Clock,
     Droplets,
     Gauge,
@@ -91,10 +93,22 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
         leituras_dia_limite: regrasConfig.leituras_dia_limite,
         pagamento_dias_retroactivos: regrasConfig.pagamento_dias_retroactivos,
     });
-    const multaMensalForm = useForm({
-        mes: mesAtual,
-        isenta: mesesSemMulta.some((item) => item.referencia === mesAtual),
-    });
+    const [anoMultas, setAnoMultas] = useState(Number(mesAtual.slice(0, 4)));
+    const [mesEmGravacao, setMesEmGravacao] = useState(null);
+    const [confirmacaoMulta, setConfirmacaoMulta] = useState(null);
+    const mesesDoAno = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+    ];
+    const mesesIsentosDoAno = mesesSemMulta.filter((item) => item.ano === anoMultas);
+    const alternarMultaMensal = (mes, isenta) => {
+        const referencia = `${anoMultas}-${String(mes).padStart(2, "0")}`;
+        setMesEmGravacao(referencia);
+        router.put("/tarifas/multas-mensais", { mes: referencia, isenta }, {
+            preserveScroll: true,
+            onFinish: () => setMesEmGravacao(null),
+        });
+    };
 
     const form = useForm(formVazio);
 
@@ -511,54 +525,81 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
 
                     <AnimatedPanel delay={0.27}>
                         <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Multas por mês</h3>
-                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                Dispensa multas ainda em aberto em facturas emitidas no mês seleccionado. Valores já pagos e o vencimento no dia 10 do mês seguinte são mantidos.
-                            </p>
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Multas por mês</h3>
+                                    <p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+                                        Consulte os 12 meses do ano e altere cada estado individualmente. Isentar um mês dispensa multas ainda em aberto nas facturas desse período.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2 self-start">
+                                    <IconButton
+                                        onClick={() => setAnoMultas((ano) => ano - 1)}
+                                        title="Ver ano anterior"
+                                        aria-label="Ver ano anterior"
+                                    >
+                                        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                                    </IconButton>
+                                    <span className="min-w-16 text-center text-lg font-bold tabular-nums text-slate-950 dark:text-white" aria-live="polite">
+                                        {anoMultas}
+                                    </span>
+                                    <IconButton
+                                        onClick={() => setAnoMultas((ano) => ano + 1)}
+                                        title="Ver ano seguinte"
+                                        aria-label="Ver ano seguinte"
+                                    >
+                                        <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                                    </IconButton>
+                                </div>
+                            </div>
+                            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                                <StatusBadge tone="emerald">Sem multa</StatusBadge>
+                                <StatusBadge tone="amber">Multa activa</StatusBadge>
+                                <span>{mesesIsentosDoAno.length} de 12 meses sem multa</span>
+                            </div>
                         </div>
-                        <form
-                            onSubmit={(evento) => {
-                                evento.preventDefault();
-                                multaMensalForm.put("/tarifas/multas-mensais", { preserveScroll: true });
-                            }}
-                            className="grid gap-4 p-6 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end"
-                        >
-                            <div>
-                                <InputLabel htmlFor="mes-multa" value="Mês de emissão" />
-                                <TextInput
-                                    id="mes-multa"
-                                    type="month"
-                                    value={multaMensalForm.data.mes}
-                                    onChange={(evento) => {
-                                        const mes = evento.target.value;
-                                        multaMensalForm.setData({
-                                            mes,
-                                            isenta: mesesSemMulta.some((item) => item.referencia === mes),
-                                        });
-                                    }}
-                                    className="mt-1 block w-full"
-                                />
-                                <InputError message={multaMensalForm.errors.mes} className="mt-1" />
-                            </div>
-                            <label className="flex min-h-10 items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                                <input
-                                    type="checkbox"
-                                    checked={Boolean(multaMensalForm.data.isenta)}
-                                    onChange={(evento) => multaMensalForm.setData("isenta", evento.target.checked)}
-                                    className="rounded border-slate-300 text-cyan-700 focus:ring-cyan-600"
-                                />
-                                Desactivar multas neste mês
-                            </label>
-                            <PrimaryButton disabled={multaMensalForm.processing || !multaMensalForm.data.mes}>
-                                Guardar mês
-                            </PrimaryButton>
-                            <div className="text-xs text-slate-500 dark:text-slate-400 sm:col-span-3">
-                                Meses sem multa: {mesesSemMulta.length
-                                    ? mesesSemMulta.map((item) => item.referencia).join(", ")
-                                    : "nenhum"}
-                            </div>
-                            <InputError message={multaMensalForm.errors.isenta} className="sm:col-span-3" />
-                        </form>
+                        <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
+                            {mesesDoAno.map((nome, indice) => {
+                                const mes = indice + 1;
+                                const referencia = `${anoMultas}-${String(mes).padStart(2, "0")}`;
+                                const isenta = mesesIsentosDoAno.some((item) => item.mes === mes);
+                                const estaAGravar = mesEmGravacao === referencia;
+
+                                return (
+                                    <div
+                                        key={referencia}
+                                        className={cn(
+                                            "flex min-h-28 flex-col justify-between gap-4 rounded-lg border p-4 transition-colors",
+                                            isenta
+                                                ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/20"
+                                                : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40",
+                                        )}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <span className="font-semibold text-slate-950 dark:text-white">{nome}</span>
+                                            <StatusBadge tone={isenta ? "emerald" : "amber"}>
+                                                {isenta ? "Sem multa" : "Multa activa"}
+                                            </StatusBadge>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setConfirmacaoMulta({ mes, nome, isenta: !isenta })}
+                                            disabled={mesEmGravacao !== null}
+                                            className="self-start text-sm font-semibold text-cyan-800 underline decoration-cyan-300 underline-offset-4 transition hover:text-cyan-950 disabled:cursor-wait disabled:opacity-60 dark:text-cyan-300 dark:decoration-cyan-800 dark:hover:text-cyan-200"
+                                        >
+                                            {estaAGravar
+                                                ? "A guardar…"
+                                                : isenta
+                                                  ? "Reactivar multas"
+                                                  : "Desactivar multas"}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="border-t border-slate-200 px-6 py-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                            Valores de multas já pagos não são alterados. Reactivar multas não repõe valores que tenham sido dispensados anteriormente.
+                        </p>
                     </AnimatedPanel>
 
                     <AnimatedPanel delay={0.28}>
@@ -709,6 +750,26 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmDialog
+                show={Boolean(confirmacaoMulta)}
+                onClose={() => setConfirmacaoMulta(null)}
+                onConfirm={() => {
+                    if (confirmacaoMulta) {
+                        alternarMultaMensal(confirmacaoMulta.mes, confirmacaoMulta.isenta);
+                        setConfirmacaoMulta(null);
+                    }
+                }}
+                title={confirmacaoMulta?.isenta ? "Desactivar multas neste mês?" : "Reactivar multas neste mês?"}
+                confirmLabel={confirmacaoMulta?.isenta ? "Sim, desactivar" : "Sim, reactivar"}
+                cancelLabel="Não, cancelar"
+                tone="primary"
+                description={
+                    confirmacaoMulta?.isenta
+                        ? `Confirma desactivar as multas de ${confirmacaoMulta.nome} de ${anoMultas}? As multas ainda em aberto nas facturas desse mês serão dispensadas; reactivar depois não repõe esses valores.`
+                        : `Confirma reactivar as multas de ${confirmacaoMulta?.nome} de ${anoMultas}? Esta alteração não repõe multas que já tenham sido dispensadas.`
+                }
+            />
 
             <ConfirmDialog
                 show={Boolean(paraEliminar)}

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Configuracao;
 use App\Models\Factura;
 use App\Models\Tarifa;
+use App\Support\MesReferencia;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,8 @@ class TarifaController extends Controller
             'taxaLigacao' => Configuracao::valor('taxa_ligacao_nova', 3250.00),
             'regrasConfig' => Configuracao::regrasDeCobranca(),
             'mesesSemMulta' => Configuracao::mesesSemMulta(),
-            'mesAtual' => now()->format('Y-m'),
+            'multasDispensadas' => Factura::query()->where('multa_dispensa_valor', '>', 0)->get(['created_at', 'multa_dispensa_valor'])->groupBy(fn (Factura $factura): string => $factura->created_at->format('Y-m'))->map(fn ($facturas, string $referencia): array => ['referencia' => $referencia, 'valor' => round($facturas->sum('multa_dispensa_valor'), 2), 'quantidade' => $facturas->count()])->values(),
+            'mesAtual' => MesReferencia::actual()->format('Y-m'),
         ]);
     }
 
@@ -32,7 +34,12 @@ class TarifaController extends Controller
         $data = $request->validate([
             'mes' => 'required|date_format:Y-m',
             'isenta' => 'required|boolean',
+            'repor' => 'sometimes|boolean',
         ]);
+        if ($request->boolean('repor')) {
+            return $this->restaurarMultasMensais($request);
+        }
+
         [$ano, $mes] = array_map('intval', explode('-', $data['mes']));
 
         DB::transaction(function () use ($mes, $ano, $data) {
@@ -56,6 +63,30 @@ class TarifaController extends Controller
         );
     }
 
+    public function restaurarMultasMensais(Request $request)
+    {
+        $data = $request->validate(['mes' => 'required|date_format:Y-m']);
+        [$ano, $mes] = array_map('intval', explode('-', $data['mes']));
+
+        $valorRestaurado = DB::transaction(function () use ($mes, $ano) {
+            Configuracao::definirMultaIsenta($mes, $ano, false);
+
+            return Factura::query()
+                ->whereYear('created_at', $ano)
+                ->whereMonth('created_at', $mes)
+                ->where('multa_dispensa_valor', '>', 0)
+                ->lockForUpdate()
+                ->get()
+                ->sum(fn (Factura $factura): float => $factura->restaurarMultaDispensada());
+        });
+
+        $mensagem = $valorRestaurado > 0
+            ? 'Multas repostas com sucesso. O mês também voltou a permitir novas multas.'
+            : 'Não havia multas dispensadas para repor neste mês. As novas multas foram reactivadas.';
+
+        return redirect()->route('tarifas.index')->with('status', $mensagem);
+    }
+
     /**
      * Actualizar o valor da taxa de ligação de novo contrato — cobrada
      * automaticamente ao criar um cliente como "novo contrato".
@@ -72,7 +103,7 @@ class TarifaController extends Controller
     }
 
     /**
-      * Limites gerais da cobrança e quantos dias para trás se pode datar um pagamento.
+     * Limites gerais da cobrança e quantos dias para trás se pode datar um pagamento.
      */
     public function actualizarRegras(Request $request)
     {

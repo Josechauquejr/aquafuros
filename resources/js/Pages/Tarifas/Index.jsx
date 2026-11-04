@@ -80,7 +80,7 @@ const formVazio = {
     is_active: true,
 };
 
-export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMulta, mesAtual }) {
+export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMulta, multasDispensadas, mesAtual }) {
     const { flash } = usePage().props;
     const [editandoId, setEditandoId] = useState(null);
     const [showModal, setShowModal] = useState(false);
@@ -101,6 +101,24 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
     ];
     const mesesIsentosDoAno = mesesSemMulta.filter((item) => item.ano === anoMultas);
+    const mesesDispensadosDoAno = multasDispensadas.filter((item) => item.referencia.startsWith(`${anoMultas}-`));
+    const executarAlteracaoMulta = () => {
+        if (!confirmacaoMulta) return;
+
+        const referencia = `${anoMultas}-${String(confirmacaoMulta.mes).padStart(2, "0")}`;
+        if (confirmacaoMulta.tipo === "repor") {
+            setMesEmGravacao(referencia);
+            router.put("/tarifas/multas-mensais", { mes: referencia, isenta: false, repor: true }, {
+                preserveScroll: true,
+                onFinish: () => setMesEmGravacao(null),
+            });
+        } else {
+            alternarMultaMensal(confirmacaoMulta.mes, confirmacaoMulta.isenta);
+        }
+
+        setConfirmacaoMulta(null);
+    };
+
     const alternarMultaMensal = (mes, isenta) => {
         const referencia = `${anoMultas}-${String(mes).padStart(2, "0")}`;
         setMesEmGravacao(referencia);
@@ -555,7 +573,7 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
                             <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
                                 <StatusBadge tone="emerald">Sem multa</StatusBadge>
                                 <StatusBadge tone="amber">Multa activa</StatusBadge>
-                                <span>{mesesIsentosDoAno.length} de 12 meses sem multa</span>
+                                <span>{mesesIsentosDoAno.length} de 12 meses sem multa · {mesesDispensadosDoAno.length} com multas recuperáveis</span>
                             </div>
                         </div>
                         <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
@@ -563,6 +581,7 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
                                 const mes = indice + 1;
                                 const referencia = `${anoMultas}-${String(mes).padStart(2, "0")}`;
                                 const isenta = mesesIsentosDoAno.some((item) => item.mes === mes);
+                                const multaDispensada = mesesDispensadosDoAno.find((item) => item.referencia === referencia);
                                 const estaAGravar = mesEmGravacao === referencia;
 
                                 return (
@@ -581,24 +600,40 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
                                                 {isenta ? "Sem multa" : "Multa activa"}
                                             </StatusBadge>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setConfirmacaoMulta({ mes, nome, isenta: !isenta })}
-                                            disabled={mesEmGravacao !== null}
-                                            className="self-start text-sm font-semibold text-cyan-800 underline decoration-cyan-300 underline-offset-4 transition hover:text-cyan-950 disabled:cursor-wait disabled:opacity-60 dark:text-cyan-300 dark:decoration-cyan-800 dark:hover:text-cyan-200"
-                                        >
-                                            {estaAGravar
-                                                ? "A guardar…"
-                                                : isenta
-                                                  ? "Reactivar multas"
-                                                  : "Desactivar multas"}
-                                        </button>
+                                        {multaDispensada ? (
+                                            <div className="space-y-2">
+                                                <p className="text-xs text-slate-600 dark:text-slate-400">
+                                                    {multaDispensada.quantidade} factura(s) · {formatCurrency(multaDispensada.valor)} recuperáveis
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setConfirmacaoMulta({ mes, nome, tipo: "repor", multaDispensada })}
+                                                    disabled={mesEmGravacao !== null}
+                                                    className="text-sm font-semibold text-cyan-800 underline decoration-cyan-300 underline-offset-4 transition hover:text-cyan-950 disabled:cursor-wait disabled:opacity-60 dark:text-cyan-300 dark:decoration-cyan-800 dark:hover:text-cyan-200"
+                                                >
+                                                    {estaAGravar ? "A guardar…" : "Repor multas"}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => setConfirmacaoMulta({ mes, nome, isenta: !isenta, tipo: "alternar" })}
+                                                disabled={mesEmGravacao !== null}
+                                                className="self-start text-sm font-semibold text-cyan-800 underline decoration-cyan-300 underline-offset-4 transition hover:text-cyan-950 disabled:cursor-wait disabled:opacity-60 dark:text-cyan-300 dark:decoration-cyan-800 dark:hover:text-cyan-200"
+                                            >
+                                                {estaAGravar
+                                                    ? "A guardar…"
+                                                    : isenta
+                                                      ? "Reactivar multas"
+                                                      : "Desactivar multas"}
+                                            </button>
+                                        )}
                                     </div>
                                 );
                             })}
                         </div>
                         <p className="border-t border-slate-200 px-6 py-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                            Valores de multas já pagos não são alterados. Reactivar multas não repõe valores que tenham sido dispensados anteriormente.
+                            Valores dispensados ficam guardados e podem ser repostos. A reposição reactiva também as multas para esse mês; valores já pagos não são alterados.
                         </p>
                     </AnimatedPanel>
 
@@ -754,20 +789,25 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
             <ConfirmDialog
                 show={Boolean(confirmacaoMulta)}
                 onClose={() => setConfirmacaoMulta(null)}
-                onConfirm={() => {
-                    if (confirmacaoMulta) {
-                        alternarMultaMensal(confirmacaoMulta.mes, confirmacaoMulta.isenta);
-                        setConfirmacaoMulta(null);
-                    }
-                }}
-                title={confirmacaoMulta?.isenta ? "Desactivar multas neste mês?" : "Reactivar multas neste mês?"}
-                confirmLabel={confirmacaoMulta?.isenta ? "Sim, desactivar" : "Sim, reactivar"}
+                onConfirm={executarAlteracaoMulta}
+                title={confirmacaoMulta?.tipo === "repor"
+                    ? "Repor multas dispensadas?"
+                    : confirmacaoMulta?.isenta
+                      ? "Desactivar multas neste mês?"
+                      : "Reactivar multas neste mês?"}
+                confirmLabel={confirmacaoMulta?.tipo === "repor"
+                    ? "Sim, repor multas"
+                    : confirmacaoMulta?.isenta
+                      ? "Sim, desactivar"
+                      : "Sim, reactivar"}
                 cancelLabel="Não, cancelar"
                 tone="primary"
                 description={
-                    confirmacaoMulta?.isenta
-                        ? `Confirma desactivar as multas de ${confirmacaoMulta.nome} de ${anoMultas}? As multas ainda em aberto nas facturas desse mês serão dispensadas; reactivar depois não repõe esses valores.`
-                        : `Confirma reactivar as multas de ${confirmacaoMulta?.nome} de ${anoMultas}? Esta alteração não repõe multas que já tenham sido dispensadas.`
+                    confirmacaoMulta?.tipo === "repor"
+                        ? `Confirma repor ${formatCurrency(confirmacaoMulta.multaDispensada.valor)} dispensados em ${confirmacaoMulta.nome} de ${anoMultas}? O total em aberto e o estado das facturas serão actualizados, e as multas do mês serão reactivadas.`
+                        : confirmacaoMulta?.isenta
+                          ? `Confirma desactivar as multas de ${confirmacaoMulta.nome} de ${anoMultas}? As multas ainda em aberto nas facturas desse mês serão guardadas para poderem ser repostas.`
+                          : `Confirma reactivar as multas de ${confirmacaoMulta?.nome} de ${anoMultas}? Valores que tenham sido dispensados continuam disponíveis na acção Repor multas.`
                 }
             />
 

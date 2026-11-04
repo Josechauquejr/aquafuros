@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use App\Support\Eventos;
 use App\Models\Concerns\UsesHumanRouteKey;
+use App\Services\CobrancaFactura;
+use App\Support\Eventos;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Schema;
@@ -12,8 +13,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class Factura extends Model
 {
-    use SoftDeletes;
     use LogsActivity;
+    use SoftDeletes;
     use UsesHumanRouteKey;
 
     protected string $humanRouteKey = 'numero_factura';
@@ -21,12 +22,12 @@ class Factura extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['divida_anterior', 'divida_anterior_incluida', 'multa', 'multa_anterior', 'valor_acerto_leitura', 'total_pagar', 'estado', 'motivo_anulacao'])
+            ->logOnly(['divida_anterior', 'divida_anterior_incluida', 'multa', 'multa_anterior', 'multa_dispensa_valor', 'valor_acerto_leitura', 'total_pagar', 'estado', 'motivo_anulacao'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->useLogName('factura')
             ->setDescriptionForEvent(
-                fn (string $evento) => "Factura {$this->numero_factura} foi " . Eventos::verbo($evento),
+                fn (string $evento) => "Factura {$this->numero_factura} foi ".Eventos::verbo($evento),
             );
     }
 
@@ -47,6 +48,7 @@ class Factura extends Model
         'transferida_para_id',
         'multa',
         'multa_anterior',
+        'multa_dispensa_valor',
         'total_pagar',
         'estado',
         'gerada_por',
@@ -63,13 +65,16 @@ class Factura extends Model
         'divida_anterior_incluida' => 'boolean',
         'emissao_original' => 'array',
         'consumo_m3' => 'decimal:2',
+        'multa_dispensa_valor' => 'decimal:2',
         'valor_acerto_leitura' => 'decimal:2',
     ];
 
     protected static function booted(): void
     {
         static::creating(function (self $factura) {
-            if (! Schema::hasColumn('facturas', 'emissao_original')) return;
+            if (! Schema::hasColumn('facturas', 'emissao_original')) {
+                return;
+            }
             if ($factura->emissao_original === null) {
                 $factura->emissao_original = array_merge([
                     'valor_consumo' => 0, 'multa' => 0, 'multa_anterior' => 0,
@@ -171,6 +176,7 @@ class Factura extends Model
         $principal = max(0, (float) $this->total_pagar - $multa);
         $principalPago = $this->pagamentos->sum(fn ($p) => (float) ($p->valor_principal ?? $p->valor_pago));
         $multaPaga = $this->pagamentos->sum(fn ($p) => (float) ($p->valor_multa ?? 0)) + max(0, $principalPago - $principal);
+
         return max(0, round($multa - $multaPaga, 2));
     }
 
@@ -178,6 +184,7 @@ class Factura extends Model
     {
         $this->loadMissing('pagamentos');
         $pago = $this->pagamentos->sum(fn ($p) => (float) ($p->valor_principal ?? $p->valor_pago));
+
         return max(0, round((float) $this->total_pagar - (float) $this->multa - (float) $this->multa_anterior - $pago, 2));
     }
 
@@ -188,7 +195,8 @@ class Factura extends Model
 
     public function prepararDocumento(): self
     {
-        $this->cobranca = app(\App\Services\CobrancaFactura::class)->resumo($this);
+        $this->cobranca = app(CobrancaFactura::class)->resumo($this);
+
         return $this;
     }
 
@@ -218,6 +226,7 @@ class Factura extends Model
         }
 
         $this->multa = round((float) $this->multa - $dispensa, 2);
+        $this->multa_dispensa_valor = round((float) $this->multa_dispensa_valor + $dispensa, 2);
         $this->total_pagar = round((float) $this->total_pagar - $dispensa, 2);
         if (in_array($this->estado, ['pendente', 'parcial'], true) && $this->totalPago() + 0.005 >= (float) $this->total_pagar) {
             $this->estado = 'paga';
@@ -225,6 +234,29 @@ class Factura extends Model
         $this->save();
 
         return round($dispensa, 2);
+    }
+
+    public function restaurarMultaDispensada(): float
+    {
+        $valor = round((float) $this->multa_dispensa_valor, 2);
+        if ($valor <= 0 || $this->estado === 'anulada') {
+            return 0.0;
+        }
+
+        $this->multa = round((float) $this->multa + $valor, 2);
+        $this->total_pagar = round((float) $this->total_pagar + $valor, 2);
+        $this->multa_dispensa_valor = 0;
+
+        if (in_array($this->estado, ['pendente', 'parcial', 'paga'], true)) {
+            $totalPago = $this->totalPago();
+            $this->estado = $totalPago + 0.005 >= (float) $this->total_pagar
+                ? 'paga'
+                : ($totalPago > 0 ? 'parcial' : 'pendente');
+        }
+
+        $this->save();
+
+        return $valor;
     }
 
     public function facturaSeguinte()
@@ -270,8 +302,10 @@ class Factura extends Model
         return $this->hasOne(EnvioEmail::class)->where('tipo', 'factura')->latestOfMany();
     }
 
-    public function pagamentos(){
+    public function pagamentos()
+    {
         $modelo = app()->runningInConsole() && ! Schema::hasTable('pagamento_imputacoes') ? Pagamento::class : PagamentoAplicado::class;
+
         return $this->hasMany($modelo, 'factura_id');
     }
 }

@@ -49,4 +49,37 @@ return [
             ],
         ],
     ],
+    [
+        'id' => '2026-11-04-multas-mensais-recuperaveis',
+        'data' => '2026-11-04',
+        'titulo' => 'Gestão mensal de multas',
+        'resumo' => 'Consulte os meses com multas activas ou isentas, desactive multas por mês e reponha valores dispensados.',
+        'novidades' => [
+            [
+                'titulo' => 'Onde encontrar',
+                'texto' => 'Aceda a Tarifas > Multas por mês. Esta opção está disponível apenas para administradores.',
+                'roles' => ['administrador'],
+            ],
+            [
+                'titulo' => 'Ver o estado de cada mês',
+                'texto' => 'Escolha o ano nas setas. Verde indica Sem multa e âmbar indica Multa activa. Cada mês mostra também quantas multas podem ser recuperadas e o respectivo valor.',
+                'roles' => ['administrador'],
+            ],
+            [
+                'titulo' => 'Desactivar ou reactivar multas',
+                'texto' => 'Use a acção no cartão do mês e confirme. Ao desactivar, os valores de multas em aberto ficam guardados para poderem ser repostos.',
+                'roles' => ['administrador'],
+            ],
+            [
+                'titulo' => 'Repor multas dispensadas',
+                'texto' => 'Quando um mês tiver valores recuperáveis, seleccione Repor multas e confirme. Os valores voltam às facturas, o estado é recalculado conforme os pagamentos e as multas do mês são reactivadas. Valores já pagos não mudam.',
+                'roles' => ['administrador'],
+            ],
+            [
+                'titulo' => 'Prazo de pagamento',
+                'texto' => 'As facturas emitidas entre os dias 20 e 29 vencem no dia 10 do mês seguinte. As multas só se aplicam depois do vencimento, excepto nos meses desactivados.',
+                'roles' => ['administrador'],
+            ],
+        ],
+    ],
 ];

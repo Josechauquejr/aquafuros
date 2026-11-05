@@ -10,6 +10,7 @@ use App\Models\Leitura;
 use App\Models\Pagamento;
 use App\Models\Tarifa;
 use App\Models\User;
+use App\Support\MesReferencia;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -96,10 +97,10 @@ class Fase2Test extends TestCase
     public function test_os_relatorios_contam_pela_data_do_pagamento(): void
     {
         $f = $this->factura('F-2', 300, null, now()->month);
-        $mesPassado = now()->startOfMonth()->subMonth();
+        $mesPassado = MesReferencia::actual()->subMonth();
         Pagamento::create([
             'numero_recibo' => 'R-1', 'factura_id' => $f->id, 'cliente_id' => $this->ana->id, 'valor_pago' => 120,
-            'metodo_pagamento' => 'dinheiro', 'recebido_por' => $this->admin->id, 'pago_em' => $mesPassado->copy()->addDays(5),
+            'metodo_pagamento' => 'dinheiro', 'recebido_por' => $this->admin->id, 'pago_em' => $mesPassado->copy()->day(15),
         ]);
 
         $this->actingAs($this->admin)->get('/pagamentos?mes='.$mesPassado->format('Y-m'))

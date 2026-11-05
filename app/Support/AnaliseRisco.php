@@ -211,7 +211,7 @@ class AnaliseRisco
             ->sortByDesc('quantidade')->values()->all();
 
         $hoje = now()->toDateString();
-        $fechosDoMes = FechoCaixa::whereBetween('data', [$inicio->toDateString(), $fim->toDateString()])->get()
+        $fechosDoMes = FechoCaixa::whereDate('data', '>=', $inicio->toDateString())->whereDate('data', '<=', $fim->toDateString())->get()
             ->map(fn ($f) => $f->utilizador_id.'|'.$f->data->toDateString())->all();
         $semFecho = Pagamento::whereBetween('created_at', [$inicio, $fim])->where('origem_credito', false)->whereNotNull('recebido_por')->get()
             ->groupBy(fn ($p) => $p->recebido_por.'|'.$p->created_at->toDateString())
@@ -221,7 +221,7 @@ class AnaliseRisco
                 'total' => round((float) $g->sum('valor_pago'), 2),
             ])->sortBy('data')->values();
 
-        $fechos = FechoCaixa::whereBetween('data', [$inicio->toDateString(), $fim->toDateString()])->whereNotNull('diferenca')
+        $fechos = FechoCaixa::whereDate('data', '>=', $inicio->toDateString())->whereDate('data', '<=', $fim->toDateString())->whereNotNull('diferenca')
             ->where('diferenca', '!=', 0)->with('utilizador')->orderBy('data')->get();
         $diferencasCaixa = [
             'total' => $fechos->count(),

@@ -80,7 +80,9 @@ class AnaliseFinanceira
             ->get(['id', 'created_at', 'total_pagar', 'divida_anterior', 'divida_anterior_incluida', 'estado', 'anulada_em']);
 
         return collect(range($meses - 1, 0))->map(function ($atras) use ($referencia, $facturas) {
-            $fim = $referencia->copy()->startOfMonth()->subMonthsNoOverflow($atras)->endOfMonth();
+            $mes = $referencia->copy()->startOfMonth()->subMonthsNoOverflow($atras);
+            // Dívida no fecho do mês de referência (dia 10 do mês seguinte).
+            $fim = MesReferencia::intervalo($mes)[1];
 
             $divida = $facturas
                 ->filter(fn ($f) => $f->created_at->lte($fim) && ($f->estado !== 'anulada' || ($f->anulada_em && $f->anulada_em->gt($fim))))
@@ -90,7 +92,7 @@ class AnaliseFinanceira
                     return max(0.0, $f->valorProprio() - $pago);
                 });
 
-            return ['mes' => $fim->month, 'ano' => $fim->year, 'divida' => round((float) $divida, 2)];
+            return ['mes' => $mes->month, 'ano' => $mes->year, 'divida' => round((float) $divida, 2)];
         })->all();
     }
 }

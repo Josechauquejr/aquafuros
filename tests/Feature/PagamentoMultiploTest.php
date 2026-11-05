@@ -8,6 +8,7 @@ use App\Models\Leitura;
 use App\Models\Pagamento;
 use App\Models\Tarifa;
 use App\Models\User;
+use App\Support\MesReferencia;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -149,9 +150,9 @@ class PagamentoMultiploTest extends TestCase
     public function test_listas_mostram_os_cartoes_do_mes_pedido(): void
     {
         $this->caixa->assignRole('administrador');
-        $mesPassado = now()->startOfMonth()->subMonth();
+        $mesPassado = MesReferencia::actual()->subMonth();
         $f = $this->factura($this->ana, 'F-P', 500, $mesPassado->month);
-        $f->forceFill(['created_at' => $mesPassado->copy()->addDays(2)])->saveQuietly();
+        $f->forceFill(['created_at' => $mesPassado->copy()->day(15)])->saveQuietly();
 
         $this->actingAs($this->caixa)->get('/facturas?mes='.$mesPassado->format('Y-m'))
             ->assertInertia(fn (Assert $page) => $page->where('mesReferencia.valor', $mesPassado->format('Y-m'))->where('totais.totalFacturado', 500)->where('totais.emAberto', 500));
@@ -168,16 +169,16 @@ class PagamentoMultiploTest extends TestCase
     public function test_o_mes_escolhido_filtra_tambem_as_tabelas(): void
     {
         $this->caixa->assignRole('administrador');
-        $mesPassado = now()->startOfMonth()->subMonth();
+        $mesPassado = MesReferencia::actual()->subMonth();
         $velha = $this->factura($this->ana, 'F-VELHA', 500, $mesPassado->month);
-        $velha->forceFill(['created_at' => $mesPassado->copy()->addDays(2)])->saveQuietly();
+        $velha->forceFill(['created_at' => $mesPassado->copy()->day(15)])->saveQuietly();
         $this->factura($this->ana, 'F-NOVA', 100);
 
         $pag = Pagamento::create([
             'numero_recibo' => 'REC-1', 'factura_id' => $velha->id, 'cliente_id' => $this->ana->id,
             'valor_pago' => 50, 'metodo_pagamento' => 'dinheiro', 'recebido_por' => $this->caixa->id,
         ]);
-        $pag->forceFill(['created_at' => $mesPassado->copy()->addDays(3), 'pago_em' => $mesPassado->copy()->addDays(3)])->saveQuietly();
+        $pag->forceFill(['created_at' => $mesPassado->copy()->day(16), 'pago_em' => $mesPassado->copy()->day(16)])->saveQuietly();
 
         $this->actingAs($this->caixa);
 
@@ -196,9 +197,9 @@ class PagamentoMultiploTest extends TestCase
     public function test_kpis_seguem_o_mes_escolhido(): void
     {
         $this->caixa->assignRole('administrador');
-        $mesPassado = now()->startOfMonth()->subMonths(2);
+        $mesPassado = MesReferencia::actual()->subMonths(2);
         $f = $this->factura($this->ana, 'F-K', 700, $mesPassado->month);
-        $f->forceFill(['created_at' => $mesPassado->copy()->addDays(5)])->saveQuietly();
+        $f->forceFill(['created_at' => $mesPassado->copy()->day(15)])->saveQuietly();
 
         $this->actingAs($this->caixa)->get('/admin/kpis?mes='.$mesPassado->format('Y-m'))
             ->assertInertia(fn (Assert $p) => $p
@@ -219,7 +220,7 @@ class PagamentoMultiploTest extends TestCase
     public function test_kpis_calculam_cobranca_consumo_e_exportam_csv_com_dados(): void
     {
         $this->caixa->assignRole('administrador');
-        $mes = now()->startOfMonth();
+        $mes = MesReferencia::actual();
         $anterior = $mes->copy()->subMonth();
 
         // consumo habitual 10 m³ nos 3 meses anteriores e 30 m³ neste (anomalia)
@@ -232,7 +233,7 @@ class PagamentoMultiploTest extends TestCase
         $f = $this->factura($this->ana, 'F-1', 1000, $mes->month);
         $f->update(['leitura_id' => $leitura->id, 'multa' => 100]);
         $velha = $this->factura($this->ana, 'F-0', 400, $anterior->month);
-        $velha->forceFill(['created_at' => $anterior->copy()->addDays(2), 'data_vencimento' => now()->subDays(45)])->saveQuietly();
+        $velha->forceFill(['created_at' => $anterior->copy()->day(15), 'data_vencimento' => now()->subDays(45)])->saveQuietly();
 
         $this->actingAs($this->caixa)->post('/pagamentos', ['factura_id' => $f->id, 'valor_pago' => 1000, 'metodo_pagamento' => 'mpesa', 'incluir_multa' => true]);
         $this->post('/pagamentos', ['factura_id' => $velha->id, 'valor_pago' => 100, 'metodo_pagamento' => 'dinheiro']);

@@ -14,6 +14,7 @@ use App\Models\PromessaPagamento;
 use App\Models\Tarifa;
 use App\Models\User;
 use App\Models\Zona;
+use App\Support\MesReferencia;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -137,6 +138,8 @@ class Fase3Test extends TestCase
 
     public function test_ocorrencia_do_aviso_a_resolucao_e_tempos_nos_kpis(): void
     {
+        // A meio do mês de referência: "há 10 horas" fica sempre dentro do mesmo mês.
+        $this->travelTo(MesReferencia::actual()->day(20)->setTime(12, 0));
         $zona = Zona::create(['nome' => 'Norte']);
         $this->ana->update(['zona_id' => $zona->id]);
         $tecnico = $this->utilizador('tecnico');
@@ -181,7 +184,7 @@ class Fase3Test extends TestCase
 
     public function test_perdas_de_agua_produzido_menos_facturado(): void
     {
-        $mes = now();
+        $mes = MesReferencia::actual();
         $leitura = Leitura::create([
             'cliente_id' => $this->ana->id, 'mes' => $mes->month, 'ano' => $mes->year, 'leitura_anterior' => 0, 'leitura_actual' => 600,
             'confirmado' => true, 'registado_por' => $this->admin->id,

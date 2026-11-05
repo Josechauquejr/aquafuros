@@ -19,6 +19,9 @@ class Alertas
     public static function para(bool $incluirControlo): array
     {
         $risco = AnaliseRisco::risco();
+        // "Este mês" é o mês de referência (dia 11 a dia 10), não o de calendário:
+        // entre os dias 1 e 10 ainda se está no mês anterior.
+        $mes = MesReferencia::actual();
         $alertas = [];
 
         $adicionar = function (string $chave, string $nivel, string $titulo, string $detalhe, int $quantidade, ?string $href = null) use (&$alertas) {
@@ -44,11 +47,11 @@ class Alertas
             'O cliente prometeu pagar e não pagou — voltar a contactar',
             PromessaPagamento::where('estado', 'falhada')->where('avaliada_em', '>=', now()->subDays(7))->count(), '/cobranca?filtro=promessa_falhada');
         $adicionar('sem-contacto', 'medio', 'Clientes em atraso sem contacto há 15 dias',
-            'Ninguém falou com eles ainda', AnaliseOperacional::cobranca(now())['semContacto15d'], '/cobranca?filtro=sem_contacto');
+            'Ninguém falou com eles ainda', AnaliseOperacional::cobranca($mes)['semContacto15d'], '/cobranca?filtro=sem_contacto');
         $adicionar('ocorrencias', 'alto', 'Ocorrências abertas há mais de 48 horas',
             'Avarias ou reclamações por resolver',
             Ocorrencia::where('estado', '!=', 'resolvida')->where('reportada_em', '<', now()->subHours(48))->count(), '/ocorrencias');
-        $perdas = AnaliseOperacional::perdas(now());
+        $perdas = AnaliseOperacional::perdas($mes);
         $adicionar('perdas', 'alto', 'Perdas de água acima de 30% este mês',
             'Produzido '.number_format($perdas['produzidoM3'], 0, ',', ' ').' m³, facturado '.number_format($perdas['facturadoM3'], 0, ',', ' ').' m³',
             ($perdas['perdasPct'] ?? 0) > 30 ? 1 : 0, '/producao');
@@ -58,7 +61,7 @@ class Alertas
             Leitura::where('confirmado', true)->whereDoesntHave('factura')->where('updated_at', '<', now()->subDays(7))->count(), '/facturas');
 
         if ($incluirControlo) {
-            $controlo = AnaliseRisco::controlo(now());
+            $controlo = AnaliseRisco::controlo($mes);
 
             $adicionar('anulada-com-pagamentos', 'alto', 'Facturas anuladas com pagamentos registados',
                 'Dinheiro recebido sem factura válida — '.number_format($controlo['anuladasComPagamentos']['valor'], 2, ',', ' ').' MZN',

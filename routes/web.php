@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\LixeiraController;
 use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\AjusteLeituraController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CaixaDashboardController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\CobrancaController;
@@ -39,8 +40,9 @@ use App\Http\Controllers\ZonaController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// Sistema interno: a raiz leva ao painel (ou ao login, para quem não tem sessão).
-Route::redirect('/', '/dashboard');
+// Sistema interno: sem sessão, a raiz é o login (responde 200 — o healthcheck
+// do Railway testa "/"); com sessão, o middleware guest manda para o painel.
+Route::get('/', [AuthenticatedSessionController::class, 'create'])->middleware('guest');
 
 // Verificação pública de autenticidade de documentos (QR code impresso nas
 // facturas/recibos) — sem autenticação, protegida por assinatura de URL

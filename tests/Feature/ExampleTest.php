@@ -11,10 +11,16 @@ class ExampleTest extends TestCase
     /**
      * A basic test example.
      */
-    public function test_a_raiz_leva_ao_login_sem_sessao(): void
+    public function test_a_raiz_mostra_o_login_sem_sessao(): void
     {
-        $this->get('/')->assertRedirect('/dashboard');
+        // O healthcheck do Railway testa "/" sem sessão e só aceita 200.
+        $this->get('/')->assertOk()->assertInertia(fn ($pagina) => $pagina->component('Auth/Login'));
         $this->get('/dashboard')->assertRedirect('/login');
+    }
+
+    public function test_a_raiz_leva_ao_painel_com_sessao(): void
+    {
+        $this->actingAs(\App\Models\User::factory()->create())->get('/')->assertRedirect(route('dashboard'));
     }
 
     public function test_o_registo_publico_nao_existe(): void

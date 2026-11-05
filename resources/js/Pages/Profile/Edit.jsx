@@ -1,14 +1,11 @@
 import { Head, useForm, usePage } from "@inertiajs/react";
-import { ChevronDown, KeyRound, Pencil, Save, ShieldAlert, Trash2, UserCircle, X } from "lucide-react";
+import { KeyRound, Pencil, Save, UserCircle, X } from "lucide-react";
 import { useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
-import DangerButton from "@/Components/DangerButton";
-import FuseButton from "@/Components/FuseButton";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
-import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
@@ -331,120 +328,6 @@ function Seguranca({ delay }) {
     );
 }
 
-function ZonaPerigo({ user, delay }) {
-    // Escondida por omissão: apagar a conta não deve estar à distância de um clique.
-    const [visivel, setVisivel] = useState(false);
-    const [confirmando, setConfirmando] = useState(false);
-    const form = useForm({ password: "", confirmacao: "" });
-    const pronto = form.data.confirmacao === "ELIMINAR" && form.data.password.length > 0;
-
-    const fechar = () => {
-        setConfirmando(false);
-        form.reset();
-        form.clearErrors();
-    };
-
-    const eliminar = () => {
-        form.delete("/profile", {
-            errorBag: "userDeletion",
-            preserveScroll: true,
-            onSuccess: fechar,
-            onError: () => form.reset("password"),
-        });
-    };
-
-    return (
-        <Seccao
-            id="perigo"
-            numero="3"
-            icone={ShieldAlert}
-            titulo="Zona de perigo"
-            descricao="Acções que não podem ser desfeitas."
-            tom="rose"
-            delay={delay}
-            className="border-rose-200 dark:border-rose-900/60"
-        >
-            <button
-                type="button"
-                onClick={() => setVisivel((valor) => !valor)}
-                aria-expanded={visivel}
-                aria-controls="opcoes-perigo"
-                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-            >
-                <ChevronDown className={cn("h-4 w-4 transition-transform", visivel && "rotate-180")} aria-hidden="true" />
-                {visivel ? "Esconder opções avançadas" : "Mostrar opções avançadas"}
-            </button>
-
-            {visivel && (
-                <div id="opcoes-perigo" className="mt-4 rounded-md border border-rose-200 p-4 dark:border-rose-900/60">
-                    <h4 className="font-semibold text-slate-950 dark:text-white">Eliminar a minha conta</h4>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        A conta deixa de poder entrar no sistema. Os registos que criou (leituras, facturas, recibos)
-                        mantêm-se. Para a recuperar terá de pedir a um administrador.
-                    </p>
-                    <div className="mt-4">
-                        <DangerButton onClick={() => setConfirmando(true)}>
-                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                            Eliminar conta…
-                        </DangerButton>
-                    </div>
-                </div>
-            )}
-
-            <Modal show={confirmando} onClose={fechar} title="Eliminar conta" maxWidth="md">
-                <div className="space-y-4">
-                    <p className="text-sm text-slate-600 dark:text-slate-300">
-                        Vai eliminar a conta <strong>{user.name}</strong>. Para confirmar, escreva{" "}
-                        <strong className="font-mono">ELIMINAR</strong>, introduza a palavra-passe e carregue no botão
-                        — o rastilho dá-lhe alguns segundos para desistir.
-                    </p>
-                    <div>
-                        <InputLabel htmlFor="delete_confirmacao" value="Escreva ELIMINAR" />
-                        <TextInput
-                            id="delete_confirmacao"
-                            value={form.data.confirmacao}
-                            className="mt-1 block w-full font-mono"
-                            autoComplete="off"
-                            onChange={(event) => form.setData("confirmacao", event.target.value)}
-                        />
-                        <InputError message={form.errors.confirmacao} className="mt-1" />
-                    </div>
-                    <div>
-                        <InputLabel htmlFor="delete_password" value="Palavra-passe" />
-                        <TextInput
-                            id="delete_password"
-                            type="password"
-                            value={form.data.password}
-                            className="mt-1 block w-full"
-                            autoComplete="current-password"
-                            onChange={(event) => form.setData("password", event.target.value)}
-                        />
-                        <InputError message={form.errors.password} className="mt-1" />
-                    </div>
-                    <div className="flex items-center justify-end gap-3 pt-2">
-                        <SecondaryButton type="button" onClick={fechar}>
-                            Cancelar
-                        </SecondaryButton>
-                        <FuseButton
-                            label="Eliminar conta"
-                            undoLabel="Desfazer"
-                            doneLabel="A eliminar…"
-                            icon={<Trash2 size={15} aria-hidden="true" />}
-                            background="#be123c"
-                            color="#fff1f2"
-                            fuseColor="#fbbf24"
-                            commitOn="fuseEnd"
-                            undoWindow={5000}
-                            disabled={!pronto || form.processing}
-                            onCommit={eliminar}
-                        />
-                    </div>
-                </div>
-            </Modal>
-        </Seccao>
-    );
-}
-
 export default function Edit({ user, mustVerifyEmail }) {
     const { flash, auth } = usePage().props;
     const papel = auth.roles?.[0];
@@ -476,7 +359,6 @@ export default function Edit({ user, mustVerifyEmail }) {
                         {[
                             ["#dados", "Dados pessoais"],
                             ["#seguranca", "Segurança"],
-                            ["#perigo", "Zona de perigo"],
                         ].map(([href, rotulo]) => (
                             <a
                                 key={href}
@@ -489,7 +371,6 @@ export default function Edit({ user, mustVerifyEmail }) {
                     </nav>
                     <InformacoesConta user={user} mustVerifyEmail={mustVerifyEmail} status={flash.status} delay={0.08} />
                     <Seguranca delay={0.16} />
-                    <ZonaPerigo user={user} delay={0.24} />
                 </div>
             </div>
         </Layout>

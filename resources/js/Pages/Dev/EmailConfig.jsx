@@ -3,7 +3,7 @@ import { CheckCircle2, Link2, Mail, Send, Unplug } from "lucide-react";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
-import ExpandableCard from "@/Components/ExpandableCard";
+import SeccaoRecolhivel from "@/Components/SeccaoRecolhivel";
 import StatusBadge from "@/Components/StatusBadge";
 import { formatDateTime } from "@/lib/utils";
 
@@ -31,7 +31,7 @@ export default function Index({ emailAtivo, configurado, ligado, conta, ligadoEm
                         </div>
                     )}
 
-                    <ExpandableCard title="Ligação do Gmail" description="Conta usada para enviar mensagens" icon={Mail}>
+                    <SeccaoRecolhivel title="Ligação do Gmail" description="Conta usada para enviar mensagens" icon={Mail}>
                         <AnimatedPanel className="rounded-none border-0 p-6 shadow-none">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white"><Mail className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />Gmail</h3>
@@ -58,9 +58,9 @@ export default function Index({ emailAtivo, configurado, ligado, conta, ligadoEm
                                 </div>
                             ))}
                         </AnimatedPanel>
-                    </ExpandableCard>
+                    </SeccaoRecolhivel>
 
-                    <ExpandableCard title="Emissão de facturas" description="Opção independente do envio de email" defaultOpen={false}>
+                    <SeccaoRecolhivel title="Emissão de facturas" description="Opção independente do envio de email" defaultOpen={false}>
                         <AnimatedPanel className="rounded-none border-0 p-6 shadow-none">
                             <form onSubmit={(event) => { event.preventDefault(); emissao.put("/dev/email/automatico", { preserveScroll: true }); }} className="space-y-4">
                                 <label className="flex items-start gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-800">
@@ -70,9 +70,9 @@ export default function Index({ emailAtivo, configurado, ligado, conta, ligadoEm
                                 <div className="flex justify-end"><AnimatedButton variant="primary" type="submit" disabled={emissao.processing || !emissao.isDirty}>Guardar</AnimatedButton></div>
                             </form>
                         </AnimatedPanel>
-                    </ExpandableCard>
+                    </SeccaoRecolhivel>
 
-                    <ExpandableCard title="Email de teste" description="Verificar a ligação do serviço" icon={Send} defaultOpen={false}>
+                    <SeccaoRecolhivel title="Email de teste" description="Verificar a ligação do serviço" icon={Send} defaultOpen={false}>
                         <AnimatedPanel className="rounded-none border-0 p-6 shadow-none">
                             {emailAtivo ? (
                                 <form onSubmit={(event) => { event.preventDefault(); teste.post("/dev/email/teste", { preserveScroll: true }); }} className="flex flex-wrap items-end justify-between gap-3">
@@ -81,7 +81,7 @@ export default function Index({ emailAtivo, configurado, ligado, conta, ligadoEm
                                 </form>
                             ) : <p className="text-sm text-slate-600 dark:text-slate-300">O envio de mensagens de teste está suspenso durante a manutenção.</p>}
                         </AnimatedPanel>
-                    </ExpandableCard>
+                    </SeccaoRecolhivel>
                 </div>
             </div>
         </DevLayout>

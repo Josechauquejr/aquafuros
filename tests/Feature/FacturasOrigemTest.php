@@ -13,6 +13,7 @@ use App\Support\Facturacao;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class FacturasOrigemTest extends TestCase
@@ -158,9 +159,28 @@ class FacturasOrigemTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $this->actingAs($this->caixa)->put('/tarifas/multas-mensais', ['mes' => '2026-11', 'isenta' => true])
+            ->assertSessionHasErrors('motivo');
+        $this->assertDatabaseMissing('configuracoes', ['chave' => 'multa_isenta_202611', 'valor' => 1]);
+
+        $this->actingAs($this->caixa)->put('/tarifas/multas-mensais', ['mes' => '2026-11', 'isenta' => true, 'motivo' => 'Avaria no furo'])
             ->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('configuracoes', ['chave' => 'multa_isenta_202611', 'valor' => 1]);
+        $this->assertDatabaseHas('isencoes_multa_mensais', ['ano' => 2026, 'mes' => 11, 'motivo' => 'Avaria no furo', 'desactivada_por' => $this->caixa->id, 'reactivada_em' => null]);
+
+        $this->actingAs($this->caixa)->get('/tarifas?detalhe=2026-11')
+            ->assertInertia(fn (Assert $pagina) => $pagina
+                ->component('Tarifas/Index')
+                ->missing('detalheMulta')
+                ->where('mesesMulta.0.referencia', '2026-11')
+                ->where('mesesMulta.0.isenta', true)
+                ->where('mesesMulta.0.motivo', 'Avaria no furo')
+                ->where('mesesMulta.0.valor_dispensado', 42)
+                ->where('mesesMulta.0.facturas_dispensadas', 1)
+                ->reloadOnly('detalheMulta', fn (Assert $recarga) => $recarga
+                    ->where('detalheMulta.total', 42)
+                    ->where('detalheMulta.facturas.0.numero', 'FAT-NOV-MULTA')
+                    ->where('detalheMulta.facturas.0.cliente', 'Cliente teste')));
         $this->assertSame(0.0, $facturaNovembro->fresh()->multaAtrasoPrevista());
         $this->assertSame(600.0, $facturaNovembro->fresh()->emFalta());
         $this->assertSame(72.0, $facturaOutubro->fresh()->multaAtrasoPrevista());
@@ -172,6 +192,7 @@ class FacturasOrigemTest extends TestCase
         $this->actingAs($this->caixa)->put('/tarifas/multas-mensais', ['mes' => '2026-11', 'isenta' => false])
             ->assertSessionHasNoErrors();
         $this->assertDatabaseHas('configuracoes', ['chave' => 'multa_isenta_202611', 'valor' => 0]);
+        $this->assertNotNull(\App\Models\IsencaoMultaMensal::where(['ano' => 2026, 'mes' => 11])->value('reactivada_em'));
         $this->assertSame(72.0, $facturaNovembro->fresh()->multaAtrasoPrevista());
     }
     public function test_nao_cobra_multa_duas_vezes_e_nao_aceita_pagamento_duplicado(): void

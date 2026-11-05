@@ -40,7 +40,9 @@ class RedirectRole
                 return redirect()->route('caixa.dashboard');
             }
 
-            return redirect()->route('login');
+            // Sem papel: a rota /dashboard mostra "Conta sem perfil atribuído"
+            // (mandar para /login criava um ciclo, porque o login devolve a /dashboard).
+            return $next($request);
         }
 
         return $next($request);

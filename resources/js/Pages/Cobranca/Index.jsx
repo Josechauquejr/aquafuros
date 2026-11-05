@@ -3,7 +3,7 @@ import { Ban, CalendarCheck, PhoneCall, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
-import ExpandableCard from "@/Components/ExpandableCard";
+import SeccaoRecolhivel from "@/Components/SeccaoRecolhivel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
@@ -112,7 +112,7 @@ export default function Index({ linhas, totais, zonas, filtros }) {
                         </select>
                     </div>
 
-                    <ExpandableCard title="Lista de clientes em atraso" description="Contactos, promessas e pagamentos" icon={Users}>
+                    <SeccaoRecolhivel title="Lista de clientes em atraso" description="Contactos, promessas e pagamentos" icon={Users}>
                     <AnimatedPanel className="border-0 shadow-none rounded-none overflow-hidden">
                         {linhas.length === 0 ? (
                             <p className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">Nenhum cliente em atraso com estes filtros.</p>
@@ -206,7 +206,7 @@ export default function Index({ linhas, totais, zonas, filtros }) {
                             </div>
                         )}
                     </AnimatedPanel>
-                    </ExpandableCard>
+                    </SeccaoRecolhivel>
                 </div>
             </div>
 

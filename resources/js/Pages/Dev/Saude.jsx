@@ -6,6 +6,7 @@ import AnimatedPanel from "@/Components/AnimatedPanel";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import { cn } from "@/lib/utils";
+import AbasPagina, { ABAS_DIAGNOSTICO } from "@/Components/AbasPagina";
 
 const nivelTom = { alto: "rose", medio: "amber" };
 
@@ -77,6 +78,7 @@ export default function Saude({ servicos, aplicacao, alertas }) {
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                    <AbasPagina abas={ABAS_DIAGNOSTICO} activa="saude" />
                     <AnimatedPanel className="p-5">
                         <div className="flex items-center gap-3">
                             {alertas.length === 0 ? (

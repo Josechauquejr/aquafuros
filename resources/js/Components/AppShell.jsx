@@ -35,6 +35,14 @@ function activo(url, href) {
     return href === "/dashboard" || href === "/dev/painel" ? caminho === href : caminho.startsWith(href);
 }
 
+// O prefixo mais longo que liga o URL ao item: o próprio href ou um dos
+// `activoEm` (páginas agrupadas por separadores sob uma só entrada do menu).
+function correspondencia(url, item) {
+    return [item.href, ...(item.activoEm ?? [])]
+        .filter((prefixo) => activo(url, prefixo))
+        .sort((a, b) => b.length - a.length)[0];
+}
+
 /**
  * Quando a shell é persistente (ver `layout` em app.js), as páginas continuam a
  * escrever `<AdminLayout header={...}>`: o cabeçalho vai por portal para este
@@ -48,7 +56,7 @@ function ItemMenu({ item, url }) {
 
     return (
         <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={activo(url, item.href)} tooltip={item.label}>
+            <SidebarMenuButton asChild isActive={Boolean(correspondencia(url, item))} tooltip={item.label}>
                 <Link href={item.href} prefetch="hover" cacheFor="5m" onClick={() => setOpenMobile(false)}>
                     <Icone aria-hidden="true" />
                     <span>{item.label}</span>
@@ -69,9 +77,9 @@ function paginaActiva(groups, url) {
     return (
         groups
             .flatMap(itensDoGrupo)
-            .map((item) => item.href)
-            .filter((href) => activo(url, href))
-            .sort((a, b) => b.length - a.length)[0] ?? ""
+            .map((item) => [item.href, correspondencia(url, item)])
+            .filter(([, prefixo]) => prefixo)
+            .sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? ""
     );
 }
 

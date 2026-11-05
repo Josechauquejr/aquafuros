@@ -8,6 +8,7 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import { ExpandableCard } from "@/Components/ui/expandable-card";
 import { cn } from "@/lib/utils";
+import AbasPagina, { ABAS_DIAGNOSTICO } from "@/Components/AbasPagina";
 
 const abas = [
     { chave: "qualidade", label: "Qualidade" },
@@ -195,6 +196,7 @@ export default function Analise({ aba, dados }) {
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                    <AbasPagina abas={ABAS_DIAGNOSTICO} activa="analise" />
                     <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800">
                         {abas.map((item) => (
                             <Link key={item.chave} href={`/dev/analise?aba=${item.chave}`} className={cn("border-b-2 px-4 py-2 text-sm font-semibold transition", aba === item.chave ? "border-cyan-600 text-cyan-700 dark:border-cyan-400 dark:text-cyan-300" : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400")}>

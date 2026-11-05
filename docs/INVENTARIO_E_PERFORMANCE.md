@@ -63,13 +63,16 @@ O middleware usa `DB::enableQueryLog()` em cada pedido autenticado, soma os temp
 - Há listeners do scheduler em `AppServiceProvider` e tarefas em `routes/console.php`; eventos/framework e agendamentos foram considerados na busca.
 - Foram encontrados 52 ficheiros de migration. Nenhum foi candidato a remoção; o histórico de migrations deve ser preservado.
 
-### Candidatos estáticos, ainda sem remoção
+### Limpeza feita em 2026-11-05
 
-| Candidato | Evidência encontrada | Confiança e cuidado |
-| --- | --- | --- |
-| `app/Http/Middleware/EnsureRole.php` | Sem referências nem alias de middleware; `handle()` apenas chama `$next`. As rotas usam o middleware de papéis do Spatie. | Forte candidato sem uso; confirmar que não há configuração externa antes de remover. |
-| `resources/js/Components/PagamentoMultiplo.jsx` | Só ocorre na própria declaração. O fluxo actual usa `RegistarPagamento` directamente. | Forte candidato sem uso; confirmar que não há consumidor externo. |
-| `resources/js/Components/PeriodoFiltro.jsx` | Só ocorre na própria declaração; nenhuma importação encontrada. | Forte candidato sem uso; confirmar que não há consumidor externo. |
+Removidos depois de confirmar com um grafo de imports a partir de `app.js` e de todas as páginas (aspas simples e duplas, dependências indirectas):
+
+- Código sem uso: `EnsureRole.php`, `PagamentoMultiplo.jsx`, `PeriodoFiltro.jsx`, `ui/accessibility.jsx`, `animate-ui/.../management-bar.jsx`, `animate-ui/primitives/radix/checkbox.jsx`; pacotes npm `next-themes` e `alpinejs`.
+- Funcionalidades: registo público (`/register`) e página `Welcome` (a raiz vai para `/dashboard`); eliminar a própria conta no perfil; checklist do desenvolvedor (`dev/tarefas`); edição directa de registos e operações em massa (`dev/editar`, `dev/alteracoes`, `DEV_ESCRITA`); redireccionamentos antigos `cliente/{id}` e `*/lixeira`.
+- As tabelas `tarefas_dev` e `dev_snapshots` são apagadas pela migration `2026_11_05_120000_remover_tabelas_tarefas_dev_e_dev_snapshots` (o `down()` recria só a estrutura, não os dados).
+- Navegação dev: os cinco registos ficam sob "Registos" e Saúde/Integridade/Análise sob "Diagnóstico", com separadores partilhados (`Components/AbasPagina.jsx`). `Components/ExpandableCard.jsx` passou a `SeccaoRecolhivel.jsx`.
+
+Os outros inventários desta pasta já não listam o que foi removido; os totais nos cabeçalhos (rotas, páginas, modelos) continuam a ser os do levantamento original.
 
 ### Imports a rever manualmente
 

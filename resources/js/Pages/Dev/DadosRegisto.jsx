@@ -5,7 +5,7 @@ import AnimatedPanel from "@/Components/AnimatedPanel";
 
 const mostrar = (v) => (v === null || v === undefined ? <span className="text-slate-400">null</span> : typeof v === "boolean" ? (v ? "true" : "false") : String(v));
 
-export default function DadosRegisto({ tabela, id, campos, paraOnde, quemAponta, podeEditar }) {
+export default function DadosRegisto({ tabela, id, campos, paraOnde, quemAponta }) {
     return (
         <DevLayout
             header={
@@ -17,7 +17,6 @@ export default function DadosRegisto({ tabela, id, campos, paraOnde, quemAponta,
                         {tabela} #{id}
                     </h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Registo completo. Esta consulta ficou na auditoria.</p>
-                    {podeEditar && <Link href={`/dev/editar/${tabela}/${id}`} className="mt-2 inline-block rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold uppercase text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Editar</Link>}
                 </div>
             }
         >

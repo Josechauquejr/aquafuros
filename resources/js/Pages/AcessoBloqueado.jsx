@@ -55,6 +55,16 @@ export default function AcessoBloqueado({ motivo, janela }) {
                                 Tente novamente dentro desse horário.
                             </p>
                         </>
+                    ) : motivo === "sem_papel" ? (
+                        <>
+                            <h1 className="mt-4 text-lg font-bold text-slate-950 dark:text-white">
+                                Conta sem perfil atribuído
+                            </h1>
+                            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                                A tua conta ainda não tem um perfil (administrador, gestor, caixa ou técnico).
+                                Pede ao responsável pelo sistema para o atribuir.
+                            </p>
+                        </>
                     ) : ehPermissao ? (
                         <>
                             <h1 className="mt-4 text-lg font-bold text-slate-950 dark:text-white">

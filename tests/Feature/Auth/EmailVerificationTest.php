@@ -38,15 +38,18 @@ class EmailVerificationTest extends TestCase
         $this->actingAs($user)->get('/verify-email')->assertStatus(200);
     }
 
-    public function test_o_registo_envia_o_codigo_de_verificacao(): void
+    public function test_mudar_o_email_obriga_a_verificar_o_novo_endereco(): void
     {
+        $user = User::factory()->create(['password' => 'password']);
+
+        $this->actingAs($user)->patch('/profile', ['name' => $user->name, 'email' => 'ana@exemplo.co.mz', 'current_password' => 'password'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertFalse($user->fresh()->hasVerifiedEmail());
+        $this->actingAs($user->fresh())->get('/profile')->assertRedirect(route('verification.notice'));
+
         Mail::fake();
-
-        $this->post('/register', [
-            'name' => 'Ana', 'username' => 'ana', 'email' => 'ana@exemplo.co.mz',
-            'password' => 'password', 'password_confirmation' => 'password',
-        ]);
-
+        $this->actingAs($user->fresh())->post('/email/verification-notification');
         Mail::assertSent(CodigoMail::class, fn (CodigoMail $m) => $m->hasTo('ana@exemplo.co.mz') && strlen($m->codigo) === 6);
     }
 

@@ -1,4 +1,4 @@
-import { Activity, BarChart3, ClipboardList, Cog, Database, ListChecks, Mail, PencilLine, ShieldAlert, Gauge, ScrollText, ShieldCheck, Settings, SlidersHorizontal, Terminal, UserCog } from "lucide-react";
+import { Activity, Cog, Database, Gauge, ListChecks, Mail, ScrollText, Settings, SlidersHorizontal, UserCog } from "lucide-react";
 import AppShell, { ConteudoDaPagina } from "@/Components/AppShell";
 
 // Área exclusiva do Desenvolvedor — sidebar totalmente separada da do
@@ -11,7 +11,6 @@ const navGroups = [
         subgrupos: [
             { nome: "Painel", items: [
                 { label: "Página Principal", href: "/dev/painel", icon: Gauge },
-                { label: "Checklist", href: "/dev/tarefas", icon: ClipboardList },
             ] },
         ],
     },
@@ -19,12 +18,10 @@ const navGroups = [
         categoria: "Monitorização",
         subgrupos: [
             { nome: "Estado", items: [
-                { label: "Saúde do sistema", href: "/dev/saude", icon: Activity },
+                { label: "Diagnóstico", href: "/dev/saude", icon: Activity, activoEm: ["/dev/integridade", "/dev/analise"] },
             ] },
             { nome: "Registos", items: [
-                { label: "Logs Técnicos", href: "/dev/logs/acessos", icon: Terminal },
-                { label: "Registo de Actividade", href: "/dev/actividade", icon: ScrollText },
-                { label: "Auditoria do painel", href: "/dev/auditoria", icon: ShieldCheck },
+                { label: "Registos", href: "/dev/logs/acessos", icon: ScrollText, activoEm: ["/dev/logs", "/dev/actividade", "/dev/auditoria"] },
             ] },
         ],
     },
@@ -33,11 +30,6 @@ const navGroups = [
         subgrupos: [
             { nome: "Consulta", items: [
                 { label: "Explorador de dados", href: "/dev/dados", icon: Database },
-                { label: "Análise de dados", href: "/dev/analise", icon: BarChart3 },
-            ] },
-            { nome: "Qualidade", items: [
-                { label: "Integridade dos dados", href: "/dev/integridade", icon: ShieldAlert },
-                { label: "Alterações", href: "/dev/alteracoes", icon: PencilLine },
             ] },
         ],
     },

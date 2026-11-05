@@ -2,7 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-export default function ExpandableCard({ title, description, icon: Icon, children, defaultOpen = true, className = "" }) {
+export default function SeccaoRecolhivel({ title, description, icon: Icon, children, defaultOpen = true, className = "" }) {
     const [open, setOpen] = useState(defaultOpen);
 
     return (

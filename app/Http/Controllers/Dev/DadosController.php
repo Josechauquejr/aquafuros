@@ -117,7 +117,6 @@ class DadosController extends Controller
             'campos' => $campos,
             'paraOnde' => $paraOnde,
             'quemAponta' => $quemAponta,
-            'podeEditar' => config('developer.escrita') && \App\Support\EdicaoDados::editavel($tabela),
         ]);
     }
 

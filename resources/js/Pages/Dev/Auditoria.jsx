@@ -7,6 +7,7 @@ import Pagination from "@/Components/Pagination";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
 import { formatDateTime } from "@/lib/utils";
+import AbasPagina, { ABAS_REGISTOS } from "@/Components/AbasPagina";
 
 function Detalhes({ detalhes }) {
     if (!detalhes) return <span className="text-slate-400">—</span>;
@@ -53,6 +54,7 @@ export default function Auditoria({ registos, filtros }) {
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
+                    <AbasPagina abas={ABAS_REGISTOS} activa="auditoria" />
                     <div className="relative max-w-sm">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                         <TextInput

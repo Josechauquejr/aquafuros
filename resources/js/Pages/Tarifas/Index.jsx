@@ -1,7 +1,7 @@
 import { Head, router, useForm, usePage } from "@inertiajs/react";
 import {
+    CalendarOff,
     Check,
-    ChevronLeft,
     ChevronRight,
     Clock,
     Droplets,
@@ -11,6 +11,7 @@ import {
     Plus,
     PlugZap,
     RefreshCcw,
+    RotateCcw,
     ShieldAlert,
     SlidersHorizontal,
     Trash2,
@@ -31,8 +32,12 @@ import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
+import Textarea from "@/Components/Textarea";
 import TextInput from "@/Components/TextInput";
-import { cn, formatCurrency } from "@/lib/utils";
+import { Campo, Campos, Destaque, Destaques, SeccaoDetalhe } from "@/Components/DataTable/Detalhe";
+import { ExpandableCard } from "@/Components/ui/expandable-card";
+import SeletorMesGrelha from "@/Components/SeletorMesGrelha";
+import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
 const regras = [
@@ -80,7 +85,19 @@ const formVazio = {
     is_active: true,
 };
 
-export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMulta, multasDispensadas, mesAtual }) {
+const NOMES_MESES = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+function nomeMes(referencia) {
+    if (!referencia) return "";
+    const [ano, mes] = referencia.split("-").map(Number);
+
+    return `${NOMES_MESES[mes - 1] ?? referencia} ${ano}`;
+}
+
+export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, detalheMulta, mesAtual }) {
     const { flash } = usePage().props;
     const [editandoId, setEditandoId] = useState(null);
     const [showModal, setShowModal] = useState(false);
@@ -93,39 +110,56 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
         leituras_dia_limite: regrasConfig.leituras_dia_limite,
         pagamento_dias_retroactivos: regrasConfig.pagamento_dias_retroactivos,
     });
-    const [anoMultas, setAnoMultas] = useState(Number(mesAtual.slice(0, 4)));
-    const [mesEmGravacao, setMesEmGravacao] = useState(null);
-    const [confirmacaoMulta, setConfirmacaoMulta] = useState(null);
-    const mesesDoAno = [
-        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-    ];
-    const mesesIsentosDoAno = mesesSemMulta.filter((item) => item.ano === anoMultas);
-    const mesesDispensadosDoAno = multasDispensadas.filter((item) => item.referencia.startsWith(`${anoMultas}-`));
-    const executarAlteracaoMulta = () => {
-        if (!confirmacaoMulta) return;
+    const isencaoForm = useForm({ mes: mesAtual, motivo: "" });
+    const [formIsencaoAberto, setFormIsencaoAberto] = useState(false);
+    const [mesAberto, setMesAberto] = useState(null);
+    const [detalheAberto, setDetalheAberto] = useState(false);
+    const [acaoMulta, setAcaoMulta] = useState(null);
+    const [aGravarMulta, setAGravarMulta] = useState(false);
+    const mesesBloqueados = Object.fromEntries(
+        mesesMulta.filter((item) => item.isenta).map((item) => [item.referencia, "já sem multa"]),
+    );
+    const mesJaIsento = Boolean(mesesBloqueados[isencaoForm.data.mes]);
+    const mesesIsentos = mesesMulta.filter((item) => item.isenta).length;
+    const totalPerdido = mesesMulta.reduce((soma, item) => soma + Number(item.valor_dispensado), 0);
+    const detalheCarregado = detalheMulta?.referencia === mesAberto?.referencia ? detalheMulta : null;
 
-        const referencia = `${anoMultas}-${String(confirmacaoMulta.mes).padStart(2, "0")}`;
-        if (confirmacaoMulta.tipo === "repor") {
-            setMesEmGravacao(referencia);
-            router.put("/tarifas/multas-mensais", { mes: referencia, isenta: false, repor: true }, {
-                preserveScroll: true,
-                onFinish: () => setMesEmGravacao(null),
-            });
-        } else {
-            alternarMultaMensal(confirmacaoMulta.mes, confirmacaoMulta.isenta);
-        }
+    const podeDesactivar = Boolean(isencaoForm.data.mes) && isencaoForm.data.motivo.trim().length >= 5 && !mesJaIsento;
 
-        setConfirmacaoMulta(null);
+    const abrirFormIsencao = (aberto) => {
+        setFormIsencaoAberto(aberto);
+        if (!aberto) isencaoForm.clearErrors();
     };
 
-    const alternarMultaMensal = (mes, isenta) => {
-        const referencia = `${anoMultas}-${String(mes).padStart(2, "0")}`;
-        setMesEmGravacao(referencia);
-        router.put("/tarifas/multas-mensais", { mes: referencia, isenta }, {
+    const desactivarMes = (event) => {
+        event.preventDefault();
+        if (!podeDesactivar || isencaoForm.processing) return;
+        isencaoForm.transform((data) => ({ ...data, isenta: true }));
+        isencaoForm.put("/tarifas/multas-mensais", {
             preserveScroll: true,
-            onFinish: () => setMesEmGravacao(null),
+            onSuccess: () => {
+                isencaoForm.reset("motivo");
+                setFormIsencaoAberto(false);
+            },
         });
+    };
+
+    const abrirMes = (item) => {
+        setMesAberto(item);
+        setDetalheAberto(true);
+        router.reload({ only: ["detalheMulta"], data: { detalhe: item.referencia }, preserveScroll: true, preserveState: true });
+    };
+
+    const executarAcaoMulta = () => {
+        if (!acaoMulta) return;
+        const { tipo, item } = acaoMulta;
+        setAcaoMulta(null);
+        setAGravarMulta(true);
+        router.put(
+            "/tarifas/multas-mensais",
+            tipo === "repor" ? { mes: item.referencia, isenta: false, repor: true } : { mes: item.referencia, isenta: false },
+            { preserveScroll: true, onFinish: () => setAGravarMulta(false) },
+        );
     };
 
     const form = useForm(formVazio);
@@ -542,99 +576,131 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
                     </AnimatedPanel>
 
                     <AnimatedPanel delay={0.27}>
-                        <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Multas por mês</h3>
-                                    <p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-                                        Consulte os 12 meses do ano e altere cada estado individualmente. Isentar um mês dispensa multas ainda em aberto nas facturas desse período.
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-2 self-start">
-                                    <IconButton
-                                        onClick={() => setAnoMultas((ano) => ano - 1)}
-                                        title="Ver ano anterior"
-                                        aria-label="Ver ano anterior"
-                                    >
-                                        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                                    </IconButton>
-                                    <span className="min-w-16 text-center text-lg font-bold tabular-nums text-slate-950 dark:text-white" aria-live="polite">
-                                        {anoMultas}
-                                    </span>
-                                    <IconButton
-                                        onClick={() => setAnoMultas((ano) => ano + 1)}
-                                        title="Ver ano seguinte"
-                                        aria-label="Ver ano seguinte"
-                                    >
-                                        <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                                    </IconButton>
-                                </div>
+                        <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Multas por mês</h3>
+                                <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+                                    {mesesIsentos} {mesesIsentos === 1 ? "mês sem multa" : "meses sem multa"} ·{" "}
+                                    <span className="font-semibold text-slate-700 dark:text-slate-200">{formatCurrency(totalPerdido)}</span> em multas dispensadas.
+                                    Clique num mês para ver o detalhe.
+                                </p>
                             </div>
-                            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                                <StatusBadge tone="emerald">Sem multa</StatusBadge>
-                                <StatusBadge tone="amber">Multa activa</StatusBadge>
-                                <span>{mesesIsentosDoAno.length} de 12 meses sem multa · {mesesDispensadosDoAno.length} com multas recuperáveis</span>
-                            </div>
-                        </div>
-                        <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
-                            {mesesDoAno.map((nome, indice) => {
-                                const mes = indice + 1;
-                                const referencia = `${anoMultas}-${String(mes).padStart(2, "0")}`;
-                                const isenta = mesesIsentosDoAno.some((item) => item.mes === mes);
-                                const multaDispensada = mesesDispensadosDoAno.find((item) => item.referencia === referencia);
-                                const estaAGravar = mesEmGravacao === referencia;
 
-                                return (
-                                    <div
-                                        key={referencia}
-                                        className={cn(
-                                            "flex min-h-28 flex-col justify-between gap-4 rounded-lg border p-4 transition-colors",
-                                            isenta
-                                                ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/20"
-                                                : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40",
-                                        )}
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <span className="font-semibold text-slate-950 dark:text-white">{nome}</span>
-                                            <StatusBadge tone={isenta ? "emerald" : "amber"}>
-                                                {isenta ? "Sem multa" : "Multa activa"}
-                                            </StatusBadge>
+                            <ExpandableCard
+                                open={formIsencaoAberto}
+                                onOpenChange={abrirFormIsencao}
+                                title="Desactivar multas de um mês"
+                                description="Multas por mês"
+                                className="self-start rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
+                                classNameExpanded="max-w-lg"
+                                trigger={
+                                    <span className="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2.5 text-xs font-semibold uppercase text-white shadow-sm transition hover:bg-cyan-800 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400">
+                                        <CalendarOff className="h-4 w-4" aria-hidden="true" />
+                                        Desactivar mês
+                                    </span>
+                                }
+                                footer={
+                                    <div className="flex flex-wrap justify-end gap-3">
+                                        <SecondaryButton type="button" onClick={() => abrirFormIsencao(false)}>
+                                            Cancelar
+                                        </SecondaryButton>
+                                        <PrimaryButton type="submit" form="form-isencao-multa" disabled={!podeDesactivar || isencaoForm.processing}>
+                                            {isencaoForm.processing ? "A guardar…" : "Desactivar multas"}
+                                        </PrimaryButton>
+                                    </div>
+                                }
+                            >
+                                <form id="form-isencao-multa" onSubmit={desactivarMes} className="space-y-5">
+                                    <div>
+                                        <InputLabel htmlFor="isencao_mes" value="Mês" />
+                                        <div className="mt-1">
+                                            <SeletorMesGrelha
+                                                id="isencao_mes"
+                                                valor={isencaoForm.data.mes}
+                                                onChange={(mes) => isencaoForm.setData("mes", mes)}
+                                                mesActual={mesAtual}
+                                                bloqueados={mesesBloqueados}
+                                                rotuloBloqueado="Já sem multa"
+                                                layoutId="isencao-mes-pill"
+                                            />
                                         </div>
-                                        {multaDispensada ? (
-                                            <div className="space-y-2">
-                                                <p className="text-xs text-slate-600 dark:text-slate-400">
-                                                    {multaDispensada.quantidade} factura(s) · {formatCurrency(multaDispensada.valor)} recuperáveis
-                                                </p>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setConfirmacaoMulta({ mes, nome, tipo: "repor", multaDispensada })}
-                                                    disabled={mesEmGravacao !== null}
-                                                    className="text-sm font-semibold text-cyan-800 underline decoration-cyan-300 underline-offset-4 transition hover:text-cyan-950 disabled:cursor-wait disabled:opacity-60 dark:text-cyan-300 dark:decoration-cyan-800 dark:hover:text-cyan-200"
-                                                >
-                                                    {estaAGravar ? "A guardar…" : "Repor multas"}
-                                                </button>
-                                            </div>
+                                        {mesJaIsento ? (
+                                            <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+                                                {nomeMes(isencaoForm.data.mes)} já está sem multas.
+                                            </p>
                                         ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => setConfirmacaoMulta({ mes, nome, isenta: !isenta, tipo: "alternar" })}
-                                                disabled={mesEmGravacao !== null}
-                                                className="self-start text-sm font-semibold text-cyan-800 underline decoration-cyan-300 underline-offset-4 transition hover:text-cyan-950 disabled:cursor-wait disabled:opacity-60 dark:text-cyan-300 dark:decoration-cyan-800 dark:hover:text-cyan-200"
-                                            >
-                                                {estaAGravar
-                                                    ? "A guardar…"
-                                                    : isenta
-                                                      ? "Reactivar multas"
-                                                      : "Desactivar multas"}
-                                            </button>
+                                            <InputError message={isencaoForm.errors.mes} className="mt-1" />
                                         )}
                                     </div>
-                                );
-                            })}
+
+                                    <div>
+                                        <InputLabel htmlFor="isencao_motivo" value="Porquê?" />
+                                        <Textarea
+                                            id="isencao_motivo"
+                                            required
+                                            rows={4}
+                                            maxLength={500}
+                                            value={isencaoForm.data.motivo}
+                                            onChange={(event) => isencaoForm.setData("motivo", event.target.value)}
+                                            placeholder="Ex.: avaria no furo durante 2 semanas, facturas entregues com atraso…"
+                                            className="mt-1 block w-full text-sm"
+                                        />
+                                        <InputError message={isencaoForm.errors.motivo} className="mt-1" />
+                                    </div>
+
+                                    <InlineNotice show tone="info">
+                                        As multas de {nomeMes(isencaoForm.data.mes) || "este mês"} deixam de ser cobradas e as que estão em aberto nas facturas desse mês são dispensadas. Pode repô-las mais tarde.
+                                    </InlineNotice>
+                                </form>
+                            </ExpandableCard>
                         </div>
-                        <p className="border-t border-slate-200 px-6 py-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                            Valores dispensados ficam guardados e podem ser repostos. A reposição reactiva também as multas para esse mês; valores já pagos não são alterados.
-                        </p>
+
+                        <div>
+                            <div>
+
+                                {mesesMulta.length === 0 ? (
+                                    <div className="m-6 rounded-lg border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                                        Nenhum mês com multas desactivadas.
+                                    </div>
+                                ) : (
+                                    <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {mesesMulta.map((item) => (
+                                            <li key={item.referencia}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => abrirMes(item)}
+                                                    className="flex w-full items-center gap-4 px-6 py-3.5 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50 dark:hover:bg-slate-800/40 dark:focus-visible:bg-slate-800/40"
+                                                >
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="font-semibold text-slate-950 dark:text-white">{nomeMes(item.referencia)}</span>
+                                                            <StatusBadge tone={item.isenta ? "emerald" : "slate"}>
+                                                                {item.isenta ? "Sem multa" : "Reactivado"}
+                                                            </StatusBadge>
+                                                        </div>
+                                                        <p className="mt-0.5 truncate text-sm text-slate-500 dark:text-slate-400">
+                                                            {item.motivo ?? "Sem motivo registado"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="shrink-0 text-right">
+                                                        <p className={cn(
+                                                            "text-sm font-semibold tabular-nums",
+                                                            item.valor_dispensado > 0 ? "text-amber-700 dark:text-amber-300" : "text-slate-400 dark:text-slate-500",
+                                                        )}>
+                                                            {formatCurrency(item.valor_dispensado)}
+                                                        </p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                            {item.facturas_dispensadas} {item.facturas_dispensadas === 1 ? "factura" : "facturas"}
+                                                        </p>
+                                                    </div>
+                                                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
                     </AnimatedPanel>
 
                     <AnimatedPanel delay={0.28}>
@@ -786,29 +852,112 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesSemMult
                 </form>
             </Modal>
 
+            {mesAberto && (
+                <ExpandableCard
+                    open={detalheAberto}
+                    onOpenChange={setDetalheAberto}
+                    title={nomeMes(mesAberto.referencia)}
+                    description={mesAberto.isenta ? "Multas desactivadas" : "Multas reactivadas"}
+                    classNameExpanded="max-w-xl"
+                    footer={mesAberto.isenta || mesAberto.valor_dispensado > 0 ? (
+                        <div className="flex flex-wrap justify-end gap-3">
+                            {mesAberto.isenta && (
+                                <SecondaryButton
+                                    type="button"
+                                    disabled={aGravarMulta}
+                                    onClick={() => { setDetalheAberto(false); setAcaoMulta({ tipo: "reactivar", item: mesAberto }); }}
+                                >
+                                    Reactivar multas
+                                </SecondaryButton>
+                            )}
+                            {mesAberto.valor_dispensado > 0 && (
+                                <PrimaryButton
+                                    type="button"
+                                    disabled={aGravarMulta}
+                                    onClick={() => { setDetalheAberto(false); setAcaoMulta({ tipo: "repor", item: mesAberto }); }}
+                                >
+                                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                                    Repor multas
+                                </PrimaryButton>
+                            )}
+                        </div>
+                    ) : undefined}
+                >
+                    <Destaques>
+                        <Destaque
+                            rotulo="Multas perdidas"
+                            tom={mesAberto.valor_dispensado > 0 ? "perigo" : "neutro"}
+                            sub={`${mesAberto.facturas_dispensadas} ${mesAberto.facturas_dispensadas === 1 ? "factura" : "facturas"}`}
+                        >
+                            {formatCurrency(mesAberto.valor_dispensado)}
+                        </Destaque>
+                        <Destaque rotulo="Estado" tom={mesAberto.isenta ? "sucesso" : "neutro"}>
+                            {mesAberto.isenta ? "Sem multa" : "Reactivado"}
+                        </Destaque>
+                    </Destaques>
+
+                    <Campos className="mt-5">
+                        <Campo rotulo="Porquê" largo>
+                            <span className="whitespace-pre-line">{mesAberto.motivo ?? "Sem motivo registado."}</span>
+                        </Campo>
+                        {mesAberto.desactivada_em && (
+                            <Campo rotulo="Desactivado">
+                                {formatDateTime(mesAberto.desactivada_em)}{mesAberto.desactivada_por ? ` por ${mesAberto.desactivada_por}` : ""}
+                            </Campo>
+                        )}
+                        {!mesAberto.isenta && mesAberto.reactivada_em && (
+                            <Campo rotulo="Reactivado">
+                                {formatDateTime(mesAberto.reactivada_em)}{mesAberto.reactivada_por ? ` por ${mesAberto.reactivada_por}` : ""}
+                            </Campo>
+                        )}
+                    </Campos>
+
+                    <SeccaoDetalhe titulo="Facturas afectadas">
+                        {!detalheCarregado ? (
+                            <div className="space-y-2" aria-busy="true">
+                                {[0, 1, 2].map((i) => (
+                                    <div key={i} className="h-12 animate-pulse rounded-md bg-slate-100 dark:bg-slate-800" />
+                                ))}
+                            </div>
+                        ) : detalheCarregado.facturas.length === 0 ? (
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                Nenhuma factura deste mês tem multas dispensadas.
+                            </p>
+                        ) : (
+                            <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+                                {detalheCarregado.facturas.map((factura) => (
+                                    <li key={factura.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                                        <div className="min-w-0">
+                                            <p className="truncate font-medium text-slate-900 dark:text-white">{factura.cliente ?? "—"}</p>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                                {factura.numero}{factura.numero_cliente ? ` · ${factura.numero_cliente}` : ""}
+                                            </p>
+                                        </div>
+                                        <span className="shrink-0 font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                                            {formatCurrency(factura.valor)}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            Só contam multas que já estavam lançadas quando o mês foi desactivado; enquanto estiver sem multa, não são geradas novas.
+                        </p>
+                    </SeccaoDetalhe>
+                </ExpandableCard>
+            )}
+
             <ConfirmDialog
-                show={Boolean(confirmacaoMulta)}
-                onClose={() => setConfirmacaoMulta(null)}
-                onConfirm={executarAlteracaoMulta}
-                title={confirmacaoMulta?.tipo === "repor"
-                    ? "Repor multas dispensadas?"
-                    : confirmacaoMulta?.isenta
-                      ? "Desactivar multas neste mês?"
-                      : "Reactivar multas neste mês?"}
-                confirmLabel={confirmacaoMulta?.tipo === "repor"
-                    ? "Sim, repor multas"
-                    : confirmacaoMulta?.isenta
-                      ? "Sim, desactivar"
-                      : "Sim, reactivar"}
+                show={Boolean(acaoMulta)}
+                onClose={() => setAcaoMulta(null)}
+                onConfirm={executarAcaoMulta}
+                title={acaoMulta?.tipo === "repor" ? "Repor multas dispensadas?" : "Reactivar multas neste mês?"}
+                confirmLabel={acaoMulta?.tipo === "repor" ? "Sim, repor multas" : "Sim, reactivar"}
                 cancelLabel="Não, cancelar"
                 tone="primary"
-                description={
-                    confirmacaoMulta?.tipo === "repor"
-                        ? `Confirma repor ${formatCurrency(confirmacaoMulta.multaDispensada.valor)} dispensados em ${confirmacaoMulta.nome} de ${anoMultas}? O total em aberto e o estado das facturas serão actualizados, e as multas do mês serão reactivadas.`
-                        : confirmacaoMulta?.isenta
-                          ? `Confirma desactivar as multas de ${confirmacaoMulta.nome} de ${anoMultas}? As multas ainda em aberto nas facturas desse mês serão guardadas para poderem ser repostas.`
-                          : `Confirma reactivar as multas de ${confirmacaoMulta?.nome} de ${anoMultas}? Valores que tenham sido dispensados continuam disponíveis na acção Repor multas.`
-                }
+                description={acaoMulta?.tipo === "repor"
+                    ? `Confirma repor ${formatCurrency(acaoMulta.item.valor_dispensado)} em ${nomeMes(acaoMulta.item.referencia)}? O total em aberto e o estado das facturas serão actualizados, e as multas do mês serão reactivadas.`
+                    : `Confirma reactivar as multas de ${nomeMes(acaoMulta?.item.referencia)}? Os valores dispensados continuam disponíveis em Repor multas.`}
             />
 
             <ConfirmDialog

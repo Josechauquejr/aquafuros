@@ -7,6 +7,7 @@ import useCartaoDeLinha, { linhaClicavel } from "@/Components/DataTable/useCarta
 import StatusBadge from "@/Components/StatusBadge";
 import { ExpandableCard } from "@/Components/ui/expandable-card";
 import { cn } from "@/lib/utils";
+import AbasPagina, { ABAS_DIAGNOSTICO } from "@/Components/AbasPagina";
 
 const tomGravidade = { alto: "rose", medio: "amber", baixo: "slate" };
 const rotuloGravidade = { alto: "Alto", medio: "Médio", baixo: "Baixo" };
@@ -35,6 +36,7 @@ export default function Integridade({ verificacoes }) {
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-5xl space-y-6 px-4 sm:px-6 lg:px-8">
+                    <AbasPagina abas={ABAS_DIAGNOSTICO} activa="integridade" />
                     <AnimatedPanel className="flex items-center gap-3 p-5">
                         {comProblemas.length === 0 && comErro.length === 0 ? (
                             <CheckCircle2 className="h-6 w-6 text-emerald-600" aria-hidden="true" />

@@ -1,4 +1,4 @@
-import { Head, Link, router } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
 import { AlertTriangle, Check, MonitorSmartphone, RotateCcw, Search } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
@@ -14,12 +14,8 @@ import TextInput from "@/Components/TextInput";
 import { ExpandableCard } from "@/Components/ui/expandable-card";
 import { cn, formatDateTime } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
+import AbasPagina, { ABAS_REGISTOS } from "@/Components/AbasPagina";
 
-const abas = [
-    { chave: "acessos", label: "Acessos", href: "/dev/logs/acessos" },
-    { chave: "erros", label: "Erros", href: "/dev/logs/erros" },
-    { chave: "aplicacao", label: "Aplicação", href: "/dev/logs/aplicacao" },
-];
 
 export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }) {
     const [search, setSearch] = useState(filtros.search ?? "");
@@ -61,22 +57,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800">
-                        {abas.map((item) => (
-                            <Link
-                                key={item.chave}
-                                href={item.href}
-                                className={cn(
-                                    "border-b-2 px-4 py-2 text-sm font-semibold transition",
-                                    aba === item.chave
-                                        ? "border-cyan-600 text-cyan-700 dark:border-cyan-400 dark:text-cyan-300"
-                                        : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
-                                )}
-                            >
-                                {item.label}
-                            </Link>
-                        ))}
-                    </div>
+                    <AbasPagina abas={ABAS_REGISTOS} activa={aba} />
 
                     {aba === "acessos" ? (
                         <>

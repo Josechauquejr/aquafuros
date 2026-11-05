@@ -3,10 +3,8 @@
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\LixeiraController;
 use App\Http\Controllers\Admin\LogController;
-use App\Http\Controllers\Dev\AlteracoesController as DevAlteracoesController;
 use App\Http\Controllers\Dev\AuditoriaController as DevAuditoriaController;
 use App\Http\Controllers\Dev\DadosController as DevDadosController;
-use App\Http\Controllers\Dev\EdicaoController as DevEdicaoController;
 use App\Http\Controllers\Dev\EmailConfigController as DevEmailConfigController;
 use App\Http\Controllers\Dev\EmailsController as DevEmailsController;
 use App\Http\Controllers\Dev\FilasController as DevFilasController;
@@ -17,7 +15,6 @@ use App\Http\Controllers\Dev\ConfiguracaoController as DevConfiguracaoController
 use App\Http\Controllers\Dev\LogController as DevLogController;
 use App\Http\Controllers\Dev\PainelController as DevPainelController;
 use App\Http\Controllers\Dev\SaudeController as DevSaudeController;
-use App\Http\Controllers\Dev\TarefaController as DevTarefaController;
 use App\Http\Controllers\CaixaDashboardController;
 use App\Http\Controllers\GestorDashboardController;
 use App\Http\Controllers\TecnicoDashboardController;
@@ -42,9 +39,8 @@ use App\Http\Controllers\NotificacaoSistemaController;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome');
-});
+// Sistema interno: a raiz leva ao painel (ou ao login, para quem não tem sessão).
+Route::redirect('/', '/dashboard');
 
 // Verificação pública de autenticidade de documentos (QR code impresso nas
 // facturas/recibos) — sem autenticação, protegida por assinatura de URL
@@ -61,14 +57,14 @@ Route::middleware(['signed'])->group(function () {
 // o fluxo actual, só passa a proteger uma eventual conta que não o esteja.
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['redirect.by.role'])->group(function () {
-        Route::get('/dashboard', fn () => Inertia::render('Dashboard'))->name('dashboard');
+        // Quem chega aqui tem sessão mas nenhum papel (o middleware já redireccionou os restantes).
+        Route::get('/dashboard', fn () => Inertia::render('AcessoBloqueado', ['motivo' => 'sem_papel'])->toResponse(request())->setStatusCode(403))->name('dashboard');
     });
 
     Route::post('/novidades/vista', [NovidadeController::class, 'vista'])->name('novidades.vista');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Leitor de QR code — abre a factura/recibo internamente (não a página
     // pública de verificação), disponível a quem lida com facturação e caixa.
@@ -94,9 +90,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // administrador tem acesso.
         // Uma só página para as 3 lixeiras (?tipo=clientes|leituras|pagamentos).
         Route::get('lixeira', [LixeiraController::class, 'index'])->name('lixeira.index');
-        Route::redirect('clientes/lixeira', '/lixeira?tipo=clientes');
-        Route::redirect('leituras/lixeira', '/lixeira?tipo=leituras');
-        Route::redirect('pagamentos/lixeira', '/lixeira?tipo=pagamentos');
 
         Route::post('clientes/lixeira/{id}/restaurar', [LixeiraController::class, 'restaurar'])->name('clientes.lixeira.restaurar');
         Route::delete('clientes/lixeira/{id}', [LixeiraController::class, 'destroyDefinitivo'])->name('clientes.lixeira.destruir');
@@ -122,8 +115,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('clientes/{cliente}/previsualizar-leitura-inicial', [ClienteController::class, 'previsualizarLeituraInicial'])->name('clientes.leitura-inicial.preview');
         Route::put('clientes/{cliente}/leitura-inicial', [ClienteController::class, 'actualizarLeituraInicial'])->name('clientes.leitura-inicial.update');
         Route::resource('clientes', ClienteController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
-        Route::get('cliente/{cliente}', fn (\App\Models\Cliente $cliente) => redirect()->route('clientes.show', $cliente))
-            ->name('cliente.show.legacy');
         Route::post('clientes/zonas', [ZonaController::class, 'store'])->name('clientes.zonas.store');
         Route::post('clientes/historico/{activity}/reverter', [ClienteController::class, 'reverter'])->name('clientes.historico.reverter');
         Route::resource('facturas', FacturaController::class)->only(['index', 'store', 'update', 'destroy']);
@@ -135,12 +126,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('cobranca/contactos', [CobrancaController::class, 'storeContacto'])->name('cobranca.contactos.store');
         Route::put('cobranca/promessas/{promessa}/cancelar', [CobrancaController::class, 'cancelarPromessa'])->name('cobranca.promessas.cancelar');
 
-        // Histórico dos códigos de acesso enviados pelo sistema.
+        // Histórico dos emails enviados aos clientes (facturas, lembretes, avisos de atraso).
+        // Os códigos de acesso e senhas ficam à parte, em dev/emails.
         Route::get('emails', [EmailEnviadoController::class, 'index'])->name('emails.index');
         Route::get('emails/{envio}/ver', [EmailEnviadoController::class, 'ver'])->name('emails.ver');
         Route::get('notificacoes-sistema', [NotificacaoSistemaController::class, 'index'])->name('notificacoes-sistema.index');
-
-        // Mensagens aos clientes (lembretes e avisos de atraso).
     });
 
     // Caixa recebe pagamentos
@@ -213,9 +203,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('dados', [DevDadosController::class, 'index'])->name('dados.index');
         Route::get('dados/{tabela}', [DevDadosController::class, 'tabela'])->name('dados.tabela');
         Route::get('dados/{tabela}/registo/{id}', [DevDadosController::class, 'registo'])->name('dados.registo');
-        // Alterações de dados: a página mostra sempre o estado; o resto só corre com DEV_ESCRITA=true.
-        Route::get('alteracoes', [DevAlteracoesController::class, 'index'])->name('alteracoes');
-        Route::get('editar/{tabela}/{id}', [DevEdicaoController::class, 'form'])->middleware(['dev.escrita', 'password.confirm:password.confirm,900'])->name('editar');
         Route::get('integridade', [DevIntegridadeController::class, 'index'])->name('integridade');
         Route::get('integridade/{chave}', [DevIntegridadeController::class, 'detalhe'])->name('integridade.detalhe');
         Route::get('analise', [DevIntegridadeController::class, 'analise'])->name('analise');
@@ -235,18 +222,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::get('users/lixeira', [UserController::class, 'lixeira'])->name('users.lixeira');
 
-        // Checklist pessoal e marcar erros como resolvidos: sem risco, sem repetir a senha.
+        // Marcar erros como resolvidos: sem risco, sem repetir a senha.
         Route::put('logs/erros/{erro}/resolver', [DevLogController::class, 'marcarResolvido'])->name('logs.erros.resolver');
-        Route::resource('tarefas', DevTarefaController::class)->only(['index', 'store', 'update', 'destroy']);
-
-        // A pré-visualização só LÊ (mostra o que seria afectado): pede a senha mas não precisa de DEV_ESCRITA.
-        Route::post('alteracoes/previa', [DevAlteracoesController::class, 'previa'])->middleware(['password.confirm:password.confirm,900', 'throttle:20,1'])->name('alteracoes.previa');
-
-        Route::middleware(['dev.escrita', 'password.confirm:password.confirm,900', 'throttle:20,1'])->group(function () {
-            Route::post('alteracoes/executar', [DevAlteracoesController::class, 'executar'])->name('alteracoes.executar');
-            Route::post('alteracoes/{snapshot}/desfazer', [DevAlteracoesController::class, 'desfazer'])->name('alteracoes.desfazer');
-            Route::put('editar/{tabela}/{id}', [DevEdicaoController::class, 'guardar'])->name('editar.guardar');
-        });
 
         // Tudo o que altera dados ou contas: volta a pedir a senha (válida 15 min) e fica na auditoria.
         Route::middleware(['password.confirm:password.confirm,900'])->group(function () {

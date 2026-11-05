@@ -18,6 +18,7 @@ import TextInput from "@/Components/TextInput";
 import { ExpandableCard } from "@/Components/ui/expandable-card";
 import { cn, formatDateTime } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
+import AbasPagina, { ABAS_REGISTOS } from "@/Components/AbasPagina";
 
 const eventoConfig = {
     created: { label: "Criado", tone: "emerald", icon: PlusCircle },
@@ -115,6 +116,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
 
             <div className="py-8 sm:py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                    <AbasPagina abas={ABAS_REGISTOS} activa="actividade" />
 
                     <AnimatedPanel delay={0.1} className="p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

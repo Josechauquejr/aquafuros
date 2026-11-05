@@ -63,44 +63,6 @@ class ProfileTest extends TestCase
         $this->assertNotNull($user->refresh()->email_verified_at);
     }
 
-    public function test_user_can_delete_their_account(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this
-            ->actingAs($user)
-            ->delete('/profile', [
-                'password' => 'password',
-                'confirmacao' => 'ELIMINAR',
-            ]);
-
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/');
-
-        $this->assertGuest();
-        $this->assertSoftDeleted($user);
-    }
-
-    public function test_correct_password_must_be_provided_to_delete_account(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this
-            ->actingAs($user)
-            ->from('/profile')
-            ->delete('/profile', [
-                'password' => 'wrong-password',
-                'confirmacao' => 'ELIMINAR',
-            ]);
-
-        $response
-            ->assertSessionHasErrorsIn('userDeletion', 'password')
-            ->assertRedirect('/profile');
-
-        $this->assertNotNull($user->fresh());
-    }
-
     public function test_changing_email_requires_the_current_password(): void
     {
         $user = User::factory()->create();
@@ -128,29 +90,11 @@ class ProfileTest extends TestCase
         $this->assertSame('Outro Nome', $user->fresh()->name);
     }
 
-    public function test_deleting_the_account_requires_typing_the_confirmation_word(): void
+    public function test_a_propria_conta_nao_se_pode_eliminar(): void
     {
         $user = User::factory()->create();
 
-        $this->actingAs($user)
-            ->from('/profile')
-            ->delete('/profile', ['password' => 'password', 'confirmacao' => 'eliminar'])
-            ->assertSessionHasErrorsIn('userDeletion', 'confirmacao');
-
+        $this->actingAs($user)->delete('/profile', ['password' => 'password', 'confirmacao' => 'ELIMINAR'])->assertStatus(405);
         $this->assertNotNull($user->fresh());
-    }
-
-    public function test_the_only_administrator_cannot_delete_their_own_account(): void
-    {
-        $this->seed(RoleSeeder::class);
-        $admin = User::factory()->create();
-        $admin->assignRole('administrador');
-
-        $this->actingAs($admin)
-            ->from('/profile')
-            ->delete('/profile', ['password' => 'password', 'confirmacao' => 'ELIMINAR'])
-            ->assertSessionHasErrorsIn('userDeletion', 'password');
-
-        $this->assertNotNull($admin->fresh());
     }
 }

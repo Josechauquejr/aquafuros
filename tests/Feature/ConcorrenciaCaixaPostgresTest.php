@@ -26,7 +26,9 @@ class ConcorrenciaCaixaPostgresTest extends TestCase
     {
         parent::setUp();
 
-        $this->assertSame('pgsql', DB::connection()->getDriverName());
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('Este teste concorrente requer PostgreSQL; o SQLite nao simula locks entre processos.');
+        }
         $this->assertSame('aquafuros_p0_regression_test_20261023', DB::connection()->selectOne('select current_database() as name')->name);
         Artisan::call('migrate:fresh');
         $this->seed(RoleSeeder::class);
@@ -159,11 +161,15 @@ class ConcorrenciaCaixaPostgresTest extends TestCase
     {
         if (is_resource($this->processoConcorrente)) {
             $estado = proc_get_status($this->processoConcorrente);
-            if ($estado['running']) proc_terminate($this->processoConcorrente);
+            if ($estado['running']) {
+                proc_terminate($this->processoConcorrente);
+            }
             proc_close($this->processoConcorrente);
         }
         foreach ($this->ficheirosConcorrentes as $ficheiro) {
-            if (is_file($ficheiro)) @unlink($ficheiro);
+            if (is_file($ficheiro)) {
+                @unlink($ficheiro);
+            }
         }
         $this->processoConcorrente = null;
         $this->ficheirosConcorrentes = [];

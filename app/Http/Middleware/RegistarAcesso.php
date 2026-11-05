@@ -38,7 +38,10 @@ class RegistarAcesso
 
                 AcessoSistema::create([
                     'user_id' => $request->user()->id,
-                    'url' => $request->fullUrl(),
+                    // Os valores de filtros podem conter nomes, emails ou
+                    // identificadores. A rota continua visivel para diagnostico;
+                    // a query string nao e necessaria para metricas por rota.
+                    'url' => $request->url(),
                     'metodo' => $request->method(),
                     'ip' => $request->ip(),
                     'user_agent' => $request->userAgent(),

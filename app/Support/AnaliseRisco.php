@@ -70,8 +70,7 @@ class AnaliseRisco
      */
     public static function mensal(Carbon $mes): array
     {
-        $inicio = $mes->copy()->startOfMonth();
-        $fim = $mes->copy()->endOfMonth();
+        [$inicio, $fim] = MesReferencia::intervalo($mes);
 
         $emitidas = Factura::whereBetween('created_at', [$inicio, $fim])->where('estado', '!=', 'anulada')
             ->withSum('pagamentos', 'valor_pago')
@@ -128,7 +127,7 @@ class AnaliseRisco
 
         // Depois do dia limite, quem ainda falta ler.
         $activos = Cliente::where('estado', 'ativo')->pluck('id');
-        $semLeitura = now()->gt($limite) && $mes->isSameMonth(now())
+        $semLeitura = now()->gt($limite) && $mes->isSameMonth(MesReferencia::actual())
             ? $activos->diff($leituras->pluck('cliente_id'))->count()
             : 0;
 
@@ -150,9 +149,9 @@ class AnaliseRisco
     /** Do início do ano até ao fim do mês escolhido, face ao mesmo período do ano anterior. */
     public static function acumuladoAno(Carbon $mes): array
     {
-        $periodo = function (Carbon $fim) {
-            $inicio = $fim->copy()->startOfYear();
-            $fim = $fim->copy()->endOfMonth();
+        $periodo = function (Carbon $mesReferencia) {
+            $inicio = $mesReferencia->copy()->startOfYear();
+            [, $fim] = MesReferencia::intervalo($mesReferencia);
 
             return [
                 'facturado' => round((float) Factura::whereBetween('created_at', [$inicio, $fim])->where('estado', '!=', 'anulada')
@@ -180,8 +179,7 @@ class AnaliseRisco
      */
     public static function controlo(Carbon $mes): array
     {
-        $inicio = $mes->copy()->startOfMonth();
-        $fim = $mes->copy()->endOfMonth();
+        [$inicio, $fim] = MesReferencia::intervalo($mes);
         $nome = fn (?int $id) => $id ? (User::withTrashed()->find($id)?->name ?? 'Utilizador removido') : 'Sistema';
 
         $anuladas = Factura::where('estado', 'anulada')->whereBetween('anulada_em', [$inicio, $fim])

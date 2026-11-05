@@ -89,7 +89,7 @@ export default function Operacoes({ agendamentos, caches, manutencao, ambiente }
                             <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
                                 <p className="font-semibold">Guarde este link de acesso: só é mostrado agora.</p>
                                 <p className="mt-1 flex items-center gap-2 break-all font-mono text-xs">{manutencao.ligacao}
-                                    <button type="button" title="Copiar" onClick={() => navigator.clipboard?.writeText(manutencao.ligacao)}><Copy className="h-4 w-4" aria-hidden="true" /></button>
+                                    <button type="button" aria-label="Copiar ligação de manutenção" title="Copiar" onClick={() => navigator.clipboard?.writeText(manutencao.ligacao)}><Copy className="h-4 w-4" aria-hidden="true" /></button>
                                 </p>
                                 <p className="mt-1 text-xs">Já tem acesso neste navegador. Em Railway a manutenção perde-se num novo deploy.</p>
                             </div>

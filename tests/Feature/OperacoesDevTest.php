@@ -2,12 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Mail\FacturaMail;
-use App\Models\Cliente;
+use App\Models\DevAuditoria;
 use App\Models\EnvioEmail;
-use App\Models\Factura;
-use App\Models\Leitura;
-use App\Models\Tarifa;
 use App\Models\User;
 use App\Support\Agendador;
 use Database\Seeders\RoleSeeder;
@@ -108,7 +104,7 @@ class OperacoesDevTest extends TestCase
 
         $this->dev()->delete('/dev/filas/falhados', ['confirmacao' => 'LIMPAR'])->assertSessionHas('status');
         $this->assertDatabaseCount('failed_jobs', 0);
-        $this->assertTrue(\App\Models\DevAuditoria::where('acao', 'dev.filas.limpar-falhados.resultado')->exists());
+        $this->assertTrue(DevAuditoria::where('acao', 'dev.filas.limpar-falhados.resultado')->exists());
     }
 
     public function test_limpar_pendentes_nao_toca_nos_que_estao_em_curso(): void
@@ -124,26 +120,25 @@ class OperacoesDevTest extends TestCase
         $this->assertDatabaseCount('jobs', 1);
     }
 
-    public function test_agendamentos_listam_as_tarefas_e_a_ultima_execucao(): void
+    public function test_agendamentos_e_historico_reflectem_apenas_tarefas_actuais(): void
     {
         $this->actingAs($this->dev)->get('/dev/operacoes')
-            ->assertInertia(fn (Assert $p) => $p->component('Dev/Operacoes')
-                ->where('agendamentos', fn ($a) => collect($a)->contains(fn ($t) => $t['nome'] === 'notificacoes:gerar' && $t['executavel'] === true)));
+            ->assertInertia(fn (Assert $page) => $page->component('Dev/Operacoes')
+                ->where('agendamentos', fn ($tasks) => collect($tasks)->every(fn ($task) => $task['nome'] !== 'notificacoes:gerar')));
 
-        $tarefa = Schedule::command('emails:estado');
-        event(new ScheduledTaskFinished($tarefa, 0.25));
-        $this->assertDatabaseHas('execucoes_agendadas', ['nome' => 'emails:estado', 'estado' => 'ok', 'duracao_ms' => 250]);
-        $this->assertSame('notificacoes:gerar', Agendador::nome("'php' 'artisan' notificacoes:gerar"));
+        $task = Schedule::command('inspire');
+        event(new ScheduledTaskFinished($task, 0.25));
+        $this->assertDatabaseHas('execucoes_agendadas', ['nome' => 'inspire', 'estado' => 'ok', 'duracao_ms' => 250]);
+        $this->assertSame('inspire', Agendador::nome("'php' 'artisan' inspire"));
     }
 
-    public function test_so_se_executam_tarefas_da_lista_fechada_e_com_a_palavra(): void
+    public function test_painel_nao_executa_comandos_fora_da_lista_actual(): void
     {
-        $this->dev()->post('/dev/operacoes/tarefa', ['tarefa' => 'migrate:fresh', 'confirmacao' => 'EXECUTAR'])->assertSessionHasErrors('tarefa');
-        $this->dev()->post('/dev/operacoes/tarefa', ['tarefa' => 'notificacoes:gerar'])->assertSessionHasErrors('confirmacao');
-
+        $this->dev()->post('/dev/operacoes/tarefa', ['tarefa' => 'migrate:fresh', 'confirmacao' => 'EXECUTAR'])
+            ->assertSessionHasErrors('tarefa');
         $this->dev()->post('/dev/operacoes/tarefa', ['tarefa' => 'notificacoes:gerar', 'confirmacao' => 'EXECUTAR'])
-            ->assertSessionHasNoErrors();
-        $this->assertTrue(\App\Models\DevAuditoria::where('acao', 'dev.operacoes.executar-tarefa.resultado')->exists());
+            ->assertSessionHasErrors('tarefa');
+        $this->assertDatabaseMissing('dev_auditoria', ['acao' => 'dev.operacoes.executar-tarefa.resultado']);
     }
 
     public function test_cache_valida_o_tipo_e_exige_a_palavra_so_na_da_aplicacao(): void
@@ -184,47 +179,17 @@ class OperacoesDevTest extends TestCase
         $this->assertStringNotContainsString((string) config('app.key'), $resposta->getContent());
     }
 
-    private function facturaComEmail(): Factura
+    public function test_historico_dev_exclui_emails_de_facturas_e_nao_os_reenvia(): void
     {
-        $tarifa = Tarifa::create(['nome' => 'Doméstica']);
-        $cliente = Cliente::create(['numero_cliente' => 'CLI-1', 'nome' => 'Ana', 'email' => 'ana@exemplo.co.mz', 'tarifa_id' => $tarifa->id, 'estado' => 'ativo']);
-        $leitura = Leitura::create(['cliente_id' => $cliente->id, 'mes' => 9, 'ano' => 2026, 'leitura_anterior' => 0, 'leitura_actual' => 10, 'confirmado' => true, 'registado_por' => $this->dev->id]);
-
-        return \App\Support\Facturacao::emitir($leitura, $this->dev->id);
-    }
-
-    public function test_reenviar_factura_cria_um_novo_registo_manual(): void
-    {
-        $factura = $this->facturaComEmail();
-        $envio = EnvioEmail::create(['factura_id' => $factura->id, 'cliente_id' => $factura->cliente_id, 'tipo' => 'factura', 'origem' => 'automatico', 'email' => 'ana@exemplo.co.mz', 'assunto' => 'x', 'estado' => 'falhou', 'erro' => 'timeout']);
-
-        $this->actingAs($this->dev)->post("/dev/emails/{$envio->id}/reenviar")->assertRedirect(route('password.confirm'));
-        Mail::assertNothingSent();
-
-        $this->dev()->post("/dev/emails/{$envio->id}/reenviar")->assertSessionHas('status');
-        Mail::assertSent(FacturaMail::class, fn ($m) => $m->hasTo('ana@exemplo.co.mz'));
-        $this->assertDatabaseHas('envios_email', ['factura_id' => $factura->id, 'estado' => 'enviado', 'origem' => 'manual', 'enviado_por' => $this->dev->id]);
-    }
-
-    public function test_emails_de_cobranca_nao_se_reenviam_por_aqui(): void
-    {
-        $factura = $this->facturaComEmail();
-        $envio = EnvioEmail::create(['factura_id' => $factura->id, 'cliente_id' => $factura->cliente_id, 'tipo' => 'cobranca', 'origem' => 'manual', 'email' => 'ana@exemplo.co.mz', 'assunto' => 'x', 'estado' => 'enviado']);
-
-        $this->dev()->post("/dev/emails/{$envio->id}/reenviar")->assertSessionHas('error');
-        Mail::assertNothingSent();
-    }
-
-    public function test_lista_e_vista_isolada_do_email(): void
-    {
-        $factura = $this->facturaComEmail();
-        $envio = EnvioEmail::create(['cliente_id' => $factura->cliente_id, 'tipo' => 'factura', 'origem' => 'manual', 'email' => 'a@b.co', 'assunto' => 'Assunto', 'estado' => 'falhou', 'erro' => 'x', 'corpo' => '<p>Olá</p>']);
+        $envio = EnvioEmail::create([
+            'tipo' => 'factura', 'origem' => 'manual', 'email' => 'cliente@example.test',
+            'assunto' => 'Factura', 'estado' => 'falhou', 'erro' => 'timeout', 'corpo' => '<p>privado</p>',
+        ]);
 
         $this->actingAs($this->dev)->get('/dev/emails?estado=falhou')
-            ->assertInertia(fn (Assert $p) => $p->where('envios.total', 1)->where('totais.falhados', 1));
-
-        $this->actingAs($this->dev)->get("/dev/emails/{$envio->id}/ver")
-            ->assertOk()->assertSee('Olá', false)
-            ->assertHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox");
+            ->assertInertia(fn (Assert $page) => $page->where('envios.total', 0)->where('totais.falhados', 0));
+        $this->actingAs($this->dev)->get("/dev/emails/{$envio->id}/ver")->assertNotFound();
+        $this->actingAs($this->dev)->post("/dev/emails/{$envio->id}/reenviar")->assertNotFound();
+        Mail::assertNothingSent();
     }
 }

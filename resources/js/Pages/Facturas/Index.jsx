@@ -71,10 +71,18 @@ const padroes = { periodo: "todos", estado: "todos", com_multa: "0", sort: "fact
 const consumoDe = (factura) => factura.leitura ? consumoLeitura(factura.leitura) : (factura.consumo_m3 ?? null);
 
 // "Vencida" não é um estado guardado: pendente/parcial com o prazo ultrapassado.
+const dataHoje = () => {
+    const hoje = new Date();
+    const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+    const dia = String(hoje.getDate()).padStart(2, "0");
+
+    return `${hoje.getFullYear()}-${mes}-${dia}`;
+};
+
 const estaVencida = (factura) =>
     ["pendente", "parcial"].includes(factura.estado) &&
     Boolean(factura.data_vencimento) &&
-    new Date(factura.data_vencimento) < new Date();
+    factura.data_vencimento < dataHoje();
 
 function FacturaLink({ factura }) {
     return (

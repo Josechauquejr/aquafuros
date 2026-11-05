@@ -19,17 +19,31 @@ class ResolvedorPeriodo
     {
         // `referencia`: o "hoje" do período (um mês passado escolhido nos KPIs).
         $hoje = $referencia?->copy() ?? Carbon::now();
+        $mesReferencia = $referencia?->copy()->startOfMonth() ?? MesReferencia::actual($hoje);
+
+        if ($periodo === 'mes') {
+            [$inicio, $fim] = MesReferencia::intervalo($mesReferencia);
+            [$anteriorInicio, $anteriorFim] = MesReferencia::intervalo($mesReferencia->copy()->subMonthNoOverflow());
+
+            return [
+                'inicio' => $inicio,
+                'fim' => $fim,
+                'anteriorInicio' => $anteriorInicio,
+                'anteriorFim' => $anteriorFim,
+            ];
+        }
 
         [$inicio, $fim] = match ($periodo) {
             'hoje' => [$hoje->copy()->startOfDay(), $hoje->copy()->endOfDay()],
             'ano' => [$hoje->copy()->startOfYear(), $hoje->copy()->endOfYear()],
             'semana' => [$hoje->copy()->startOfWeek(), $hoje->copy()->endOfWeek()],
+            'mes' => MesReferencia::intervalo($mesReferencia),
             'personalizado' => [
-                $dataInicio ? Carbon::parse($dataInicio)->startOfDay() : $hoje->copy()->startOfMonth(),
+                $dataInicio ? Carbon::parse($dataInicio)->startOfDay() : MesReferencia::intervalo($mesReferencia)[0],
                 $dataFim ? Carbon::parse($dataFim)->endOfDay() : $hoje->copy()->endOfDay(),
             ],
             'todos' => [Carbon::createFromTimestamp(0), $hoje->copy()->endOfDay()],
-            default => [$hoje->copy()->startOfMonth(), $hoje->copy()->endOfMonth()],
+            default => MesReferencia::intervalo($mesReferencia),
         };
 
         // Intervalo anterior com a mesma duração, para comparações (ex.:

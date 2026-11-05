@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Cliente;
-use App\Models\Divida;
 use App\Models\Factura;
 use App\Models\Leitura;
 use App\Models\Pagamento;
@@ -64,7 +63,7 @@ class FacturacaoSeeder extends Seeder
                     'registado_por' => $tecnico->id,
                 ]);
 
-                $cliente->load(['tarifa', 'divida']);
+                $cliente->load('tarifa');
                 $calculo = $billing->calcular($leitura, $cliente);
 
                 $factura = Factura::create([
@@ -102,7 +101,6 @@ class FacturacaoSeeder extends Seeder
                 }
 
                 $factura->update(['estado' => $resultado === 'paga' ? 'paga' : ($resultado === 'parcial' ? 'parcial' : 'pendente')]);
-
 
                 $leituraAnterior = $leituraActual;
             }

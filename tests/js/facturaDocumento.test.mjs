@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const formatUrl = new URL("../../resources/js/lib/format.js", import.meta.url).href;
-const source = readFileSync(new URL("../../resources/js/lib/facturaDocumento.js", import.meta.url), "utf8").replace("@/lib/format", formatUrl);
+const consumoLeituraUrl = new URL("../../resources/js/lib/consumoLeitura.js", import.meta.url).href;
+const source = readFileSync(new URL("../../resources/js/lib/facturaDocumento.js", import.meta.url), "utf8")
+    .replace("@/lib/format", formatUrl)
+    .replace("@/lib/consumoLeitura", consumoLeituraUrl);
 const { resumoDocumento, moedaDocumento, estadoDocumento } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const factura = { estado: "pendente", total_pagar: 1944, divida_anterior_incluida: true, divida_anterior: 1200, multa_anterior: 144, multa: 0, pagamentos: [] };
 

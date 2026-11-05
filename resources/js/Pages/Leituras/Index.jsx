@@ -30,18 +30,19 @@ import TextInput from "@/Components/TextInput";
 import { formatDate, formatDateTime, formatMoney, formatNumero, formatVolume } from "@/lib/utils";
 import { consumoLeitura } from "@/lib/consumoLeitura";
 import { previewPost } from "@/lib/previewPost";
+import { mesReferenciaActual } from "@/lib/mesReferencia";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
     "Jul", "Ago", "Set", "Out", "Nov", "Dez",
 ];
 
-const hoje = new Date();
+const hoje = mesReferenciaActual();
 
 const formVazio = {
     cliente_id: "",
-    mes: hoje.getMonth() + 1,
-    ano: hoje.getFullYear(),
+    mes: hoje.mes,
+    ano: hoje.ano,
     leitura_actual: "",
 };
 

@@ -1,8 +1,22 @@
 <?php
 
+use App\Http\Middleware\AuditarPainelDev;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RedirectRole;
+use App\Http\Middleware\RegistarAcesso;
+use App\Http\Middleware\VerificarFuncionalidadeActiva;
+use App\Http\Middleware\VerificarHorarioFuncionamento;
+use App\Models\ErroSistema;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Spatie\Permission\Exceptions\UnauthorizedException;
+use Spatie\Permission\Middleware\PermissionMiddleware;
+use Spatie\Permission\Middleware\RoleMiddleware;
+use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 
 $app = Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,40 +32,40 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
 
         $middleware->alias([
-            'redirect.by.role' => \App\Http\Middleware\RedirectRole::class,
-            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
-            'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
-            'dev.auditar' => \App\Http\Middleware\AuditarPainelDev::class,
+            'redirect.by.role' => RedirectRole::class,
+            'role' => RoleMiddleware::class,
+            'permission' => PermissionMiddleware::class,
+            'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'dev.auditar' => AuditarPainelDev::class,
         ]);
-        $middleware->web(append:
-        [
-            \App\Http\Middleware\HandleInertiaRequests::class,
-            \App\Http\Middleware\VerificarFuncionalidadeActiva::class,
-            \App\Http\Middleware\VerificarHorarioFuncionamento::class,
-            \App\Http\Middleware\RegistarAcesso::class,
+        $middleware->web(append: [
+            HandleInertiaRequests::class,
+            VerificarFuncionalidadeActiva::class,
+            VerificarHorarioFuncionamento::class,
+            RegistarAcesso::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Complementa o canal de log por omissão (não o substitui) com uma
         // linha consultável na interface pelo Desenvolvedor — nunca deixa
         // uma falha ao gravar esconder a excepção original.
-        $exceptions->report(function (\Throwable $e) {
+        $exceptions->report(function (Throwable $e) {
             try {
                 $request = request();
 
-                \App\Models\ErroSistema::create([
+                ErroSistema::create([
                     'mensagem' => $e->getMessage() ?: $e::class,
                     'excepcao' => $e::class,
                     'ficheiro' => $e->getFile(),
                     'linha' => $e->getLine(),
-                    'url' => $request?->fullUrl(),
+                    // Evita persistir valores de filtros ou tokens na query.
+                    'url' => $request?->url(),
                     'metodo' => $request?->method(),
                     'user_id' => $request?->user()?->id,
                     'trace' => substr($e->getTraceAsString(), 0, 4000),
                     'created_at' => now(),
                 ]);
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // Nunca deixar a gravação do erro causar outro erro.
             }
         });
@@ -61,12 +75,12 @@ $app = Application::configure(basePath: dirname(__DIR__))
         // autenticado, explica que não tem acesso; sem sessão, manda para o
         // login (nunca deveria acontecer aqui, já que `auth` corre primeiro,
         // mas serve de rede de segurança).
-        $exceptions->render(function (\Spatie\Permission\Exceptions\UnauthorizedException|\Illuminate\Auth\Access\AuthorizationException $e, \Illuminate\Http\Request $request) {
+        $exceptions->render(function (UnauthorizedException|AuthorizationException $e, Request $request) {
             if (! $request->user()) {
                 return redirect()->guest(route('login'));
             }
 
-            return \Inertia\Inertia::render('AcessoBloqueado', ['motivo' => 'permissao'])
+            return Inertia::render('AcessoBloqueado', ['motivo' => 'permissao'])
                 ->toResponse($request)
                 ->setStatusCode(403);
         });

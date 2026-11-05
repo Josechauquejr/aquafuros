@@ -10,6 +10,7 @@ import Textarea from "@/Components/Textarea";
 import StatusBadge from "@/Components/StatusBadge";
 import { formatMoney, formatVolume } from "@/lib/utils";
 import { previewPost } from "@/lib/previewPost";
+import { mesReferenciaActual } from "@/lib/mesReferencia";
 
 const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -33,8 +34,8 @@ function formatPeriodo(item) {
 export default function Estimadas({ estimativas, acertos, clientes }) {
     const { auth, flash } = usePage().props;
     const podeAprovar = auth.roles?.some((papel) => ["administrador", "gestor"].includes(papel));
-    const agora = new Date();
-    const form = useForm({ cliente_id: "", mes: agora.getMonth() + 1, ano: agora.getFullYear(), consumo_m3: "", motivo: "" });
+    const agora = mesReferenciaActual();
+    const form = useForm({ cliente_id: "", mes: agora.mes, ano: agora.ano, consumo_m3: "", motivo: "" });
     const [preview, setPreview] = useState(null);
     const [erroPreview, setErroPreview] = useState("");
 

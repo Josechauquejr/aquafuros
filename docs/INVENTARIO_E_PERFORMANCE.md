@@ -57,9 +57,9 @@ O middleware usa `DB::enableQueryLog()` em cada pedido autenticado, soma os temp
 
 ### Cobertura verificada
 
-- `php artisan route:list --json`: 176 rotas e 48 controllers concretos (49 ficheiros contando a classe base `Controller.php`); todos os controllers concretos têm pelo menos uma acção registada directamente numa rota.
+- `php artisan route:list --json`: 175 rotas e 48 controllers concretos (49 ficheiros contando a classe base `Controller.php`); todos os controllers concretos têm pelo menos uma acção registada directamente numa rota.
 - Inertia resolve páginas com `import.meta.glob("./Pages/**/*.jsx")` em `resources/js/app.js`; o resolvedor é dinâmico. Uma busca estática por imports não é evidência suficiente para remover uma página.
-- `php artisan list --raw` confirma que os cinco comandos da aplicação estão registados: `facturas:corrigir-divida-anterior`, `emails:estado`, `notificacoes:gerar`, `leituras:primeira-anterior-zero` e `clientes:preencher-leitura-inicial-zero`.
+- `php artisan list --raw` confirma quatro comandos da aplicacao: `facturas:corrigir-divida-anterior`, `emails:estado`, `leituras:primeira-anterior-zero` e `clientes:preencher-leitura-inicial-zero`.
 - Há listeners do scheduler em `AppServiceProvider` e tarefas em `routes/console.php`; eventos/framework e agendamentos foram considerados na busca.
 - Foram encontrados 52 ficheiros de migration. Nenhum foi candidato a remoção; o histórico de migrations deve ser preservado.
 
@@ -87,3 +87,7 @@ O scan textual encontrou possíveis imports não utilizados. A lista é uma pist
 ### Conclusão
 
 P3-01 concluído como inventário, sem apagar código. Os três candidatos estáticos, os imports e as variáveis devem ser revistos numa tarefa de limpeza separada, com remoção pequena e validação de referências. P2-02 foi concluído em 25/10/2026 na cópia PostgreSQL isolada; a medição em deployment continua como acompanhamento após migration e tráfego novo.
+
+### Route count correction
+
+The earlier manual count of 176 was off by one. `php artisan route:list --json` currently lists 175 routes. Commit `527913f` added eight route declarations and removed eight, so it did not change the count. `INVENTARIO_ROTAS.md` is the current generated reference.

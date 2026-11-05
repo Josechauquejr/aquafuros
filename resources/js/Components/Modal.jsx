@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useId, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { modalTabTarget } from "@/lib/modalFocus";
 
 // Um degrau acima do tailwind habitual: os formulários eram pequenos.
 const widths = {
@@ -11,6 +12,16 @@ const widths = {
     xl: "max-w-3xl",
     "2xl": "max-w-4xl",
 };
+const FOCUSABLE_SELECTOR = 'a[href], area[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), iframe, object, embed, [contenteditable="true"], [tabindex]:not([tabindex="-1"])';
+
+function elementosFocaveis(contentor) {
+    return [...(contentor?.querySelectorAll(FOCUSABLE_SELECTOR) ?? [])].filter(
+        (elemento) => elemento.tabIndex >= 0
+            && elemento.getClientRects().length > 0
+            && window.getComputedStyle(elemento).visibility !== "hidden"
+            && !elemento.closest('[aria-hidden="true"]'),
+    );
+}
 
 export default function Modal({ show, onClose, title, description, icon: Icon, footer, contentClassName, maxWidth = "md", children }) {
     const titleId = useId();
@@ -24,35 +35,36 @@ export default function Modal({ show, onClose, title, description, icon: Icon, f
 
         const anterior = document.activeElement;
         const overflowAnterior = document.body.style.overflow;
-        if (enquadrado) {
-            document.body.style.overflow = "hidden";
-            panelRef.current?.focus();
-        }
+        document.body.style.overflow = "hidden";
+        const focavelInicial = elementosFocaveis(panelRef.current)[0];
+        (focavelInicial ?? panelRef.current)?.focus();
         const handleKeyDown = (event) => {
-            if (event.key === "Escape") fecharRef.current?.();
-            if (!enquadrado || event.key !== "Tab") return;
-            const campos = [...(panelRef.current?.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]') ?? [])]
-                .filter(elemento => elemento.getClientRects().length > 0);
+            if (event.key === "Escape") {
+                fecharRef.current?.();
+                return;
+            }
+            if (event.key !== "Tab") return;
+            const campos = elementosFocaveis(panelRef.current);
             const primeiro = campos[0];
             const ultimo = campos.at(-1);
-            if (!primeiro) {
+            const destino = panelRef.current && modalTabTarget({
+                dialog: panelRef.current,
+                active: document.activeElement,
+                first: primeiro,
+                last: ultimo,
+                backwards: event.shiftKey,
+            });
+            if (destino) {
                 event.preventDefault();
-            } else if (event.shiftKey && (document.activeElement === primeiro || document.activeElement === panelRef.current)) {
-                event.preventDefault();
-                ultimo.focus();
-            } else if (!event.shiftKey && (document.activeElement === ultimo || document.activeElement === panelRef.current)) {
-                event.preventDefault();
-                primeiro.focus();
+                destino.focus();
             }
         };
 
         document.addEventListener("keydown", handleKeyDown);
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
-            if (enquadrado) {
-                document.body.style.overflow = overflowAnterior;
-                anterior?.focus();
-            }
+            document.body.style.overflow = overflowAnterior;
+            anterior?.focus();
         };
     }, [show, enquadrado]);
 
@@ -75,7 +87,7 @@ export default function Modal({ show, onClose, title, description, icon: Icon, f
                         aria-modal="true"
                         aria-labelledby={titleId}
                         aria-describedby={description ? descriptionId : undefined}
-                        tabIndex={enquadrado ? -1 : undefined}
+                        tabIndex={-1}
                         initial={{ opacity: 0, scale: 0.96, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.97, y: 6 }}
@@ -97,7 +109,7 @@ export default function Modal({ show, onClose, title, description, icon: Icon, f
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
+                                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
                                 aria-label="Fechar"
                             >
                                 <X className="h-4 w-4" aria-hidden="true" />

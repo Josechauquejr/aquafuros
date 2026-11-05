@@ -38,9 +38,10 @@ export default function Dashboard({
 }) {
     const nomeMes = meses[mesActual.mes - 1];
     // Os cartões abrem a página com o MESMO intervalo, onde o total tem de bater certo.
-    const ultimoDia = new Date(mesActual.ano, mesActual.mes, 0).getDate();
     const mm = String(mesActual.mes).padStart(2, "0");
-    const intervalo = `periodo=personalizado&data_inicio=${mesActual.ano}-${mm}-01&data_fim=${mesActual.ano}-${mm}-${ultimoDia}`;
+    const fim = new Date(mesActual.ano, mesActual.mes, 10);
+    const dataFim = `${fim.getFullYear()}-${String(fim.getMonth() + 1).padStart(2, "0")}-${String(fim.getDate()).padStart(2, "0")}`;
+    const intervalo = `periodo=personalizado&data_inicio=${mesActual.ano}-${mm}-11&data_fim=${dataFim}`;
     const ultimos = evolucaoMensal.slice(-6);
     const totalLeituras = contadores.leiturasConfirmadas + contadores.leiturasPendentes;
 

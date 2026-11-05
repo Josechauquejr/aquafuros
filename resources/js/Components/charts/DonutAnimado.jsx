@@ -69,7 +69,7 @@ export default function DonutAnimado({
             />
 
             <div className="absolute inset-0 flex items-center justify-center">
-                <div className="relative h-[150px] w-[150px] transition-transform duration-500 ease-[cubic-bezier(0.6,0.6,0,1)] group-hover/animated-card:-translate-y-2 group-hover/animated-card:scale-105">
+                <div className="relative h-[150px] w-[150px] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.6,0.6,0,1)] group-hover/animated-card:-translate-y-2 group-hover/animated-card:scale-105">
                     <svg viewBox="0 0 100 100" className="h-full w-full" role="img" aria-label={`${titulo}: ${segmentos.map((s) => `${s.label} ${Math.round(s.fracao * 100)}%`).join(", ")}`}>
                         <circle cx="50" cy="50" r={RAIO} fill="transparent" stroke="currentColor" strokeWidth="10" opacity={0.15} className="text-zinc-500" />
                         {segmentos.map((s) => {
@@ -113,7 +113,7 @@ export default function DonutAnimado({
                     <div
                         key={s.chave}
                         style={{ "--x": `${POSICOES[i][0]}px`, "--y": `${POSICOES[i][1] - 8}px` }}
-                        className="absolute flex max-w-[130px] items-center gap-1 rounded-full border border-zinc-200 bg-white/80 px-1.5 py-0.5 opacity-0 backdrop-blur-sm transition-all duration-500 ease-[cubic-bezier(0.6,0.6,0,1)] group-hover/animated-card:opacity-100 group-hover/animated-card:[transform:translate(var(--x),var(--y))] dark:border-zinc-800 dark:bg-black/70"
+                        className="absolute flex max-w-[130px] items-center gap-1 rounded-full border border-zinc-200 bg-white/80 px-1.5 py-0.5 opacity-0 backdrop-blur-sm transition-all duration-500 [transition-timing-function:cubic-bezier(0.6,0.6,0,1)] group-hover/animated-card:opacity-100 group-hover/animated-card:[transform:translate(var(--x),var(--y))] dark:border-zinc-800 dark:bg-black/70"
                     >
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: s.cor }} />
                         <span className="truncate text-[10px] text-black dark:text-white">

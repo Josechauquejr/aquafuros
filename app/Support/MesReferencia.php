@@ -20,7 +20,7 @@ class MesReferencia
 
     public static function resolver(Request $request): Carbon
     {
-        $actual = Carbon::now()->startOfMonth();
+        $actual = self::actual();
         $pedido = $request->query('mes');
 
         if (! is_string($pedido) || ! preg_match('/^(\d{4})-(0[1-9]|1[0-2])$/', $pedido)) {
@@ -53,7 +53,7 @@ class MesReferencia
      */
     public static function paraSeletor(Carbon $mes, int $quantos = 24): array
     {
-        $actual = Carbon::now()->startOfMonth();
+        $actual = self::actual();
 
         return [
             'valor' => $mes->format('Y-m'),
@@ -69,5 +69,20 @@ class MesReferencia
     public static function rotulo(Carbon $mes): string
     {
         return self::MESES[$mes->month - 1].' '.$mes->year;
+    }
+
+    public static function actual(?Carbon $data = null): Carbon
+    {
+        $data = $data?->copy() ?? Carbon::now();
+
+        return ($data->day < 11 ? $data->subMonthNoOverflow() : $data)->startOfMonth();
+    }
+
+    /** @return array{0: Carbon, 1: Carbon} */
+    public static function intervalo(Carbon $mes): array
+    {
+        $inicio = $mes->copy()->startOfMonth()->day(11)->startOfDay();
+
+        return [$inicio, $inicio->copy()->addMonthNoOverflow()->day(10)->endOfDay()];
     }
 }

@@ -16,4 +16,24 @@ export default defineConfig({
             '@': path.resolve('resources/js'),
         },
     },
+    build: {
+        rolldownOptions: {
+            output: {
+                codeSplitting: {
+                    groups: [
+                        {
+                            name: "react-vendor",
+                            test: /node_modules[\\/](react|react-dom|scheduler|@inertiajs[\\/]react)[\\/]/,
+                            priority: 2,
+                        },
+                        {
+                            name: "motion-vendor",
+                            test: /node_modules[\\/]motion[\\/]/,
+                            priority: 1,
+                        },
+                    ],
+                },
+            },
+        },
+    },
 });

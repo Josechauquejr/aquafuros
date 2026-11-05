@@ -3,13 +3,13 @@
 namespace App\Support;
 
 use App\Models\Cliente;
-use Spatie\Activitylog\Models\Activity;
 use App\Models\Factura;
 use App\Models\Leitura;
 use App\Models\Pagamento;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\Models\Activity;
 
 /**
  * Análise de um mês para a página de KPIs. Os números base (facturado,
@@ -30,7 +30,7 @@ class AnaliseMensal
         return [
             ...$resumo,
             'consumoM3' => ResumoMensal::leituras($mes->month, $mes->year)['consumoM3'],
-            'clientesNovos' => Cliente::whereBetween('data_adesao', [$mes->copy()->startOfMonth(), $mes->copy()->endOfMonth()])->count(),
+            'clientesNovos' => Cliente::whereBetween('data_adesao', MesReferencia::intervalo($mes))->count(),
         ];
     }
 
@@ -52,8 +52,7 @@ class AnaliseMensal
      */
     public static function cobranca(Carbon $mes, array $base): array
     {
-        $inicio = $mes->copy()->startOfMonth();
-        $fim = $mes->copy()->endOfMonth();
+        [$inicio, $fim] = MesReferencia::intervalo($mes);
 
         // Acumulado até ao fim do mês: tudo o que foi facturado vs. tudo o que foi recebido.
         $facturadoAcumulado = (float) Factura::where('created_at', '<=', $fim)->where('estado', '!=', 'anulada')->sum(DB::raw(Factura::SQL_VALOR_PROPRIO));
@@ -228,7 +227,7 @@ class AnaliseMensal
 
         // Movimentos do mês, lidos do registo de actividade (mudanças de estado do cliente).
         $mudancas = Activity::where('log_name', 'cliente')->where('event', 'updated')
-            ->whereBetween('created_at', [$mes->copy()->startOfMonth(), $mes->copy()->endOfMonth()])->get()
+            ->whereBetween('created_at', MesReferencia::intervalo($mes))->get()
             ->filter(fn ($a) => isset($a->properties['attributes']['estado']));
         $para = fn (string $estado) => $mudancas->filter(fn ($a) => $a->properties['attributes']['estado'] === $estado);
         $cortadosNoMes = $para('cortado')->count();
@@ -255,8 +254,7 @@ class AnaliseMensal
     /** Facturação: ticket médio, peso da multa e da taxa de ligação, anulações. */
     public static function facturacao(Carbon $mes, array $base): array
     {
-        $inicio = $mes->copy()->startOfMonth();
-        $fim = $mes->copy()->endOfMonth();
+        [$inicio, $fim] = MesReferencia::intervalo($mes);
 
         $emitidas = Factura::whereBetween('created_at', [$inicio, $fim])->where('estado', '!=', 'anulada')->get(['total_pagar', 'divida_anterior', 'divida_anterior_incluida', 'multa', 'tipo']);
         $facturado = (float) $emitidas->sum(fn ($f) => $f->valorProprio());

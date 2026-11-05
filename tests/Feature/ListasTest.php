@@ -8,6 +8,7 @@ use App\Models\Leitura;
 use App\Models\Pagamento;
 use App\Models\Tarifa;
 use App\Models\User;
+use App\Support\MesReferencia;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -329,13 +330,13 @@ class ListasTest extends TestCase
     public function test_paineis_mostram_o_mes_pedido_e_ignoram_meses_invalidos_ou_futuros(): void
     {
         $ana = $this->cliente('Ana');
-        $mesPassado = now()->startOfMonth()->subMonth();
+        $mesPassado = MesReferencia::actual()->subMonthNoOverflow();
         $passada = Factura::create([
             'numero_factura' => 'F-P', 'cliente_id' => $ana->id, 'mes' => $mesPassado->month, 'ano' => $mesPassado->year,
             'total_pagar' => 500, 'estado' => 'pendente',
         ]);
         // facturado = emitido nesse mês
-        $passada->forceFill(['created_at' => $mesPassado->copy()->addDays(3)])->saveQuietly();
+        $passada->forceFill(['created_at' => $mesPassado->copy()->addDays(10)])->saveQuietly();
 
         $this->actingAs($this->admin)->get('/admin/dashboard?mes='.$mesPassado->format('Y-m'))
             ->assertInertia(fn (Assert $page) => $page
@@ -361,6 +362,40 @@ class ListasTest extends TestCase
         $tecnico->assignRole('tecnico');
         $this->actingAs($tecnico)->get('/tecnico/dashboard?mes='.$mesPassado->format('Y-m'))
             ->assertInertia(fn (Assert $page) => $page->where('mesReferencia.valor', $mesPassado->format('Y-m')));
+    }
+
+    public function test_ciclo_mensal_muda_no_dia_11_e_filtro_cobre_do_dia_11_ao_dia_10(): void
+    {
+        $ana = $this->cliente('Ana');
+        foreach ([
+            ['REC-ANTES', '2026-10-10 12:00:00'],
+            ['REC-INICIO', '2026-10-11 00:00:00'],
+            ['REC-FECHO', '2026-11-10 23:59:59'],
+            ['REC-NOVO', '2026-11-11 00:00:00'],
+        ] as [$recibo, $data]) {
+            $pagamento = $this->pagamento($ana, $recibo, 100);
+            $pagamento->forceFill(['pago_em' => $data])->saveQuietly();
+        }
+
+        $this->travelTo('2026-11-10 23:59:59');
+        $this->actingAs($this->admin)->get('/admin/dashboard')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('mesReferencia.valor', '2026-10')
+                ->where('mesReferencia.eActual', true));
+
+        $pagamentosDoCicloAnterior = $this->actingAs($this->admin)->get('/pagamentos?periodo=mes');
+        $pagamentosDoCicloAnterior->assertInertia(fn (Assert $page) => $page
+            ->where('pagamentos.data', fn ($dados) => collect($dados)->pluck('numero_recibo')->sort()->values()->all() === ['REC-FECHO', 'REC-INICIO']));
+
+        $this->travelTo('2026-11-11 00:00:00');
+        $this->actingAs($this->admin)->get('/admin/dashboard')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('mesReferencia.valor', '2026-11')
+                ->where('mesReferencia.eActual', true));
+
+        $pagamentosDoNovoCiclo = $this->actingAs($this->admin)->get('/pagamentos?periodo=mes');
+        $pagamentosDoNovoCiclo->assertInertia(fn (Assert $page) => $page
+            ->where('pagamentos.data', fn ($dados) => collect($dados)->pluck('numero_recibo')->all() === ['REC-NOVO']));
     }
 
     public function test_painel_do_admin_tem_facturas_vencidas_e_ja_nao_tem_ticket_medio(): void

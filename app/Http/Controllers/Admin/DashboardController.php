@@ -10,8 +10,8 @@ use App\Models\Pagamento;
 use App\Models\User;
 use App\Support\Alertas;
 use App\Support\AnaliseFinanceira;
-use App\Support\AnaliseOperacional;
 use App\Support\AnaliseMensal;
+use App\Support\AnaliseOperacional;
 use App\Support\AnaliseRisco;
 use App\Support\MesReferencia;
 use App\Support\ResumoMensal;
@@ -154,15 +154,15 @@ class DashboardController extends Controller
 
             $ct = $d['controlo'];
             if ($ct) {
-            $secao('CONTROLO', ['Indicador', 'Valor'], [
-                ['Facturas anuladas com pagamentos (histórico)', $ct['anuladasComPagamentos']['total']],
-                ['Pagamentos electrónicos sem referência', $ct['electronicosSemReferencia']['quantidade']],
-                ['Dias com pagamentos e caixa por fechar', $ct['caixasSemFecho']['total']],
-            ]);
-            $secao('ANULAÇÕES POR UTILIZADOR', ['Utilizador', 'Facturas', 'Valor (MZN)'],
-                array_map(fn ($l) => [$l['utilizador'], $l['quantidade'], $l['valor']], $ct['anulacoes']));
-            $secao('ESTORNOS POR UTILIZADOR', ['Utilizador', 'Pagamentos', 'Valor (MZN)'],
-                array_map(fn ($l) => [$l['utilizador'], $l['quantidade'], $l['valor']], $ct['estornos']));
+                $secao('CONTROLO', ['Indicador', 'Valor'], [
+                    ['Facturas anuladas com pagamentos (histórico)', $ct['anuladasComPagamentos']['total']],
+                    ['Pagamentos electrónicos sem referência', $ct['electronicosSemReferencia']['quantidade']],
+                    ['Dias com pagamentos e caixa por fechar', $ct['caixasSemFecho']['total']],
+                ]);
+                $secao('ANULAÇÕES POR UTILIZADOR', ['Utilizador', 'Facturas', 'Valor (MZN)'],
+                    array_map(fn ($l) => [$l['utilizador'], $l['quantidade'], $l['valor']], $ct['anulacoes']));
+                $secao('ESTORNOS POR UTILIZADOR', ['Utilizador', 'Pagamentos', 'Valor (MZN)'],
+                    array_map(fn ($l) => [$l['utilizador'], $l['quantidade'], $l['valor']], $ct['estornos']));
             }
 
             $pe = $d['perdas'];
@@ -197,8 +197,7 @@ class DashboardController extends Controller
     private function dadosKpis(Carbon $mesRef, bool $incluirControlo = true): array
     {
         $mesRef = $mesRef->copy()->startOfMonth();
-        $inicio = $mesRef->copy();
-        $fim = $mesRef->copy()->endOfMonth();
+        [$inicio, $fim] = MesReferencia::intervalo($mesRef);
 
         $mes = AnaliseMensal::base($mesRef);
         $anterior = AnaliseMensal::base($mesRef->copy()->subMonthNoOverflow());
@@ -373,9 +372,10 @@ class DashboardController extends Controller
             ->values();
 
         return $periodos->map(function (Carbon $periodo) {
+            [$inicio, $fim] = MesReferencia::intervalo($periodo);
             $consumo = (float) Leitura::whereBetween(
                 'created_at',
-                [$periodo->copy()->startOfMonth(), $periodo->copy()->endOfMonth()],
+                [$inicio, $fim],
             )
                 ->get()
                 ->sum(fn ($l) => $l->consumo());
@@ -397,7 +397,7 @@ class DashboardController extends Controller
     private function facturasVencidas(): array
     {
         $facturas = Factura::whereIn('estado', ['pendente', 'parcial'])
-            ->where('data_vencimento', '<', now())
+            ->where('data_vencimento', '<', now()->toDateString())
             ->withSum('pagamentos', 'valor_pago')
             ->get(['id', 'total_pagar']);
 

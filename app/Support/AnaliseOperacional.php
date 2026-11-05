@@ -67,8 +67,7 @@ class AnaliseOperacional
     /** Resultado do mês por zona: clientes, facturado, recebido, consumo, dívida em atraso e ocorrências abertas. */
     public static function porZona(Carbon $mes): array
     {
-        $inicio = $mes->copy()->startOfMonth();
-        $fim = $mes->copy()->endOfMonth();
+        [$inicio, $fim] = MesReferencia::intervalo($mes);
         $nomes = Zona::orderBy('nome')->pluck('nome', 'id');
         $clientes = Cliente::get(['id', 'zona_id', 'estado'])->keyBy('id');
         $zonaDe = fn ($clienteId) => $clientes->get($clienteId)?->zona_id;
@@ -105,8 +104,7 @@ class AnaliseOperacional
     public static function cobranca(Carbon $mes): array
     {
         PromessaPagamento::avaliarPendentes();
-        $inicio = $mes->copy()->startOfMonth();
-        $fim = $mes->copy()->endOfMonth();
+        [$inicio, $fim] = MesReferencia::intervalo($mes);
 
         $contactos = ContactoCobranca::whereBetween('created_at', [$inicio, $fim])->get();
         $promessas = PromessaPagamento::whereBetween('created_at', [$inicio, $fim])->get();
@@ -132,8 +130,7 @@ class AnaliseOperacional
     /** Ocorrências: abertas, tempos de resposta e onde acontecem. */
     public static function ocorrencias(Carbon $mes): array
     {
-        $inicio = $mes->copy()->startOfMonth();
-        $fim = $mes->copy()->endOfMonth();
+        [$inicio, $fim] = MesReferencia::intervalo($mes);
 
         $doMes = Ocorrencia::whereBetween('reportada_em', [$inicio, $fim])->with('zona')->get();
         $resolvidas = $doMes->where('estado', 'resolvida')->filter(fn ($o) => $o->resolvida_em);
@@ -155,8 +152,7 @@ class AnaliseOperacional
     /** Crédito de clientes (passivo: dinheiro recebido por conta de facturas futuras) e mensagens. */
     public static function credito(Carbon $mes): array
     {
-        $inicio = $mes->copy()->startOfMonth();
-        $fim = $mes->copy()->endOfMonth();
+        [$inicio, $fim] = MesReferencia::intervalo($mes);
 
         $saldos = Credito::selectRaw('cliente_id, sum(valor) as saldo')->groupBy('cliente_id')->get()->filter(fn ($s) => (float) $s->saldo > 0.004);
 
@@ -172,7 +168,7 @@ class AnaliseOperacional
     {
         return [
             'pendentes' => Notificacao::where('estado', 'pendente')->count(),
-            'enviadasMes' => Notificacao::where('estado', 'enviada')->whereBetween('enviada_em', [$mes->copy()->startOfMonth(), $mes->copy()->endOfMonth()])->count(),
+            'enviadasMes' => Notificacao::where('estado', 'enviada')->whereBetween('enviada_em', MesReferencia::intervalo($mes))->count(),
             'falhadas' => Notificacao::where('estado', 'falhou')->count(),
         ];
     }

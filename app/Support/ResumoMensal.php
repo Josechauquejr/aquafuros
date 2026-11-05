@@ -25,7 +25,7 @@ class ResumoMensal
     {
         $inicio = Carbon::create($ano, $mes, 1)->startOfMonth();
 
-        return [$inicio, $inicio->copy()->endOfMonth()];
+        return MesReferencia::intervalo($inicio);
     }
 
     /**
@@ -53,7 +53,7 @@ class ResumoMensal
             'emAberto' => round((float) $abertas->sum($falta), 2),
             'pendentesCount' => $emitidas->where('estado', 'pendente')->count(),
             'parciaisCount' => $emitidas->where('estado', 'parcial')->count(),
-            'vencidasCount' => $abertas->filter(fn ($f) => $f->data_vencimento?->isPast())->count(),
+            'vencidasCount' => $abertas->filter(fn ($f) => $f->esta_vencida)->count(),
         ];
     }
 
@@ -107,8 +107,7 @@ class ResumoMensal
      */
     public static function calcular(int $mes, int $ano): array
     {
-        $inicio = Carbon::create($ano, $mes, 1)->startOfMonth();
-        $fim = $inicio->copy()->endOfMonth();
+        [$inicio, $fim] = self::intervalo($mes, $ano);
 
         $facturas = Factura::whereBetween('created_at', [$inicio, $fim])->where('estado', '!=', 'anulada');
         $pagamentos = Pagamento::whereBetween('pago_em', [$inicio, $fim]);
@@ -148,8 +147,7 @@ class ResumoMensal
         $pagamentoBindings = [];
 
         foreach ($periodos as $i => $periodo) {
-            $inicio = $periodo->copy()->startOfMonth();
-            $fim = $periodo->copy()->endOfMonth();
+            [$inicio, $fim] = MesReferencia::intervalo($periodo);
             $facturaSelects[] = 'COALESCE(SUM(CASE WHEN created_at BETWEEN ? AND ? THEN '.Factura::SQL_VALOR_PROPRIO.' ELSE 0 END), 0) AS facturado_'.$i;
             $facturaSelects[] = 'COUNT(CASE WHEN created_at BETWEEN ? AND ? THEN 1 END) AS facturas_'.$i;
             array_push($facturaBindings, $inicio, $fim, $inicio, $fim);
@@ -158,8 +156,8 @@ class ResumoMensal
             array_push($pagamentoBindings, $inicio, $fim, $inicio, $fim);
         }
 
-        $inicioGeral = $periodos->first()->copy()->startOfMonth();
-        $fimGeral = $periodos->last()->copy()->endOfMonth();
+        [$inicioGeral] = MesReferencia::intervalo($periodos->first());
+        [, $fimGeral] = MesReferencia::intervalo($periodos->last());
         $facturas = Factura::whereBetween('created_at', [$inicioGeral, $fimGeral])
             ->where('estado', '!=', 'anulada')
             ->selectRaw(implode(', ', $facturaSelects), $facturaBindings)

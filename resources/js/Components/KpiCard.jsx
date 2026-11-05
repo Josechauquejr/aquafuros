@@ -1,10 +1,12 @@
 import { Link } from "@inertiajs/react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { motion } from "motion/react";
+import { lazy, Suspense } from "react";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import { AnimatedCard, CardBody, CardDescription, CardTitle, CardVisual } from "@/Components/ui/animated-card";
-import GraficoKpi from "@/Components/charts/GraficoKpi";
 import { cn } from "@/lib/utils";
+
+const GraficoKpi = lazy(() => import("@/Components/charts/GraficoKpi"));
 
 const toneClasses = {
     cyan: "bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300",
@@ -40,7 +42,9 @@ export default function KpiCard({ label, value, detail, icon: Icon, tone = "cyan
             <AnimatedCard className="h-full w-full">
                 <CardVisual className="relative flex h-[120px] w-full items-center justify-center bg-gradient-to-b from-transparent to-black/[0.03] dark:to-white/[0.03]">
                     <div className="w-full px-3">
-                        <GraficoKpi grafico={grafico} cor={coresGrafico[tone] ?? coresGrafico.cyan} altura={120} rotulo={label} formatar={grafico.formatar} />
+                        <Suspense fallback={<div className="h-[120px] w-full" aria-hidden="true" />}>
+                            <GraficoKpi grafico={grafico} cor={coresGrafico[tone] ?? coresGrafico.cyan} altura={120} rotulo={label} formatar={grafico.formatar} />
+                        </Suspense>
                     </div>
                     {Icon && (
                         <div

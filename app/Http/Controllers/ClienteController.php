@@ -2,18 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Cliente;
 use App\Models\AjusteLeitura;
+use App\Models\Cliente;
 use App\Models\Configuracao;
-use App\Models\Zona;
 use App\Models\Factura;
 use App\Models\Tarifa;
-use App\Services\SequenciaLeituras;
+use App\Models\Zona;
 use App\Rules\TelefoneMocambicano;
+use App\Services\SequenciaLeituras;
 use App\Support\BuscaDifusa;
 use App\Support\ListaQuery;
-use App\Support\Telefone;
+use App\Support\MesReferencia;
 use App\Support\NumeracaoDocumentos;
+use App\Support\Telefone;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -96,7 +97,7 @@ class ClienteController extends Controller
 
             $cliente->saldo_em_aberto = round($emAberto->sum($saldoDe), 2);
             $cliente->divida_em_atraso = round(
-                $emAberto->filter(fn ($f) => $f->data_vencimento?->isPast())->sum($saldoDe),
+                $emAberto->filter(fn ($f) => $f->esta_vencida)->sum($saldoDe),
                 2,
             );
 
@@ -260,18 +261,19 @@ class ClienteController extends Controller
 
         $facturaLigacao = null;
         $taxaLigacao = Configuracao::valor('taxa_ligacao_nova', 3250.00);
+        $mesReferencia = MesReferencia::actual();
 
-        DB::transaction(function () use ($data, $novoContrato, $taxaLigacao, &$facturaLigacao, $request) {
+        DB::transaction(function () use ($data, $novoContrato, $taxaLigacao, $mesReferencia, &$facturaLigacao, $request) {
             $cliente = Cliente::create($data);
 
             if ($novoContrato) {
                 $facturaLigacao = Factura::create([
-                    'numero_factura' => $this->proximoNumeroFactura(now()->year, now()->month),
+                    'numero_factura' => $this->proximoNumeroFactura($mesReferencia->year, $mesReferencia->month),
                     'cliente_id' => $cliente->id,
                     'leitura_id' => null,
                     'tipo' => 'ligacao',
-                    'mes' => now()->month,
-                    'ano' => now()->year,
+                    'mes' => $mesReferencia->month,
+                    'ano' => $mesReferencia->year,
                     'valor_consumo' => 0,
                     'divida_anterior' => 0,
                     'divida_anterior_incluida' => false,
@@ -350,6 +352,7 @@ class ClienteController extends Controller
     {
         abort_unless($request->user()->hasRole('administrador'), 403);
         $data = $request->validate(['leitura_inicial' => 'required|numeric|min:0|max:99999999']);
+
         return response()->json(app(SequenciaLeituras::class)->planoLeituraInicial($cliente, (float) $data['leitura_inicial']));
     }
 
@@ -428,7 +431,7 @@ class ClienteController extends Controller
             'resumo' => [
                 // Facturas anuladas não contam nas estatísticas de valores.
                 'numeroFacturas' => $cliente->facturas()->where('estado', '!=', 'anulada')->count(),
-                'totalFacturado' => (float) $cliente->facturas()->where('estado', '!=', 'anulada')->sum(\Illuminate\Support\Facades\DB::raw(\App\Models\Factura::SQL_VALOR_PROPRIO)),
+                'totalFacturado' => (float) $cliente->facturas()->where('estado', '!=', 'anulada')->sum(DB::raw(Factura::SQL_VALOR_PROPRIO)),
                 'numeroPagamentos' => $cliente->pagamentos()->count(),
                 'totalPago' => (float) $cliente->pagamentos()->sum('valor_pago'),
             ],

@@ -214,10 +214,11 @@ export default function Configuracoes({ funcionalidades, horario, empresa }) {
                                     variants={itemVariants}
                                     className="flex items-center justify-between gap-3 px-6 py-4"
                                 >
-                                    <p className="font-medium text-slate-900 dark:text-white">{funcionalidade.nome}</p>
+                                    <p id={`funcionalidade-${funcionalidade.id}`} className="font-medium text-slate-900 dark:text-white">{funcionalidade.nome}</p>
                                     <button
                                         type="button"
                                         role="switch"
+                                        aria-labelledby={`funcionalidade-${funcionalidade.id}`}
                                         aria-checked={funcionalidade.activa}
                                         onClick={() => alternarFuncionalidade(funcionalidade)}
                                         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${

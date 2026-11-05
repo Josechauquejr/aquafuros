@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Factura;
-use App\Models\EmpresaPerfil;
-use App\Models\Leitura;
-use App\Services\BillingService;
-use App\Support\NumeracaoDocumentos;
+use App\Models\AcertoLeitura;
 use App\Models\Cliente;
-use App\Models\Configuracao;
+use App\Models\EmpresaPerfil;
+use App\Models\Factura;
+use App\Models\Leitura;
+use App\Models\LeituraEstimada;
+use App\Services\BillingService;
 use App\Support\BuscaDifusa;
 use App\Support\Facturacao;
 use App\Support\FacturaPdf;
@@ -211,7 +211,7 @@ class FacturaController extends Controller
         }
 
         if ($estado === 'vencida') {
-            $query->whereIn('facturas.estado', ['pendente', 'parcial'])->where('facturas.data_vencimento', '<', now());
+            $query->whereIn('facturas.estado', ['pendente', 'parcial'])->where('facturas.data_vencimento', '<', now()->toDateString());
         } elseif ($estado !== 'todos') {
             $query->where('facturas.estado', $estado);
         } else {
@@ -225,7 +225,7 @@ class FacturaController extends Controller
         if (is_string($mesAno) && preg_match('#^(\d{1,2})/(\d{4})$#', $mesAno, $m) && checkdate((int) $m[1], 1, (int) $m[2])) {
             // mês de emissão — o mesmo critério do resumo mensal e dos painéis
             $inicioMes = Carbon::create((int) $m[2], (int) $m[1], 1)->startOfMonth();
-            $query->whereBetween('facturas.created_at', [$inicioMes, $inicioMes->copy()->endOfMonth()]);
+            $query->whereBetween('facturas.created_at', MesReferencia::intervalo($inicioMes));
         } else {
             $mesAno = null;
         }
@@ -386,6 +386,7 @@ class FacturaController extends Controller
 
         return redirect()->route('facturas.index')->with('status', 'Factura actualizada com sucesso.');
     }
+
     /** Facturas de consumo ainda sem leitura podem ser corrigidas antes do primeiro registo de leitura. */
     private function podeEditarFacturaInicial(Factura $factura): bool
     {
@@ -419,7 +420,7 @@ class FacturaController extends Controller
 
             $facturaBloqueada = Factura::whereKey($factura->id)->lockForUpdate()->firstOrFail();
 
-            if ($leitura && \App\Models\AcertoLeitura::where('cliente_id', $facturaBloqueada->cliente_id)
+            if ($leitura && AcertoLeitura::where('cliente_id', $facturaBloqueada->cliente_id)
                 ->whereHas('leituraReal', fn ($q) => $q->where(fn ($q) => $q->where('ano', '>', $leitura->ano)
                     ->orWhere(fn ($q) => $q->where('ano', $leitura->ano)->where('mes', '>=', $leitura->mes))))
                 ->exists()) {
@@ -442,7 +443,7 @@ class FacturaController extends Controller
             ]);
 
             if ($facturaBloqueada->leitura_estimada_id) {
-                \App\Models\LeituraEstimada::whereKey($facturaBloqueada->leitura_estimada_id)
+                LeituraEstimada::whereKey($facturaBloqueada->leitura_estimada_id)
                     ->where('estado', 'facturada')->update(['estado' => 'factura_anulada']);
             }
 
@@ -465,6 +466,7 @@ class FacturaController extends Controller
 
         return redirect()->route('facturas.index')->with('status', 'Factura anulada com sucesso. A leitura associada também foi anulada.');
     }
+
     /** A factura em PDF, aberta no browser. */
     public function pdf(Factura $factura)
     {
@@ -473,6 +475,7 @@ class FacturaController extends Controller
             'Content-Disposition' => 'inline; filename="'.FacturaPdf::nomeFicheiro($factura).'"',
         ]);
     }
+
     /**
      * Vista de impressão da factura, com os dados da leitura actual e
      * anterior. Se for a primeira leitura do cliente, assinala-se para o

@@ -58,7 +58,7 @@ class ListaQuery
         if ($colunaMesAno) {
             $query->where($colunaMesAno[0], $mes->month)->where($colunaMesAno[1], $mes->year);
         } else {
-            $query->whereBetween($coluna, [$mes->copy()->startOfMonth(), $mes->copy()->endOfMonth()]);
+            $query->whereBetween($coluna, MesReferencia::intervalo($mes));
         }
 
         return ['periodo' => 'todos', 'data_inicio' => null, 'data_fim' => null];

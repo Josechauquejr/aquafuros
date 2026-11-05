@@ -237,7 +237,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
                     </Campos>
                     <MaisDetalhes>
                         <Campos>
-                            <Campo rotulo="URL completo" largo>{acesso.url}</Campo>
+                            <Campo rotulo="Rota do pedido (sem parâmetros)" largo>{acesso.url}</Campo>
                             <Campo rotulo="Dispositivo" largo>{acesso.user_agent}</Campo>
                         </Campos>
                     </MaisDetalhes>

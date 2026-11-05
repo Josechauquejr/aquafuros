@@ -339,11 +339,21 @@ export default function AppShell({ groups, casa, chaveRecolhido, header, childre
 
     return (
         <SidebarProvider open={aberta} onOpenChange={alterar}>
+            <a
+                href="#conteudo-principal"
+                className="fixed left-4 top-[-4rem] z-[100] rounded-md bg-cyan-800 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-[top] focus:top-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+            >
+                Saltar para o conteúdo principal
+            </a>
             <FlashToasts />
             <NovidadesModal />
             <MenuLateral groups={groups} casa={casa} empresa={empresa} chave={chaveRecolhido} />
 
-            <SidebarInset className="min-w-0 bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
+            <SidebarInset
+                id="conteudo-principal"
+                tabIndex={-1}
+                className="min-w-0 bg-slate-50 text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-600 dark:bg-slate-950 dark:text-slate-100"
+            >
                 <div className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/85 sm:px-6">
                     <div className="flex min-w-0 items-center gap-3">
                         <SidebarTrigger className="size-9 shrink-0" aria-label="Alternar menu lateral" />

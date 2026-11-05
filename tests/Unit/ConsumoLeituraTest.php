@@ -20,7 +20,8 @@ class ConsumoLeituraTest extends TestCase
             $this->assertSame($esperado, $leitura->consumo());
 
             $expresso = Leitura::expressaoConsumoSql('actual', 'anterior');
-            $resultadoSql = DB::query()->fromRaw('(SELECT ?::numeric AS actual, ?::numeric AS anterior) AS leitura', [$actual, $anterior])
+            $cast = DB::connection()->getDriverName() === 'pgsql' ? '?::numeric' : 'CAST(? AS NUMERIC)';
+            $resultadoSql = DB::query()->fromRaw("(SELECT {$cast} AS actual, {$cast} AS anterior) AS leitura", [$actual, $anterior])
                 ->selectRaw("{$expresso} AS consumo")
                 ->value('consumo');
 

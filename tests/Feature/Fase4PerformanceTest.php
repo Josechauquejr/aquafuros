@@ -93,6 +93,23 @@ class Fase4PerformanceTest extends TestCase
         $this->assertGreaterThan(0, $acesso->consultas);
     }
 
+    public function test_registo_de_acesso_nao_persiste_valores_da_query_string(): void
+    {
+        $this->seed(RoleSeeder::class);
+        $utilizador = User::factory()->create();
+        $utilizador->assignRole('administrador');
+
+        $this->actingAs($utilizador)
+            ->get('/profile?search=customer-secret-value')
+            ->assertOk();
+
+        $acesso = AcessoSistema::where('user_id', $utilizador->id)->latest('id')->firstOrFail();
+
+        $this->assertStringEndsWith('/profile', $acesso->url);
+        $this->assertStringNotContainsString('customer-secret-value', $acesso->url);
+        $this->assertNull(parse_url($acesso->url, PHP_URL_QUERY));
+    }
+
     private function cliente(): Cliente
     {
         $tarifa = Tarifa::create(['nome' => 'Doméstica']);

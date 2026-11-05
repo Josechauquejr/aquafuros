@@ -97,7 +97,7 @@ function Indices({ dados }) {
                                 <td className="px-4 py-3 font-mono text-xs text-slate-900 dark:text-white">{s.tabela}.{s.coluna}</td>
                                 <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">{s.motivo}{s.nota && <span className="block text-slate-400">{s.nota}</span>}</td>
                                 <td className="px-4 py-3 text-right tabular-nums">{s.registos}</td>
-                                <td className="px-4 py-3"><button type="button" title="Copiar" onClick={() => navigator.clipboard?.writeText(s.sql)} className="flex items-center gap-2 text-left font-mono text-xs text-slate-700 hover:text-cyan-700 dark:text-slate-300"><Copy className="h-3 w-3 shrink-0" aria-hidden="true" />{s.sql}</button></td>
+                                <td className="px-4 py-3"><button type="button" aria-label="Copiar SQL" title="Copiar SQL" onClick={() => navigator.clipboard?.writeText(s.sql)} className="flex items-center gap-2 text-left font-mono text-xs text-slate-700 hover:text-cyan-700 dark:text-slate-300"><Copy className="h-3 w-3 shrink-0" aria-hidden="true" />{s.sql}</button></td>
                             </tr>
                         ))}
                     </tbody>

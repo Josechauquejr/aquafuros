@@ -177,6 +177,8 @@ class LeituraController extends Controller
                 'nome' => $c->nome,
                 'leitura_anterior' => (float) ($ultimas[$c->id] ?? $c->leitura_inicial ?? 0),
                 'consumo_medio' => isset($medias[$c->id]) ? round((float) $medias[$c->id], 2) : null,
+                // Primeira leitura bloqueada até haver leitura inicial do contador.
+                'sem_leitura_inicial' => ! isset($ultimas[$c->id]) && $c->leitura_inicial === null,
             ])->values();
     }
 
@@ -232,7 +234,8 @@ class LeituraController extends Controller
 
         // Primeira leitura do cliente: parte da leitura inicial do contador
         // registada no cliente (só cai para 0 em clientes antigos sem ela).
-        $leituraAnterior = $ultima->leitura_actual ?? Cliente::find($data['cliente_id'])?->leitura_inicial ?? 0;
+        // (sem nenhuma das duas, o planoInsercao acima já recusou o registo).
+        $leituraAnterior = $ultima->leitura_actual ?? $cliente->leitura_inicial;
 
         if ($data['leitura_actual'] < $leituraAnterior) {
             return back()->withErrors([

@@ -62,7 +62,10 @@ class CicloLeiturasEstimadas
     public function registar(array $dados, int $userId): LeituraEstimada
     {
         return DB::transaction(function () use ($dados, $userId) {
-            Cliente::whereKey($dados['cliente_id'])->lockForUpdate()->firstOrFail();
+            $cliente = Cliente::whereKey($dados['cliente_id'])->lockForUpdate()->firstOrFail();
+            if ($cliente->leitura_inicial === null && ! Leitura::where('cliente_id', $cliente->id)->exists()) {
+                throw ValidationException::withMessages(['cliente_id' => SequenciaLeituras::SEM_LEITURA_INICIAL]);
+            }
             $preview = $this->prever((int) $dados['cliente_id'], (int) $dados['mes'], (int) $dados['ano']);
             $manual = array_key_exists('consumo_m3', $dados) && $dados['consumo_m3'] !== null;
             if (! $preview['pode_estimar_automaticamente'] && ! $manual) {

@@ -224,6 +224,8 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
     const anularForm = useForm({ motivo_anulacao: "" });
     const corrigirForm = useForm({ leitura_actual: "", motivo: "" });
 
+    const clienteSemInicial = Boolean(clientes.find((c) => String(c.id) === String(form.data.cliente_id))?.sem_leitura_inicial);
+
     const abrirNova = () => {
         setEditando(null);
         form.reset();
@@ -610,6 +612,13 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
                                 />
                             </div>
                             <InputError message={form.errors.cliente_id} className="mt-1" />
+                            {clienteSemInicial && (
+                                <div className="mt-2">
+                                    <InlineNotice show tone="error">
+                                        Este cliente ainda não tem a leitura inicial do contador. Um administrador deve registá-la na ficha do cliente antes da primeira leitura.
+                                    </InlineNotice>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -671,7 +680,7 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
                         <SecondaryButton type="button" onClick={() => setShowModal(false)}>
                             Cancelar
                         </SecondaryButton>
-                        <PrimaryButton type="submit" disabled={form.processing || (!editando && !form.data.cliente_id)}>
+                        <PrimaryButton type="submit" disabled={form.processing || (!editando && (!form.data.cliente_id || clienteSemInicial))}>
                             {editando ? "Guardar alterações" : "Registar leitura"}
                         </PrimaryButton>
                     </div>

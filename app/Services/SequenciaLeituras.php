@@ -13,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 /** Regras para recalcular a sequência do contador sem alterar facturas pagas. */
 class SequenciaLeituras
 {
+    public const SEM_LEITURA_INICIAL = 'Este cliente ainda não tem a leitura inicial do contador. Um administrador deve registá-la na ficha do cliente antes da primeira leitura.';
+
     public function planoInsercao(Cliente $cliente, int $mes, int $ano, float $actual): array
     {
         $this->validarCicloEstimadoAberto($cliente->id, $ano, $mes);
@@ -25,7 +27,12 @@ class SequenciaLeituras
             ->where('cliente_id', $cliente->id)->orderBy('ano')->orderBy('mes')->get();
         $anterior = $leituras->filter(fn ($l) => $l->ano * 100 + $l->mes < $periodo)->last();
         $seguinte = $leituras->first(fn ($l) => $l->ano * 100 + $l->mes > $periodo);
-        $valorAnterior = (float) ($anterior?->leitura_actual ?? $cliente->leitura_inicial ?? 0);
+        // Sem leitura anterior nem leitura inicial, o consumo seria o contador
+        // inteiro (desde 0) e a primeira factura sairia enorme.
+        if (! $anterior && $cliente->leitura_inicial === null) {
+            throw ValidationException::withMessages(['leitura_actual' => self::SEM_LEITURA_INICIAL]);
+        }
+        $valorAnterior = (float) ($anterior?->leitura_actual ?? $cliente->leitura_inicial);
 
         if ($actual < $valorAnterior) {
             throw ValidationException::withMessages(['leitura_actual' => "A leitura deve ser igual ou superior ao contador anterior ({$valorAnterior})."]);

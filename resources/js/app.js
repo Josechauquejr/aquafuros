@@ -1,8 +1,9 @@
 // Fonte alojada no próprio sistema: sem pedido externo a bloquear o 1.º ecrã em ligações lentas.
-import "@fontsource/figtree/latin-400.css";
-import "@fontsource/figtree/latin-500.css";
-import "@fontsource/figtree/latin-600.css";
-import "@fontsource/figtree/latin-700.css";
+import "@fontsource/plus-jakarta-sans/latin-400.css";
+import "@fontsource/plus-jakarta-sans/latin-500.css";
+import "@fontsource/plus-jakarta-sans/latin-600.css";
+import "@fontsource/plus-jakarta-sans/latin-700.css";
+import "@fontsource/plus-jakarta-sans/latin-800.css";
 import { createInertiaApp, router } from "@inertiajs/react";
 import { MotionConfig } from "motion/react";
 import { createElement } from "react";

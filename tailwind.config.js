@@ -16,7 +16,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Rethink Sans', ...defaultTheme.fontFamily.sans],
+                sans: ['"Plus Jakarta Sans"', ...defaultTheme.fontFamily.sans],
             },
             // Tokens do shadcn (badtzUI / Animate UI), ligados à paleta
             // slate + cyan da app — ver as variáveis em resources/css/app.css.

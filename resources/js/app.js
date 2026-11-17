@@ -10,6 +10,7 @@ import { createRoot } from "react-dom/client";
 import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import { ShellAdmin } from "@/Layouts/AdminLayout";
 import { ShellDev } from "@/Layouts/DevLayout";
+import "@/lib/pwa";
 
 // Páginas das áreas autenticadas dentro da shell persistente (sidebar, barra de
 // topo e toasts ficam montados ao navegar — sem piscar). As restantes (login,

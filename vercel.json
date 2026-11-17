@@ -12,6 +12,10 @@
         { "source": "/build/(.*)", "destination": "/build/$1" },
         { "source": "/favicon.ico", "destination": "/favicon.ico" },
         { "source": "/robots.txt", "destination": "/robots.txt" },
+        { "source": "/manifest.webmanifest", "destination": "/manifest.webmanifest" },
+        { "source": "/sw.js", "destination": "/sw.js" },
+        { "source": "/offline.html", "destination": "/offline.html" },
+        { "source": "/icons/(.*)", "destination": "/icons/$1" },
         { "source": "/(.*)", "destination": "/api/index.php" }
     ]
 }

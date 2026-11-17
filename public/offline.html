@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0e7490">
+    <title>Sem ligação · Aquafuros</title>
+    <style>
+        :root { color-scheme: light dark; --fundo: #f8fafc; --texto: #0f172a; --suave: #475569; --marca: #0e7490; }
+        @media (prefers-color-scheme: dark) { :root { --fundo: #020617; --texto: #e2e8f0; --suave: #94a3b8; --marca: #06b6d4; } }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--fundo); color: var(--texto); font-family: system-ui, sans-serif; padding: 16px; box-sizing: border-box; }
+        main { max-width: 360px; text-align: center; }
+        img { width: 64px; height: 64px; border-radius: 12px; }
+        h1 { font-size: 1.25rem; margin: 20px 0 8px; }
+        p { color: var(--suave); line-height: 1.5; margin: 0 0 24px; }
+        button { background: var(--marca); color: #fff; border: 0; border-radius: 8px; padding: 12px 20px; font: inherit; font-weight: 600; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <main>
+        <img src="/icons/icon-192.png" alt="">
+        <h1>Sem ligação à internet</h1>
+        <p>O Aquafuros precisa de internet para mostrar dados actualizados. Verifique a ligação e tente de novo.</p>
+        <button type="button" onclick="location.reload()">Tentar de novo</button>
+    </main>
+    <script>window.addEventListener('online', () => location.reload());</script>
+</body>
+</html>

@@ -13,7 +13,7 @@ export default function Login() {
     const { data, setData, post, processing, errors, reset } = useForm({
         username: "",
         password: "",
-        remember: false,
+        remember: true,
     });
 
     const submit = (event) => {

@@ -1,5 +1,5 @@
 import { Link, router, useForm, usePage } from "@inertiajs/react";
-import { ChevronDown, LogOut, User } from "lucide-react";
+import { ChevronDown, Download, LogOut, User } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { createContext, useContext, useState } from "react";
 import { createPortal } from "react-dom";
@@ -22,6 +22,7 @@ import {
     useSidebar,
 } from "@/Components/animate-ui/components/radix/sidebar";
 import ApplicationLogo from "@/Components/ApplicationLogo";
+import { useInstalarApp } from "@/lib/pwa";
 import BranchedMenu from "@/Components/BranchedMenu";
 import Breadcrumbs from "@/Components/Breadcrumbs";
 import FlashToasts from "@/Components/FlashToasts";
@@ -257,6 +258,7 @@ function MenuLateral({ groups, casa, empresa, chave }) {
 function MenuConta({ nome }) {
     const [aberto, setAberto] = useState(false);
     const logout = useForm({});
+    const instalarApp = useInstalarApp();
 
     const terminarSessao = (evento) => {
         evento.preventDefault();
@@ -294,6 +296,19 @@ function MenuConta({ nome }) {
                             <User className="h-4 w-4" aria-hidden="true" />
                             Perfil
                         </Link>
+                        {instalarApp && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setAberto(false);
+                                    instalarApp();
+                                }}
+                                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                            >
+                                <Download className="h-4 w-4" aria-hidden="true" />
+                                Instalar aplicação
+                            </button>
+                        )}
                         <form onSubmit={terminarSessao}>
                             <button
                                 type="submit"

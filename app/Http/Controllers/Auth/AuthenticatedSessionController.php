@@ -27,7 +27,6 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
         $request->session()->regenerate();
-        
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
@@ -37,7 +36,10 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
-        Auth::guard('web')->logout();
+        // Só este dispositivo: o logout() normal roda o remember_token e
+        // desliga o "manter sessão" em todos os outros (ex.: o telemóvel
+        // perdia a sessão sempre que se saía no computador).
+        Auth::guard('web')->logoutCurrentDevice();
 
         $request->session()->invalidate();
 

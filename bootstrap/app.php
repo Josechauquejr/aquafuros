@@ -70,6 +70,17 @@ $app = Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        // Página aberta há muito (ou telemóvel suspenso): a sessão expirou e o
+        // token CSRF da página já não vale. Em vez do erro 419, volta à página
+        // — o cookie de "manter sessão" volta a autenticar no GET seguinte.
+        $exceptions->respond(function ($response, Throwable $e, Request $request) {
+            if ($response->getStatusCode() === 419 && ! $request->expectsJson()) {
+                return back()->with('error', 'A página tinha expirado. Foi actualizada — repita a operação.');
+            }
+
+            return $response;
+        });
+
         // Quem não tem o papel exigido por uma rota (middleware `role:`) via
         // uma página em vez do 403 em branco do Symfony — se ainda estiver
         // autenticado, explica que não tem acesso; sem sessão, manda para o

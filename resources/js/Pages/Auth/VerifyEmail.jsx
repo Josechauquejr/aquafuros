@@ -84,7 +84,7 @@ export default function VerifyEmail() {
                 <form onSubmit={submitLogout}>
                     <button
                         type="submit"
-                        className="rounded-md text-sm text-slate-500 underline hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:text-slate-400 dark:hover:text-white"
+                        className="rounded-md text-sm text-slate-500 underline hover:text-ink focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:text-slate-400 dark:hover:text-white"
                     >
                         Terminar sessão
                     </button>

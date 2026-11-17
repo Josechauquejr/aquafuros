@@ -14,7 +14,7 @@ function Seccao({ icone: Icone, titulo, descricao, children }) {
             <div className="flex items-center gap-3">
                 <span className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"><Icone className="h-5 w-5" aria-hidden="true" /></span>
                 <div>
-                    <h3 className="font-semibold text-slate-950 dark:text-white">{titulo}</h3>
+                    <h3 className="font-semibold text-ink dark:text-white">{titulo}</h3>
                     {descricao && <p className="text-sm text-slate-500 dark:text-slate-400">{descricao}</p>}
                 </div>
             </div>
@@ -36,8 +36,7 @@ export default function Operacoes({ agendamentos, caches, manutencao, ambiente }
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Operações do sistema</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Operações do sistema</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Agendamentos, cache, manutenção e ambiente. Cada acção pede a senha e fica na auditoria.</p>
                 </div>
             }
@@ -55,7 +54,7 @@ export default function Operacoes({ agendamentos, caches, manutencao, ambiente }
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {agendamentos.map((t) => (
                                         <tr key={t.nome} className="align-top">
-                                            <td className="py-3 pr-4 font-mono text-xs text-slate-900 dark:text-white">{t.nome}{t.descricao && <p className="mt-1 max-w-xs font-sans text-slate-500">{t.descricao}</p>}</td>
+                                            <td className="py-3 pr-4 font-mono text-xs text-ink dark:text-white">{t.nome}{t.descricao && <p className="mt-1 max-w-xs font-sans text-slate-500">{t.descricao}</p>}</td>
                                             <td className="py-3 pr-4 font-mono text-xs text-slate-600 dark:text-slate-300">{t.expressao}</td>
                                             <td className="py-3 pr-4 text-xs">
                                                 {t.ultima ? (<><StatusBadge tone={t.ultima.estado === "ok" ? "emerald" : "rose"}>{t.ultima.estado === "ok" ? "OK" : "Falhou"}</StatusBadge><p className="mt-1 text-slate-500">{formatDateTime(t.ultima.em)}{t.ultima.duracao_ms != null && ` · ${t.ultima.duracao_ms} ms`}</p>{t.ultima.erro && <p className="text-rose-600">{t.ultima.erro}</p>}</>) : <span className="text-slate-400">Sem registo</span>}
@@ -77,7 +76,7 @@ export default function Operacoes({ agendamentos, caches, manutencao, ambiente }
                         <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                             {caches.map((c) => (
                                 <li key={c.chave} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                                    <div className="max-w-2xl"><p className="text-sm font-semibold text-slate-900 dark:text-white">{c.rotulo}</p><p className="text-xs text-slate-500 dark:text-slate-400">{c.aviso}</p></div>
+                                    <div className="max-w-2xl"><p className="text-sm font-semibold text-ink dark:text-white">{c.rotulo}</p><p className="text-xs text-slate-500 dark:text-slate-400">{c.aviso}</p></div>
                                     <SecondaryButton type="button" onClick={() => limparCache(c)}>Limpar</SecondaryButton>
                                 </li>
                             ))}
@@ -115,7 +114,7 @@ export default function Operacoes({ agendamentos, caches, manutencao, ambiente }
                                         {itens.map((i) => (
                                             <div key={i.chave} className="flex justify-between gap-3 py-1.5 text-sm">
                                                 <dt className="font-mono text-xs text-slate-500">{i.chave}</dt>
-                                                <dd className={i.valor === "NÃO definido" ? "text-right font-medium text-rose-600" : "break-all text-right text-slate-900 dark:text-white"}>{i.valor}</dd>
+                                                <dd className={i.valor === "NÃO definido" ? "text-right font-medium text-rose-600" : "break-all text-right text-ink dark:text-white"}>{i.valor}</dd>
                                             </div>
                                         ))}
                                     </dl>

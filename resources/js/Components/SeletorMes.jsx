@@ -6,7 +6,7 @@ import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
  * seguinte, ou qualquer um dos últimos 24 na lista. O mês vai no URL
  * (?mes=AAAA-MM), por isso recarregar ou partilhar mantém a vista.
  */
-export default function SeletorMes({ rota, mesReferencia, extra = {} }) {
+export default function SeletorMes({ rota, mesReferencia, extra = {}, semVoltar = false }) {
     const { valor, opcoes, eActual } = mesReferencia;
     const indice = opcoes.findIndex((opcao) => opcao.valor === valor);
     const maisAntigo = opcoes[indice + 1];
@@ -29,10 +29,10 @@ export default function SeletorMes({ rota, mesReferencia, extra = {} }) {
         });
 
     const botao =
-        "inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800";
+        "inline-flex h-11 w-11 items-center justify-center rounded-md border border-[#DDE2EE] bg-white text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35 dark:border-slate-800 dark:bg-slate-900 dark:text-[#F2F5FB] dark:hover:bg-[#1E232D]";
 
     return (
-        <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Escolher mês" className="flex flex-wrap items-center gap-1.5">
             <button
                 type="button"
                 className={botao}
@@ -46,11 +46,11 @@ export default function SeletorMes({ rota, mesReferencia, extra = {} }) {
 
             <label className="relative">
                 <span className="sr-only">Mês</span>
-                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+                <CalendarDays className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" aria-hidden="true" />
                 <select
                     value={valor}
                     onChange={(evento) => ir(evento.target.value)}
-                    className="h-10 min-w-[11rem] rounded-md border-slate-300 bg-white pl-9 pr-8 text-base font-medium sm:text-sm text-slate-900 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    className="h-11 min-w-[150px] rounded-md border-[#DDE2EE] bg-white pl-10 pr-8 text-[15px] font-bold text-ink dark:border-slate-800 dark:bg-slate-900 dark:text-[#F2F5FB]"
                 >
                     {opcoes.map((opcao) => (
                         <option key={opcao.valor} value={opcao.valor}>
@@ -71,11 +71,11 @@ export default function SeletorMes({ rota, mesReferencia, extra = {} }) {
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </button>
 
-            {!eActual && (
+            {!eActual && !semVoltar && (
                 <button
                     type="button"
                     onClick={() => ir(opcoes[0].valor)}
-                    className="text-sm font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300"
+                    className="ml-1 text-sm font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-400"
                 >
                     Voltar ao mês actual
                 </button>

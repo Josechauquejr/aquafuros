@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { HugeiconsIcon } from '@hugeicons/react';
-import { Archive02Icon, Tick02Icon, Undo02Icon } from '@hugeicons/core-free-icons';
+import { Archive, Check, Undo2 } from 'lucide-react';
 
 const LINE = [{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }];
 const OUTLINE = [{ strokeDashoffset: 0 }, { strokeDashoffset: -1 }];
@@ -18,8 +17,8 @@ export default function FuseButton({
   doneLabel = 'Archived',
   icon,
   color = '#f5f5f5',
-  background = '#27272a',
-  fuseColor = '#f5a524',
+  background = '#2A3140',
+  fuseColor = '#B86A00',
   size = 'md',
   radius = 22,
   undoWindow = 4000,
@@ -175,7 +174,7 @@ export default function FuseButton({
     }
   };
 
-  const actionIcon = icon ?? <HugeiconsIcon icon={Archive02Icon} size={preset.icon} strokeWidth={1.8} />;
+  const actionIcon = icon ?? <Archive size={preset.icon} strokeWidth={1.8} />;
   const line = (
     <i
       ref={lineRef}
@@ -243,7 +242,7 @@ export default function FuseButton({
           className="inline-flex h-[var(--fb-icon)] w-[var(--fb-icon)] [&>svg]:h-full [&>svg]:w-full [transform:rotate(-70deg)] [transition:transform_var(--fb-fade)_var(--fb-ease-out)] group-data-[phase=armed]:[transform:rotate(0deg)] motion-reduce:transition-none motion-reduce:[transform:none]"
           aria-hidden="true"
         >
-          <HugeiconsIcon icon={Undo02Icon} size={preset.icon} strokeWidth={2} />
+          <Undo2 size={preset.icon} strokeWidth={2} />
         </span>
         {undoLabel}
         {fuse !== 'outline' ? line : null}
@@ -256,7 +255,7 @@ export default function FuseButton({
           className="inline-flex h-[var(--fb-icon)] w-[var(--fb-icon)] [&>svg]:h-full [&>svg]:w-full"
           aria-hidden="true"
         >
-          <HugeiconsIcon icon={Tick02Icon} size={preset.icon} strokeWidth={2.2} />
+          <Check size={preset.icon} strokeWidth={2.2} />
         </span>
         {doneLabel}
       </span>

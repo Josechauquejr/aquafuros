@@ -4,11 +4,11 @@ import { cn } from "@/lib/utils";
 
 const variants = {
     primary:
-        "border-transparent bg-cyan-700 text-white shadow-sm shadow-cyan-900/10 hover:bg-cyan-800 focus:ring-cyan-500 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400",
+        "border-transparent bg-brand text-white shadow-sm shadow-cyan-900/10 hover:bg-brand-hover focus:ring-cyan-500 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400",
     secondary:
         "border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
     ghost:
-        "border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-950 focus:ring-cyan-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
+        "border-transparent text-slate-600 hover:bg-slate-100 hover:text-ink focus:ring-cyan-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
 };
 
 export default function AnimatedButton({

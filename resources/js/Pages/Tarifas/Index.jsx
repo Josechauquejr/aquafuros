@@ -1,11 +1,11 @@
 import { Head, router, useForm, usePage } from "@inertiajs/react";
 import {
+    Lock,
+    Unlock,
     CalendarOff,
     Check,
     ChevronRight,
     Clock,
-    Droplets,
-    Gauge,
     Pencil,
     Percent,
     Plus,
@@ -17,7 +17,6 @@ import {
     Trash2,
     X,
 } from "lucide-react";
-import { motion } from "motion/react";
 import { useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedButton from "@/Components/AnimatedButton";
@@ -27,7 +26,8 @@ import IconButton from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
-import KpiCard from "@/Components/KpiCard";
+import CabecalhoLista from "@/Components/CabecalhoLista";
+import Ilustracao from "@/Components/Ilustracao";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
@@ -38,7 +38,6 @@ import { Campo, Campos, Destaque, Destaques, SeccaoDetalhe } from "@/Components/
 import { ExpandableCard } from "@/Components/ui/expandable-card";
 import SeletorMesGrelha from "@/Components/SeletorMesGrelha";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
-import { itemVariants, listVariants } from "@/lib/motion";
 
 const regras = [
     {
@@ -102,8 +101,6 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
     const [editandoId, setEditandoId] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [paraEliminar, setParaEliminar] = useState(null);
-    const [precoEmEdicao, setPrecoEmEdicao] = useState(null);
-    const [precoEditado, setPrecoEditado] = useState("");
     const [editandoTaxaLigacao, setEditandoTaxaLigacao] = useState(false);
     const [taxaLigacaoEditada, setTaxaLigacaoEditada] = useState(String(taxaLigacao));
     const regrasForm = useForm({
@@ -111,6 +108,9 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
         pagamento_dias_retroactivos: regrasConfig.pagamento_dias_retroactivos,
     });
     const isencaoForm = useForm({ mes: mesAtual, motivo: "" });
+    const [m3Simulado, setM3Simulado] = useState(14);
+    const [tarifaSimulada, setTarifaSimulada] = useState(() => tarifas.find((t) => t.is_active)?.id ?? tarifas[0]?.id);
+    const [prazosAbertos, setPrazosAbertos] = useState(false);
     const [formIsencaoAberto, setFormIsencaoAberto] = useState(false);
     const [mesAberto, setMesAberto] = useState(null);
     const [detalheAberto, setDetalheAberto] = useState(false);
@@ -164,16 +164,6 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
 
     const form = useForm(formVazio);
 
-    const activasCount = tarifas.filter((t) => t.is_active).length;
-    const precoMedio = tarifas.reduce((soma, t) => soma + Number(t.preco_m3), 0) / (tarifas.length || 1);
-    const limiarMedio = tarifas.reduce((soma, t) => soma + Number(t.limiar_corte), 0) / (tarifas.length || 1);
-
-    const metrics = [
-        { label: "Tarifas configuradas", value: tarifas.length, icon: SlidersHorizontal, tone: "cyan" },
-        { label: "Tarifas activas", value: activasCount, icon: Droplets, tone: "emerald" },
-        { label: "Preço médio por m³", value: formatCurrency(precoMedio), icon: Gauge, tone: "amber" },
-        { label: "Limiar médio de corte", value: formatCurrency(limiarMedio), icon: ShieldAlert, tone: "rose" },
-    ];
 
     const abrirModal = () => {
         setEditandoId(null);
@@ -203,21 +193,7 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
         }
     };
 
-    const iniciarEdicaoPreco = (tarifa) => {
-        setPrecoEmEdicao(tarifa.id);
-        setPrecoEditado(String(tarifa.preco_m3));
-    };
 
-    const guardarPreco = (tarifa) => {
-        const novoPreco = Number(precoEditado);
-        if (!novoPreco || novoPreco <= 0) return;
-
-        router.put(
-            `/tarifas/${tarifa.id}`,
-            { ...paraFormulario(tarifa), percentagem_multa: Number(tarifa.percentagem_multa), preco_m3: novoPreco },
-            { onSuccess: () => setPrecoEmEdicao(null), preserveScroll: true },
-        );
-    };
 
     const confirmarEliminacao = () => {
         if (!paraEliminar) return;
@@ -240,345 +216,223 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
         );
     };
 
+    const n = (v) => Number(v ?? 0);
+    const dinheiro = (v) => formatCurrency(v);
+    const simulada = tarifas.find((t) => t.id === tarifaSimulada) ?? tarifas[0];
+    const m3 = Math.max(0, n(m3Simulado));
+    const noMinimo = simulada ? m3 <= n(simulada.consumo_minimo_m3) : false;
+    const paga = simulada ? (noMinimo ? n(simulada.taxa_minima) : m3 * n(simulada.preco_m3)) : 0;
+    const multa = simulada ? paga * n(simulada.percentagem_multa) : 0;
+
+    const regras = (t) => [
+        [dinheiro(t.preco_m3), "por cada m³ gasto acima do mínimo"],
+        [dinheiro(t.taxa_minima), `é o mínimo do mês (quem gasta até ${n(t.consumo_minimo_m3)} m³ paga isto)`],
+        [`${(n(t.percentagem_multa) * 100).toFixed(0)}%`, "de multa se pagar depois do dia 10"],
+        [dinheiro(t.limiar_corte), "em atraso: o cliente entra em risco de corte"],
+    ];
+
     return (
-        <AdminLayout
-            header={
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
-                            Configuração
-                        </p>
-                        <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">
-                            Valores e Regras
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Tarifário por m&sup3; e regras de cobrança aplicadas aos furos.
-                        </p>
-                    </div>
-                    <AnimatedButton variant="primary" onClick={abrirModal}>
+        <AdminLayout>
+            <Head title="Tarifas e regras" />
+
+            <div className="mx-auto mb-6 flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+                <CabecalhoLista contexto="Configuração" titulo="Tarifas e regras" resumo="As mudanças só valem para facturas novas. As já emitidas não mudam.">
+                    <SecondaryButton type="button" onClick={abrirModal} className="min-h-[48px]">
                         <Plus className="h-4 w-4" aria-hidden="true" />
                         Nova tarifa
-                    </AnimatedButton>
-                </div>
-            }
-        >
-            <Head title="Valores e Regras" />
+                    </SecondaryButton>
+                </CabecalhoLista>
 
-            <div className="py-8 sm:py-10">
-                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-
-                    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        {metrics.map((metric, index) => (
-                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
-                        ))}
-                    </section>
-
-                    <AnimatedPanel delay={0.2} className="overflow-hidden">
-                        <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">
-                                Tarifário
-                            </h3>
-                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                Preços e limiares aplicados por categoria de cliente. Clique no lápis para
-                                ajustar o preço por m&sup3; rapidamente.
-                            </p>
-                        </div>
-                        {/* Cartões — visíveis apenas em telas pequenas (mobile) */}
-                        <motion.div
-                            variants={listVariants}
-                            initial="hidden"
-                            animate="show"
-                            className="space-y-3 p-4 sm:hidden"
-                        >
-                            {tarifas.map((tarifa) => {
-                                const emEdicao = precoEmEdicao === tarifa.id;
-
-                                return (
-                                    <motion.div
-                                        key={tarifa.id}
-                                        variants={itemVariants}
-                                        className="rounded-lg border border-slate-200 p-4 dark:border-slate-800"
-                                    >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <p className="font-semibold text-slate-900 dark:text-white">{tarifa.nome}</p>
-                                            <StatusBadge tone={tarifa.is_active ? "emerald" : "slate"}>
-                                                {tarifa.is_active ? "Activa" : "Inactiva"}
-                                            </StatusBadge>
-                                        </div>
-
-                                        <div className="mt-3 flex items-center justify-between text-sm">
-                                            <span className="text-slate-500 dark:text-slate-400">Preço / m&sup3;</span>
-                                            {emEdicao ? (
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
-                                                    autoFocus
-                                                    value={precoEditado}
-                                                    onChange={(event) => setPrecoEditado(event.target.value)}
-                                                    onKeyDown={(event) => {
-                                                        if (event.key === "Enter") guardarPreco(tarifa);
-                                                        if (event.key === "Escape") setPrecoEmEdicao(null);
-                                                    }}
-                                                    className="w-24 rounded-md border-slate-300 bg-white py-1 text-right text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                                                />
-                                            ) : (
-                                                <span className="font-semibold text-cyan-700 dark:text-cyan-300">
-                                                    {formatCurrency(tarifa.preco_m3)}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-300">
-                                            <div className="flex justify-between">
-                                                <dt className="text-slate-500 dark:text-slate-400">Taxa mínima</dt>
-                                                <dd>{formatCurrency(tarifa.taxa_minima)}</dd>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <dt className="text-slate-500 dark:text-slate-400">Consumo mín.</dt>
-                                                <dd>{tarifa.consumo_minimo_m3} m&sup3;</dd>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <dt className="text-slate-500 dark:text-slate-400">Multa</dt>
-                                                <dd>{(Number(tarifa.percentagem_multa) * 100).toFixed(0)}%</dd>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <dt className="text-slate-500 dark:text-slate-400">Limiar corte</dt>
-                                                <dd>{formatCurrency(tarifa.limiar_corte)}</dd>
-                                            </div>
-                                        </dl>
-
-                                        <div className="mt-3 flex items-center justify-end gap-1 border-t border-slate-100 pt-3 dark:border-slate-800">
-                                            {emEdicao ? (
-                                                <>
-                                                    <IconButton tone="success" onClick={() => guardarPreco(tarifa)} title="Guardar">
-                                                        <Check className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                    <IconButton onClick={() => setPrecoEmEdicao(null)} title="Cancelar">
-                                                        <X className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <IconButton onClick={() => iniciarEdicaoPreco(tarifa)} title="Editar preço por m³">
-                                                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                    <IconButton onClick={() => abrirEdicao(tarifa)} title="Editar todos os campos">
-                                                        <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                    <IconButton tone="danger" onClick={() => setParaEliminar(tarifa)} title="Eliminar tarifa">
-                                                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                                    </IconButton>
-                                                </>
-                                            )}
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
-                        </motion.div>
-
-                        {/* Tabela — visível a partir de sm (tablet/desktop) */}
-                        <div className="hidden overflow-x-auto sm:block">
-                            <table className="w-full min-w-[960px] text-left text-sm">
-                                <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-                                    <tr>
-                                        <th className="px-6 py-3">Tarifa</th>
-                                        <th className="px-6 py-3 text-right">Preço / m&sup3;</th>
-                                        <th className="px-6 py-3 text-right">Taxa mínima</th>
-                                        <th className="px-6 py-3 text-right">Consumo mínimo</th>
-                                        <th className="px-6 py-3 text-right">Multa por atraso</th>
-                                        <th className="px-6 py-3 text-right">Limiar de corte</th>
-                                        <th className="px-6 py-3">Estado</th>
-                                        <th className="px-6 py-3 text-right">Acções</th>
-                                    </tr>
-                                </thead>
-                                <motion.tbody
-                                    variants={listVariants}
-                                    initial="hidden"
-                                    animate="show"
-                                    className="divide-y divide-slate-100 dark:divide-slate-800"
-                                >
-                                    {tarifas.map((tarifa) => {
-                                        const emEdicao = precoEmEdicao === tarifa.id;
-
-                                        return (
-                                            <motion.tr
-                                                key={tarifa.id}
-                                                variants={itemVariants}
-                                                className="transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                                            >
-                                                <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white">
-                                                    {tarifa.nome}
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    {emEdicao ? (
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            step="0.01"
-                                                            autoFocus
-                                                            value={precoEditado}
-                                                            onChange={(event) => setPrecoEditado(event.target.value)}
-                                                            onKeyDown={(event) => {
-                                                                if (event.key === "Enter") guardarPreco(tarifa);
-                                                                if (event.key === "Escape") setPrecoEmEdicao(null);
-                                                            }}
-                                                            className="w-28 rounded-md border-slate-300 bg-white py-1 text-right text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                                                        />
-                                                    ) : (
-                                                        <span className="font-semibold text-cyan-700 dark:text-cyan-300">
-                                                            {formatCurrency(tarifa.preco_m3)}
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                    {formatCurrency(tarifa.taxa_minima)}
-                                                </td>
-                                                <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                    {tarifa.consumo_minimo_m3} m&sup3;
-                                                </td>
-                                                <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                    {(Number(tarifa.percentagem_multa) * 100).toFixed(0)}%
-                                                </td>
-                                                <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">
-                                                    {formatCurrency(tarifa.limiar_corte)}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <StatusBadge tone={tarifa.is_active ? "emerald" : "slate"}>
-                                                        {tarifa.is_active ? "Activa" : "Inactiva"}
-                                                    </StatusBadge>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center justify-end gap-1.5">
-                                                        {emEdicao ? (
-                                                            <>
-                                                                <IconButton tone="success" onClick={() => guardarPreco(tarifa)} title="Guardar">
-                                                                    <Check className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                                <IconButton onClick={() => setPrecoEmEdicao(null)} title="Cancelar">
-                                                                    <X className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <IconButton onClick={() => iniciarEdicaoPreco(tarifa)} title="Editar preço por m³">
-                                                                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                                <IconButton onClick={() => abrirEdicao(tarifa)} title="Editar todos os campos">
-                                                                    <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                                <IconButton tone="danger" onClick={() => setParaEliminar(tarifa)} title="Eliminar tarifa">
-                                                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                                                </IconButton>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </motion.tr>
-                                        );
-                                    })}
-                                </motion.tbody>
-                            </table>
-                        </div>
-                    </AnimatedPanel>
-
-                    <AnimatedPanel delay={0.24}>
-                        <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-start gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300">
-                                    <PlugZap className="h-5 w-5" aria-hidden="true" />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-slate-900 dark:text-white">
-                                        Taxa de ligação de novo contrato
-                                    </p>
-                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                        Cobrada automaticamente, numa factura à parte, quando um cliente é criado
-                                        como &ldquo;novo contrato&rdquo;.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 sm:pl-4">
-                                {editandoTaxaLigacao ? (
-                                    <>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            autoFocus
-                                            value={taxaLigacaoEditada}
-                                            onChange={(event) => setTaxaLigacaoEditada(event.target.value)}
-                                            onKeyDown={(event) => {
-                                                if (event.key === "Enter") guardarTaxaLigacao();
-                                                if (event.key === "Escape") setEditandoTaxaLigacao(false);
-                                            }}
-                                            className="w-32 rounded-md border-slate-300 bg-white py-1.5 text-right text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                                        />
-                                        <IconButton tone="success" onClick={guardarTaxaLigacao} title="Guardar">
-                                            <Check className="h-4 w-4" aria-hidden="true" />
-                                        </IconButton>
-                                        <IconButton onClick={() => setEditandoTaxaLigacao(false)} title="Cancelar">
-                                            <X className="h-4 w-4" aria-hidden="true" />
-                                        </IconButton>
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="text-xl font-bold text-slate-950 dark:text-white">
-                                            {formatCurrency(taxaLigacao)}
+                <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+                    <div className="flex flex-col gap-4">
+                        {tarifas.map((tarifa) => (
+                            <AnimatedPanel key={tarifa.id} className="overflow-hidden">
+                                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8ECF4] px-6 py-5 dark:border-slate-800">
+                                    <div className="flex flex-col gap-0.5">
+                                        <h2 className="text-lg font-bold text-ink dark:text-[#F2F5FB]">Tarifa {tarifa.nome.toLowerCase()}</h2>
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">
+                                            {tarifa.is_active ? "Activa" : "Inactiva"} · {tarifa.clientes_count ?? 0} {(tarifa.clientes_count ?? 0) === 1 ? "cliente" : "clientes"}
                                         </span>
-                                        <IconButton onClick={iniciarEdicaoTaxaLigacao} title="Editar taxa de ligação">
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <SecondaryButton type="button" onClick={() => abrirEdicao(tarifa)} className="min-h-[40px]">
                                             <Pencil className="h-4 w-4" aria-hidden="true" />
-                                        </IconButton>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </AnimatedPanel>
-
-                    <AnimatedPanel delay={0.26}>
-                        <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Prazos e limites</h3>
-                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                Valem para todo o sistema; as facturas já emitidas mantêm o prazo com que foram emitidas.
-                            </p>
-                        </div>
-                        <form
-                            onSubmit={(evento) => {
-                                evento.preventDefault();
-                                regrasForm.put("/tarifas/regras", { preserveScroll: true });
-                            }}
-                            className="grid gap-4 p-6 sm:grid-cols-2"
-                        >
-                            {[
-                                ["leituras_dia_limite", "Dia limite das leituras", "Dia do mês até ao qual as leituras devem estar feitas", 1, 28],
-                                ["pagamento_dias_retroactivos", "Pagamento com data anterior (dias)", "Até quantos dias atrás se pode datar um pagamento", 0, 60],
-                            ].map(([chave, rotulo, ajuda, min, max]) => (
-                                <div key={chave}>
-                                    <InputLabel htmlFor={chave} value={rotulo} />
-                                    <TextInput
-                                        id={chave}
-                                        type="number"
-                                        min={min}
-                                        max={max}
-                                        value={regrasForm.data[chave]}
-                                        onChange={(evento) => regrasForm.setData(chave, evento.target.value)}
-                                        className="mt-1 block w-full"
-                                    />
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{ajuda}</p>
-                                    <InputError message={regrasForm.errors[chave]} className="mt-1" />
+                                            Editar
+                                        </SecondaryButton>
+                                        {(tarifa.clientes_count ?? 0) === 0 && (
+                                            <IconButton tone="danger" onClick={() => setParaEliminar(tarifa)} title="Eliminar tarifa">
+                                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                            </IconButton>
+                                        )}
+                                    </div>
                                 </div>
-                            ))}
-                            <div className="flex justify-end sm:col-span-3">
-                                <PrimaryButton disabled={regrasForm.processing || !regrasForm.isDirty}>Guardar prazos</PrimaryButton>
-                            </div>
-                        </form>
-                    </AnimatedPanel>
+                                <ul className="grid gap-3 p-6 sm:grid-cols-2">
+                                    {regras(tarifa).map(([valor, texto]) => (
+                                        <li key={texto} className="flex flex-col gap-1 rounded-[14px] bg-slate-50 px-4 py-3.5 dark:bg-[#1E232D]">
+                                            <strong className="text-xl tabular-nums text-ink dark:text-[#F2F5FB]">{valor}</strong>
+                                            <span className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{texto}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </AnimatedPanel>
+                        ))}
 
+                        <AnimatedPanel className="flex flex-wrap items-center justify-between gap-3 px-6 py-5">
+                            <span className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                                <strong className="text-ink dark:text-[#F2F5FB]">Taxa de ligação</strong> · cobrada uma vez, numa factura à parte, nos contratos novos
+                            </span>
+                            {editandoTaxaLigacao ? (
+                                <span className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        autoFocus
+                                        value={taxaLigacaoEditada}
+                                        onChange={(event) => setTaxaLigacaoEditada(event.target.value)}
+                                        onKeyDown={(event) => {
+                                            if (event.key === "Enter") guardarTaxaLigacao();
+                                            if (event.key === "Escape") setEditandoTaxaLigacao(false);
+                                        }}
+                                        aria-label="Taxa de ligação"
+                                        className="min-h-[44px] w-36 rounded-md border-[#DDE2EE] text-right tabular-nums dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB]"
+                                    />
+                                    <IconButton tone="success" onClick={guardarTaxaLigacao} title="Guardar">
+                                        <Check className="h-4 w-4" aria-hidden="true" />
+                                    </IconButton>
+                                    <IconButton onClick={() => setEditandoTaxaLigacao(false)} title="Cancelar">
+                                        <X className="h-4 w-4" aria-hidden="true" />
+                                    </IconButton>
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-3">
+                                    <strong className="text-lg tabular-nums text-ink dark:text-[#F2F5FB]">{dinheiro(taxaLigacao)}</strong>
+                                    <button type="button" onClick={iniciarEdicaoTaxaLigacao} className="text-sm font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400">
+                                        Editar
+                                    </button>
+                                </span>
+                            )}
+                        </AnimatedPanel>
+                    </div>
+
+                    {simulada && (
+                        <section aria-labelledby="simular" className="flex flex-col gap-4 rounded-lg bg-brand p-6 text-white shadow-sm dark:bg-[#161A22] dark:ring-1 dark:ring-slate-800">
+                            <div className="flex items-center gap-3">
+                                <span className="dark">
+                                    <Ilustracao nome="factura" largura={72} />
+                                </span>
+                                <h2 id="simular" className="text-lg font-bold">Experimente a tarifa</h2>
+                            </div>
+                            {tarifas.length > 1 && (
+                                <select
+                                    value={tarifaSimulada}
+                                    onChange={(e) => setTarifaSimulada(Number(e.target.value))}
+                                    aria-label="Tarifa"
+                                    className="min-h-[44px] rounded-md border-white/20 bg-white/10 text-sm text-white [&>option]:text-ink"
+                                >
+                                    {tarifas.map((t) => (
+                                        <option key={t.id} value={t.id}>{t.nome}</option>
+                                    ))}
+                                </select>
+                            )}
+                            <label className="flex flex-col gap-2 text-sm text-[#C9D6EA]">
+                                Um cliente que gastou este mês
+                                <span className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={m3Simulado}
+                                        onChange={(e) => setM3Simulado(e.target.value)}
+                                        aria-label="Metros cúbicos"
+                                        className="min-h-[48px] w-28 rounded-md border-white/20 bg-white/10 text-right text-xl font-bold tabular-nums text-white"
+                                    />
+                                    <span className="text-base font-semibold text-white">m³</span>
+                                </span>
+                            </label>
+                            <div className="flex flex-col gap-1 rounded-[14px] bg-white/10 p-4">
+                                <span className="text-sm text-[#C9D6EA]">paga</span>
+                                <strong className="text-[32px] font-extrabold tabular-nums">{dinheiro(paga)}</strong>
+                                <span className="text-[13px] text-[#C9D6EA]">
+                                    {noMinimo ? `Até ${n(simulada.consumo_minimo_m3)} m³ paga o mínimo do mês.` : `${m3} m³ × ${dinheiro(simulada.preco_m3)}`}
+                                </span>
+                            </div>
+                            <span className="text-sm text-[#C9D6EA]">
+                                Se pagar depois do dia 10: <strong className="text-white">+{dinheiro(multa)}</strong> de multa.
+                            </span>
+                        </section>
+                    )}
+                </div>
+
+                <AnimatedPanel className="overflow-hidden">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8ECF4] px-6 py-5 dark:border-slate-800">
+                        <div className="flex flex-col gap-1">
+                            <h2 className="text-lg font-bold text-ink dark:text-[#F2F5FB]">Prazos do mês</h2>
+                            <span className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
+                                {prazosAbertos ? <Unlock className="h-4 w-4" aria-hidden="true" /> : <Lock className="h-4 w-4" aria-hidden="true" />}
+                                {prazosAbertos ? "A editar" : "Bloqueados"}
+                            </span>
+                        </div>
+                        {!prazosAbertos && (
+                            <SecondaryButton type="button" onClick={() => setPrazosAbertos(true)} className="min-h-[44px]">
+                                <Pencil className="h-4 w-4" aria-hidden="true" />
+                                Editar prazos
+                            </SecondaryButton>
+                        )}
+                    </div>
+                    <form
+                        onSubmit={(evento) => {
+                            evento.preventDefault();
+                            regrasForm.put("/tarifas/regras", { preserveScroll: true, onSuccess: () => setPrazosAbertos(false) });
+                        }}
+                        className="flex flex-col gap-5 p-6"
+                    >
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-sm font-semibold text-ink dark:text-[#F2F5FB]">Leituras feitas até ao dia</span>
+                                <input type="number" min="1" max="28" disabled={!prazosAbertos} value={regrasForm.data.leituras_dia_limite} onChange={(e) => regrasForm.setData("leituras_dia_limite", e.target.value)} className="min-h-[48px] w-28 rounded-md border-[#DDE2EE] tabular-nums disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB]" />
+                                <span className="text-[13px] text-slate-500 dark:text-slate-400">Depois deste dia, quem não foi lido aparece no Painel.</span>
+                                <InputError message={regrasForm.errors.leituras_dia_limite} />
+                            </label>
+                            <div className="flex flex-col gap-1.5">
+                                <span className="text-sm font-semibold text-ink dark:text-[#F2F5FB]">Facturas vencem no dia</span>
+                                <span className="flex min-h-[48px] items-center gap-2 text-[15px] text-ink dark:text-[#F2F5FB]">
+                                    <strong className="text-xl">10</strong> do mês seguinte
+                                </span>
+                                <span className="text-[13px] text-slate-500 dark:text-slate-400">Regra fixa. Emitidas de 20 a 29 vencem no dia 10 seguinte.</span>
+                            </div>
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-sm font-semibold text-ink dark:text-[#F2F5FB]">O caixa pode datar um pagamento até</span>
+                                <span className="flex items-center gap-2">
+                                    <input type="number" min="0" max="60" disabled={!prazosAbertos} value={regrasForm.data.pagamento_dias_retroactivos} onChange={(e) => regrasForm.setData("pagamento_dias_retroactivos", e.target.value)} className="min-h-[48px] w-28 rounded-md border-[#DDE2EE] tabular-nums disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB]" />
+                                    <span className="text-[15px] text-slate-600 dark:text-slate-300">dias atrás</span>
+                                </span>
+                                <span className="text-[13px] text-slate-500 dark:text-slate-400">Para pagamentos recebidos e registados mais tarde.</span>
+                                <InputError message={regrasForm.errors.pagamento_dias_retroactivos} />
+                            </label>
+                        </div>
+                        {prazosAbertos && (
+                            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-amber-50 px-4 py-3 dark:bg-[rgba(243,199,122,0.14)]">
+                                <span className="text-sm text-amber-700 dark:text-amber-300">
+                                    Os novos prazos valem a partir do próximo ciclo. As facturas já emitidas mantêm o prazo com que foram emitidas.
+                                </span>
+                                <span className="flex gap-2">
+                                    <SecondaryButton type="button" onClick={() => { regrasForm.reset(); setPrazosAbertos(false); }}>
+                                        Cancelar
+                                    </SecondaryButton>
+                                    <PrimaryButton disabled={regrasForm.processing || !regrasForm.isDirty}>Guardar prazos</PrimaryButton>
+                                </span>
+                            </div>
+                        )}
+                    </form>
+                </AnimatedPanel>
+            </div>
+
+            <div>
+                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <AnimatedPanel delay={0.27}>
-                        <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex flex-col gap-4 border-b border-[#E8ECF4] px-6 py-5 dark:border-slate-800 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                                <h3 className="text-lg font-semibold text-slate-950 dark:text-white">Multas por mês</h3>
+                                <h3 className="text-lg font-bold text-ink dark:text-[#F2F5FB]">Multas por mês</h3>
                                 <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
                                     {mesesIsentos} {mesesIsentos === 1 ? "mês sem multa" : "meses sem multa"} ·{" "}
                                     <span className="font-semibold text-slate-700 dark:text-slate-200">{formatCurrency(totalPerdido)}</span> em multas dispensadas.
@@ -594,7 +448,7 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
                                 className="self-start rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
                                 classNameExpanded="max-w-lg"
                                 trigger={
-                                    <span className="inline-flex items-center gap-2 rounded-md bg-cyan-700 px-4 py-2.5 text-xs font-semibold uppercase text-white shadow-sm transition hover:bg-cyan-800 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400">
+                                    <span className="inline-flex items-center gap-2 rounded-md bg-brand px-4 py-2.5 text-xs font-semibold uppercase text-white shadow-sm transition hover:bg-brand-hover dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400">
                                         <CalendarOff className="h-4 w-4" aria-hidden="true" />
                                         Desactivar mês
                                     </span>
@@ -673,7 +527,7 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
                                                 >
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex flex-wrap items-center gap-2">
-                                                            <span className="font-semibold text-slate-950 dark:text-white">{nomeMes(item.referencia)}</span>
+                                                            <span className="font-semibold text-ink dark:text-white">{nomeMes(item.referencia)}</span>
                                                             <StatusBadge tone={item.isenta ? "emerald" : "slate"}>
                                                                 {item.isenta ? "Sem multa" : "Reactivado"}
                                                             </StatusBadge>
@@ -704,8 +558,8 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
                     </AnimatedPanel>
 
                     <AnimatedPanel delay={0.28}>
-                        <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                            <h3 className="text-lg font-semibold text-slate-950 dark:text-white">
+                        <div className="border-b border-[#E8ECF4] px-6 py-5 dark:border-slate-800">
+                            <h3 className="text-lg font-bold text-ink dark:text-[#F2F5FB]">
                                 Regras gerais de cobrança
                             </h3>
                             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -725,7 +579,7 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
                                             <Icon className="h-4 w-4" aria-hidden="true" />
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-slate-900 dark:text-white">
+                                            <p className="font-semibold text-ink dark:text-white">
                                                 {regra.titulo}
                                             </p>
                                             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -744,6 +598,8 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
                 show={showModal}
                 onClose={() => setShowModal(false)}
                 title={editandoId ? "Editar tarifa" : "Nova tarifa"}
+                description="Só vale para facturas emitidas depois de guardar."
+                variante={editandoId ? "painel" : "centro"}
                 maxWidth="lg"
             >
                 <form onSubmit={submitTarifa} className="space-y-4">
@@ -928,7 +784,7 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
                                 {detalheCarregado.facturas.map((factura) => (
                                     <li key={factura.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                                         <div className="min-w-0">
-                                            <p className="truncate font-medium text-slate-900 dark:text-white">{factura.cliente ?? "—"}</p>
+                                            <p className="truncate font-medium text-ink dark:text-white">{factura.cliente ?? "—"}</p>
                                             <p className="text-sm text-slate-500 dark:text-slate-400">
                                                 {factura.numero}{factura.numero_cliente ? ` · ${factura.numero_cliente}` : ""}
                                             </p>

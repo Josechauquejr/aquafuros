@@ -4,8 +4,10 @@ import { avisoPenalizacao, estadoDocumento, mesesFactura, moedaDocumento, period
 import CabecalhoDocumento from "@/Components/print/CabecalhoDocumento";
 import { MeiosPagamentoFactura, MontanteFactura, RodapeFactura } from "@/Components/print/FacturaElementos";
 
+const tituloSeccao = "text-[12px] font-bold uppercase tracking-wide text-slate-600";
+
 function LinhaValor({ descricao, valor, destaque = false }) {
-    return <tr className={`border-b border-slate-200 last:border-0 ${destaque ? "font-semibold text-slate-900" : "text-slate-600"}`}>
+    return <tr className={`border-b border-[#DDE2EE] last:border-0 ${destaque ? "font-extrabold text-ink" : "text-slate-600"}`}>
         <td className="py-1.5 pr-4">{descricao}</td>
         <td className="whitespace-nowrap py-1.5 text-right tabular-nums">{moedaDocumento(valor)}</td>
     </tr>;
@@ -22,31 +24,29 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
     const prazo = factura.data_vencimento ? new Date(factura.data_vencimento).toLocaleDateString("pt-PT", { day: "2-digit", month: "long", year: "numeric" }) : null;
 
     return (
-        <article className="mx-auto w-full max-w-[210mm] space-y-2.5 border border-slate-200 bg-white p-[12mm] text-[14px] leading-snug text-slate-900 shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+        <article className="mx-auto w-full max-w-[210mm] space-y-2.5 border border-slate-200 bg-white p-[12mm] text-[14px] leading-snug text-ink shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
             <CabecalhoDocumento textoMaior empresa={empresa} titulo="Factura" numero={factura.numero_factura} estado={estado.label} estadoClasses={estado.classes} />
-            <section className="grid grid-cols-2 gap-8">
-                <div>
-                    <h2 className="text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Dados do cliente</h2>
-                    <p className="mt-1 text-2xl font-bold leading-snug">{factura.cliente?.nome ?? "Cliente removido"}</p>
+            <section className="grid grid-cols-[1.2fr_1fr] gap-[18px]" style={{ breakInside: "avoid" }}>
+                <div className="rounded-[12px] border border-[#DDE2EE] px-4 py-3">
+                    <h2 className={tituloSeccao}>Cliente</h2>
+                    <p className="mt-1 text-[17px] font-bold leading-snug">{factura.cliente?.nome ?? "Cliente removido"}</p>
                     <p className="mt-1 text-slate-600">N.º de cliente: {factura.cliente?.numero_cliente ?? "—"}</p>
                     <p className="text-slate-600">Contacto: {factura.cliente?.telefone || "—"}</p>
                     <p className="text-slate-600">Endereço: {[factura.cliente?.endereco, factura.cliente?.bairro].filter(Boolean).join(" · ") || "—"}</p>
                     <p className="text-slate-600">Categoria tarifária: {tarifa?.nome ?? "—"}</p>
                     {factura.cliente?.data_adesao && <p className="text-slate-600">Data de adesão: {formatDate(factura.cliente.data_adesao)}</p>}
                 </div>
-                <div className="text-right">
-                    <h2 className="text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Dados da factura</h2>
-                    <p className="mt-1 text-lg font-semibold">{mesesFactura[factura.mes - 1]} de {factura.ano}</p>
-                    <p className="mt-1 text-slate-600">Emissão: {formatDate(factura.created_at)}</p>
-                    <p className="font-semibold text-slate-700">Vencimento: {formatDate(factura.data_vencimento)}</p>
-                    <p className="text-slate-600">Factura: {factura.numero_factura}</p>
-                    {leitura?.numero_leitura && <p className="text-slate-600">Leitura: {leitura.numero_leitura}</p>}
-                    {factura.cliente?.numero_contador && <p className="text-slate-600">Contador: {factura.cliente.numero_contador}</p>}
+                <div className="flex flex-col gap-0.5 rounded-[12px] border-2 border-brand bg-[#F2F5FC] px-4 py-3">
+                    <h2 className="text-[12px] font-bold uppercase tracking-wide text-brand">Total a pagar</h2>
+                    <MontanteFactura valor={resumo.aPagar} className="text-[32px] font-extrabold leading-tight" />
+                    {prazo && <p className="text-[13px] text-slate-600">até <strong className="text-ink">{prazo}</strong></p>}
+                    <p className="mt-1 text-[12px] text-slate-600">{mesesFactura[factura.mes - 1]} de {factura.ano} · emitida a {formatDate(factura.created_at)}</p>
+                    {leitura?.numero_leitura && <p className="text-[12px] text-slate-600">Leitura {leitura.numero_leitura}{factura.cliente?.numero_contador ? ` · contador ${factura.cliente.numero_contador}` : ""}</p>}
                 </div>
             </section>
             {ligacao ? <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600">Taxa de ligação de água. Encargo único associado ao início do contrato de fornecimento.</p> : <section>
-                <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Registo de consumo de água</h2>
-                {estimada ? <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+                <h2 className={`mb-2 ${tituloSeccao}`}>Contador · {mesesFactura[factura.mes - 1]}</h2>
+                {estimada ? <div className="rounded-[12px] border border-[#DDE2EE] px-4 py-3">
                     <p className="font-semibold">Consumo estimado · {volumeDocumento(resumo.consumo)}</p>
                     <p className="mt-1 text-[11px]">Não foi registada uma leitura do visor neste período.</p>
                 </div> : <div className="grid grid-cols-3 gap-3">
@@ -54,7 +54,7 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                         ["Leitura anterior", leitura?.leitura_anterior, false],
                         ["Leitura actual", leitura?.leitura_actual, false],
                         ["Consumo apurado", resumo.consumo, true],
-                    ].map(([label, valor, destaque]) => <div key={label} className={`rounded-md border px-3 py-2 ${destaque ? "border-cyan-200 bg-cyan-50 text-cyan-900" : "border-slate-200 bg-slate-50"}`}>
+                    ].map(([label, valor, destaque]) => <div key={label} className={`rounded-[12px] border px-3 py-2 ${destaque ? "border-2 border-brand bg-[#F2F5FC] text-brand" : "border-[#DDE2EE]"}`}>
                         <p className="text-[12px] text-slate-600">{label}</p>
                         <p className="mt-1 whitespace-nowrap text-2xl font-semibold tabular-nums">{volumeDocumento(valor)}</p>
                     </div>)}
@@ -64,7 +64,7 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                 </p>}
             </section>}
             <section>
-                <h2 className="mb-1 text-[12px] font-semibold uppercase tracking-widest text-cyan-800">Discriminação da factura</h2>
+                <h2 className={`mb-1 ${tituloSeccao}`}>Discriminação</h2>
                 <table className="w-full border-collapse"><tbody>
                     <LinhaValor descricao={ligacao ? "Taxa de ligação de água" : "Valor do consumo do período"} valor={resumo.consumoEmitido} />
                     {resumo.acertoLeitura > 0 && <LinhaValor descricao="Acerto de leituras estimadas" valor={resumo.acertoLeitura} />}
@@ -85,17 +85,10 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
                     {resumo.origens.map(origem => <p key={origem.id}>{origem.numero_factura} · {periodoOrigem(origem)}: {moedaDocumento(origem.principal)} de principal + {moedaDocumento(origem.multa)} de multa.</p>)}
                 </div>}
             </section>
-            <section className="flex items-center justify-between gap-4 rounded-lg bg-cyan-800 px-5 py-3 text-white" style={{ breakInside: "avoid" }}>
-                <div>
-                    <h2 className="text-[12px] font-semibold uppercase tracking-widest text-cyan-100">Saldo actual a pagar</h2>
-                    {prazo && <p className="mt-1 text-[12px] text-cyan-50">Prazo de pagamento: {prazo}.</p>}
-                </div>
-                <MontanteFactura valor={resumo.aPagar} className="text-3xl font-bold" />
-            </section>
-            <MeiosPagamentoFactura empresa={empresa} />
-            <aside className="rounded-md border-2 border-slate-900 px-4 py-3 text-[13px] leading-relaxed text-slate-950" style={{ breakInside: "avoid" }}>
-                <p className="text-[15px] font-bold uppercase tracking-wide">Aviso: multas e corte do fornecimento</p>
-                <p className="mt-1 font-bold">{avisoPenalizacao}</p>
+            <MeiosPagamentoFactura empresa={empresa} referencia={factura.cliente?.numero_cliente} />
+            <aside className="rounded-[12px] border border-[#DDE2EE] px-4 py-3 text-[13px] leading-relaxed text-ink" style={{ breakInside: "avoid" }}>
+                <p className="text-[13px] font-bold uppercase">Aviso</p>
+                <p className="mt-1">{prazo ? <>Pague até <strong>{prazo}</strong>. </> : null}{avisoPenalizacao}</p>
                 {resumo.multasPrevistas > 0 && <p className="mt-1 font-semibold">Penalizações por atraso previstas: {moedaDocumento(resumo.multasPrevistas)}. Valores sujeitos a confirmação no pagamento, ainda não incluídos no saldo actual.</p>}
                 <p className="mt-1 text-[12px]">Ao efectuar o pagamento, indique o número da factura e guarde o comprovativo.</p>
             </aside>

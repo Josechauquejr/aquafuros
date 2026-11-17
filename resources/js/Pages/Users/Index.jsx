@@ -170,10 +170,7 @@ export default function Index({ usuarios, papeis, filtros }) {
             header={
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
-                            Controlo de acesso
-                        </p>
-                        <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">
+                        <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">
                             Gestão de Usuários
                         </h2>
                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -223,7 +220,7 @@ export default function Index({ usuarios, papeis, filtros }) {
                             <select
                                 value={filtros.papel}
                                 onChange={(event) => mudarPapel(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="todos">Todas as funções</option>
                                 {papeis.map((papel) => (
@@ -235,7 +232,7 @@ export default function Index({ usuarios, papeis, filtros }) {
                             <select
                                 value={filtros.estado}
                                 onChange={(event) => mudarEstado(event.target.value)}
-                                className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="todos">Todos os estados</option>
                                 <option value="activo">Activo</option>
@@ -272,7 +269,7 @@ export default function Index({ usuarios, papeis, filtros }) {
                                                         {iniciais}
                                                     </div>
                                                     <div>
-                                                        <p className="font-semibold text-slate-900 dark:text-white">{user.name}</p>
+                                                        <p className="font-semibold text-ink dark:text-white">{user.name}</p>
                                                         <p className="text-xs text-slate-500 dark:text-slate-400">@{user.username}</p>
                                                     </div>
                                                 </div>
@@ -343,7 +340,7 @@ export default function Index({ usuarios, papeis, filtros }) {
                                                                     {user.name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
                                                                 </div>
                                                                 <div>
-                                                                    <p className="font-semibold text-slate-900 dark:text-white">{user.name}</p>
+                                                                    <p className="font-semibold text-ink dark:text-white">{user.name}</p>
                                                                     <p className="text-xs text-slate-500 dark:text-slate-400">@{user.username}</p>
                                                                 </div>
                                                             </div>
@@ -451,7 +448,7 @@ export default function Index({ usuarios, papeis, filtros }) {
                             id="papel"
                             value={form.data.papel}
                             onChange={(event) => form.setData("papel", event.target.value)}
-                            className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                         >
                             {papeis.map((papel) => (
                                 <option key={papel} value={papel}>
@@ -524,7 +521,7 @@ export default function Index({ usuarios, papeis, filtros }) {
                             só é mostrada uma vez.
                         </p>
                         <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
-                            <code className="flex-1 select-all font-mono text-base font-semibold text-slate-900 dark:text-white">
+                            <code className="flex-1 select-all font-mono text-base font-semibold text-ink dark:text-white">
                                 {senhaRevelada.senha}
                             </code>
                             <IconButton onClick={copiarSenha} title="Copiar">

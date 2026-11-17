@@ -24,14 +24,14 @@ export default function NovidadesModal() {
                     <Sparkles className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <div>
-                    <p className="text-lg font-semibold text-slate-950 dark:text-white">{novidade.titulo}</p>
+                    <p className="text-lg font-semibold text-ink dark:text-white">{novidade.titulo}</p>
                     {novidade.resumo && <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">{novidade.resumo}</p>}
                 </div>
             </div>
             <ul className="mt-5 space-y-4">
                 {novidade.novidades.map((item) => (
                     <li key={item.titulo} className="border-l-2 border-cyan-600 pl-3">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{item.titulo}</p>
+                        <p className="text-sm font-semibold text-ink dark:text-white">{item.titulo}</p>
                         <p className="mt-0.5 text-sm leading-5 text-slate-600 dark:text-slate-400">{item.texto}</p>
                     </li>
                 ))}

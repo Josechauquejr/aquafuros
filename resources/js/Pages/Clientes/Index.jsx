@@ -1,6 +1,5 @@
 import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
-    Droplets,
     Eye,
     Pencil,
     Phone,
@@ -9,9 +8,8 @@ import {
     Sparkles,
     Trash2,
     UserPlus,
-    UserX,
-    Users,
-    Wallet,
+
+
     FileText,
     Banknote,
     Printer,
@@ -19,21 +17,22 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
-import AnimatedButton from "@/Components/AnimatedButton";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import DataTable from "@/Components/DataTable/DataTable";
-import { Campo, Campos, Destaque, Destaques, MaisDetalhes, SeccaoDetalhe } from "@/Components/DataTable/Detalhe";
+import { Campo as CampoDetalhe, Campos, Destaque, Destaques, MaisDetalhes, SeccaoDetalhe } from "@/Components/DataTable/Detalhe";
 import { IconLink } from "@/Components/IconButton";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
-import KpiCard from "@/Components/KpiCard";
+import CabecalhoLista from "@/Components/CabecalhoLista";
+import { BlocoNumerado, Campo, CampoBloqueado, ResumoErros, classeAlterado, classeCampo } from "@/Components/Campo";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
 import { cn, formatNumero, formatDate, formatDateTime, formatMoney, formatPhone, formatVolume, phoneDigits } from "@/lib/utils";
+import useAbrirNovo from "@/hooks/useAbrirNovo";
 import { previewPost } from "@/lib/previewPost";
 
 const estadoConfig = {
@@ -62,7 +61,7 @@ const meses = [
 ];
 
 // Valores que o servidor assume quando o parâmetro não vem no URL.
-const padroes = { estado: "todos", bairro: "todos", tarifa: "todos", sort: "nome", dir: "asc" };
+const padroes = { estado: "todos", bairro: "todos", tarifa: "todos", so_divida: false, risco: false, sort: "nome", dir: "asc" };
 
 const dividaDe = (cliente) => Number(cliente.saldo_em_aberto ?? 0);
 
@@ -86,16 +85,16 @@ function Divida({ cliente }) {
         <span
             className={cn(
                 "font-semibold",
-                dividaDe(cliente) > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-400 dark:text-slate-500",
+                dividaDe(cliente) > 0 ? "font-bold tabular-nums text-rose-700 dark:text-rose-300" : "font-normal text-slate-500 dark:text-slate-400",
             )}
         >
-            {formatMoney(dividaDe(cliente))}
+            {dividaDe(cliente) > 0 ? formatMoney(dividaDe(cliente)) : "Em dia"}
         </span>
     );
 }
 
 const botaoPagar =
-    "inline-flex h-10 items-center justify-center rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white transition hover:bg-cyan-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400";
+    "inline-flex h-10 items-center justify-center rounded-md bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400";
 const ligacao =
     "text-sm font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-300";
 
@@ -179,17 +178,17 @@ const detalheCliente = {
                 </Destaques>
 
                 <Campos className="mt-5">
-                    <Campo rotulo="Telefone">
+                    <CampoDetalhe rotulo="Telefone">
                         {cliente.telefone ? (
                             <a href={`tel:${phoneDigits(cliente.telefone)}`} className="hover:text-primary">
                                 {formatPhone(cliente.telefone)}
                             </a>
                         ) : null}
-                    </Campo>
-                    <Campo rotulo="Bairro">{cliente.bairro}</Campo>
-                    <Campo rotulo="Email">{cliente.email}</Campo>
-                    <Campo rotulo="Tarifa">{cliente.tarifa?.nome}</Campo>
-                    <Campo rotulo="Endereço">{cliente.endereco}</Campo>
+                    </CampoDetalhe>
+                    <CampoDetalhe rotulo="Bairro">{cliente.bairro}</CampoDetalhe>
+                    <CampoDetalhe rotulo="Email">{cliente.email}</CampoDetalhe>
+                    <CampoDetalhe rotulo="Tarifa">{cliente.tarifa?.nome}</CampoDetalhe>
+                    <CampoDetalhe rotulo="Endereço">{cliente.endereco}</CampoDetalhe>
                 </Campos>
 
                 <SeccaoDetalhe titulo={porPagar.length > 0 ? `Facturas por pagar (${porPagar.length})` : "Facturas por pagar"} icone={FileText}>
@@ -206,12 +205,12 @@ const detalheCliente = {
 
                 <MaisDetalhes titulo="Histórico e mais dados">
                     <Campos>
-                        <Campo rotulo="Leitura inicial do contador">
+                        <CampoDetalhe rotulo="Leitura inicial do contador">
                             {cliente.leitura_inicial !== null && cliente.leitura_inicial !== undefined ? formatNumero(cliente.leitura_inicial) : null}
-                        </Campo>
-                        <Campo rotulo="Cliente desde">
+                        </CampoDetalhe>
+                        <CampoDetalhe rotulo="Cliente desde">
                             {cliente.created_at ? formatDateTime(cliente.created_at) : formatDate(cliente.data_adesao)}
-                        </Campo>
+                        </CampoDetalhe>
                     </Campos>
 
                     <SeccaoDetalhe titulo="Todas as facturas" icone={FileText}>
@@ -299,43 +298,65 @@ const detalheCliente = {
     },
 };
 
-const colunas = [
+const MESES_LONGOS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+// Estado neutro para "Activo": só o anormal tem etiqueta (Von Restorff).
+function EstadoCliente({ cliente }) {
+    if (cliente.em_risco_corte) return <StatusBadge tone="rose">Risco de corte</StatusBadge>;
+    if (cliente.estado === "ativo") {
+        return (
+            <span className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                <span className="h-2 w-2 rounded-full bg-emerald-600 dark:bg-emerald-400" aria-hidden="true" />
+                Activo
+            </span>
+        );
+    }
+    return <StatusBadge tone="slate">{estadoConfig[cliente.estado]?.label ?? cliente.estado}</StatusBadge>;
+}
+
+function LeituraDoMes({ cliente }) {
+    if (cliente.estado !== "ativo") return <span className="text-sm text-slate-400 dark:text-slate-500">—</span>;
+    return cliente.lido_no_mes ? <StatusBadge tone="emerald">Lida</StatusBadge> : <StatusBadge tone="amber">Por ler</StatusBadge>;
+}
+
+const colunasPara = (mesCiclo) => [
     {
         chave: "nome",
         titulo: "Cliente",
         ordenavel: true,
         render: (cliente) => (
-            <>
-                <p className="font-semibold text-slate-900 dark:text-white">{cliente.nome}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{cliente.numero_cliente}</p>
-            </>
+            <Link href={`/clientes/${cliente.numero_cliente}`} className="flex flex-col text-ink no-underline dark:text-[#F2F5FB]">
+                <strong className="text-[15px]">{cliente.nome}</strong>
+                <span className="text-[13px] text-slate-500 dark:text-slate-400">{cliente.numero_cliente}</span>
+            </Link>
         ),
     },
-    { chave: "divida", titulo: "Dívida", ordenavel: true, direita: true, render: (cliente) => <Divida cliente={cliente} /> },
-    {
-        chave: "estado",
-        titulo: "Estado",
-        ordenavel: true,
-        render: (cliente) => <StatusBadge tone={estadoConfig[cliente.estado].tone}>{estadoConfig[cliente.estado].label}</StatusBadge>,
-    },
+    { chave: "zona", titulo: "Zona", render: (cliente) => cliente.zona?.nome ?? cliente.bairro ?? <span className="text-slate-400">—</span> },
+    { chave: "divida", titulo: "Saldo", ordenavel: true, render: (cliente) => <Divida cliente={cliente} /> },
+    { chave: "leitura", titulo: `Leitura de ${MESES_LONGOS[(mesCiclo?.mes ?? 1) - 1]}`, render: (cliente) => <LeituraDoMes cliente={cliente} /> },
+    { chave: "estado", titulo: "Estado", ordenavel: true, render: (cliente) => <EstadoCliente cliente={cliente} /> },
 ];
 
 const cartaoCliente = (cliente) => (
     <div className="space-y-2">
         <div>
-            <p className="font-semibold text-slate-900 dark:text-white">{cliente.nome}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{cliente.numero_cliente}</p>
+            <p className="font-bold text-ink dark:text-white">{cliente.nome}</p>
+            <p className="text-[13px] text-slate-500 dark:text-slate-400">
+                {cliente.numero_cliente}
+                {cliente.zona?.nome ? ` · ${cliente.zona.nome}` : ""}
+            </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
             <Divida cliente={cliente} />
-            <StatusBadge tone={estadoConfig[cliente.estado].tone}>{estadoConfig[cliente.estado].label}</StatusBadge>
+            <LeituraDoMes cliente={cliente} />
+            <EstadoCliente cliente={cliente} />
         </div>
     </div>
 );
 
 const formVazio = { nome: "", endereco: "", email: "", zona_id: "", telefone: "", tarifa_id: "", estado: "ativo", novo_contrato: false, leitura_inicial: "" };
 
-export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas = [], totais, filtros, taxaLigacao }) {
+export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas = [], totais, filtros, taxaLigacao, mesCiclo }) {
     const { flash, auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador");
     const [etapaNovo, setEtapaNovo] = useState(null); // null | "escolha" | "formulario"
@@ -371,21 +392,11 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
     const filtrosConfig = useMemo(
         () => [
             {
-                chave: "estado",
-                rotulo: "Estado",
-                tipo: "select",
-                padrao: "todos",
-                opcoes: [
-                    { valor: "todos", rotulo: "Todos" },
-                    ...Object.entries(estadoConfig).map(([valor, { label }]) => ({ valor, rotulo: label })),
-                ],
-            },
-            {
                 chave: "bairro",
-                rotulo: "Bairro",
+                rotulo: "Zona",
                 tipo: "select",
                 padrao: "todos",
-                opcoes: [{ valor: "todos", rotulo: "Todos" }, ...bairros.map((bairro) => ({ valor: bairro, rotulo: bairro }))],
+                opcoes: [{ valor: "todos", rotulo: "Todas as zonas" }, ...bairros.map((bairro) => ({ valor: bairro, rotulo: bairro }))],
             },
             {
                 chave: "tarifa",
@@ -393,35 +404,52 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
                 tipo: "select",
                 padrao: "todos",
                 opcoes: [
-                    { valor: "todos", rotulo: "Todas" },
+                    { valor: "todos", rotulo: "Todas as tarifas" },
                     ...todasTarifas.map((tarifa) => ({ valor: String(tarifa.id), rotulo: tarifa.nome })),
                 ],
             },
-            { chave: "so_divida", rotulo: "Só com dívida", tipo: "checkbox", padrao: false },
         ],
         [bairros, todasTarifas],
     );
 
-    const metrics = [
-        { label: "Total de clientes", value: totais.total, icon: Users, tone: "cyan" },
-        { label: "Clientes activos", value: totais.activos, icon: Droplets, tone: "emerald" },
-        { label: "Clientes cortados", value: totais.cortados, icon: UserX, tone: "rose" },
-        { label: "Dívida acumulada", value: formatMoney(totais.dividaAcumulada), icon: Wallet, tone: "amber" },
+    // Filtros rápidos visíveis (Reconhecer em vez de lembrar).
+    const rapidos = [
+        { chave: "todos", rotulo: "Todos", contagem: totais.total, params: { estado: "todos", so_divida: false, risco: false } },
+        { chave: "ativo", rotulo: "Activos", contagem: totais.activos, params: { estado: "ativo", so_divida: false, risco: false } },
+        { chave: "divida", rotulo: "Com dívida", contagem: totais.comDivida, params: { estado: "todos", so_divida: true, risco: false } },
+        { chave: "risco", rotulo: "Risco de corte", contagem: totais.emRisco, params: { estado: "todos", so_divida: false, risco: true } },
+        { chave: "cortado", rotulo: "Cortados", contagem: totais.cortados, params: { estado: "cortado", so_divida: false, risco: false } },
+    ];
+    const rapidoActivo = filtros.risco ? "risco" : filtros.so_divida ? "divida" : ["ativo", "cortado"].includes(filtros.estado) ? filtros.estado : "todos";
+    const escolherRapido = (rapido) => {
+        const params = { ...filtros, ...rapido.params, page: undefined };
+        Object.keys(params).forEach((k) => {
+            if (params[k] === "" || params[k] === false || params[k] === "todos" || params[k] === undefined) delete params[k];
+        });
+        if (params.sort === padroes.sort && params.dir === padroes.dir) {
+            delete params.sort;
+            delete params.dir;
+        }
+        router.get("/clientes", params, { preserveScroll: true, preserveState: true, replace: true });
+    };
+
+    const partesResumo = [
+        `${totais.total} no total`,
+        <strong key="a" className="text-ink dark:text-[#F2F5FB]">{totais.activos} activos</strong>,
+        `${totais.cortados} cortados`,
+        totais.comDivida > 0 ? `${totais.comDivida} com dívida` : "ninguém em dívida",
     ];
 
     const abrirNovo = () => {
         setEditando(null);
-        setNovoContrato(false);
-        setEtapaNovo("escolha");
-    };
-
-    const escolherTipoRegisto = (ehNovoContrato) => {
-        setNovoContrato(ehNovoContrato);
+        setNovoContrato(null);
         form.reset();
-        form.setData({ ...formVazio, tarifa_id: tarifas[0]?.id ?? "", novo_contrato: ehNovoContrato });
+        form.setData({ ...formVazio, tarifa_id: tarifas[0]?.id ?? "", novo_contrato: false });
         form.clearErrors();
         setEtapaNovo("formulario");
     };
+    useAbrirNovo(abrirNovo);
+
 
     const abrirEdicao = (cliente) => {
         setEditando(cliente);
@@ -501,8 +529,8 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
     };
 
     const accoesCliente = (cliente) => ({
-        principal: { icone: Eye, rotulo: `Ver dados de ${cliente.nome}`, curto: "Ver dados", expandir: true },
         menu: [
+            { icone: Eye, rotulo: "Ver resumo rápido", expandir: true },
             { icone: FileText, rotulo: "Abrir ficha completa", href: `/clientes/${cliente.numero_cliente}` },
             { icone: Pencil, rotulo: "Editar", onClick: () => abrirEdicao(cliente) },
             {
@@ -516,288 +544,267 @@ export default function Index({ clientes, tarifas, todasTarifas, bairros, zonas 
     });
 
     return (
-        <AdminLayout
-            header={
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
-                            Gestão de clientes
-                        </p>
-                        <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">
-                            Clientes
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Consumidores associados aos furos de água da rede.
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {ehAdministrador && (
-                            <AnimatedButton as={Link} href="/lixeira?tipo=clientes" variant="secondary">
-                                <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                Lixeira
-                            </AnimatedButton>
-                        )}
-                        <AnimatedButton
-                            variant="primary"
-                            onClick={abrirNovo}
-                            disabled={tarifas.length === 0}
-                            title={tarifas.length === 0 ? "É preciso configurar pelo menos uma tarifa primeiro." : undefined}
-                        >
-                            <Plus className="h-4 w-4" aria-hidden="true" />
-                            Novo cliente
-                        </AnimatedButton>
-                    </div>
-                </div>
-            }
-        >
+        <AdminLayout>
             <Head title="Clientes" />
 
-            <div className="py-8 sm:py-10">
-                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <InlineNotice show={tarifas.length === 0} tone="info">
-                        Ainda não há nenhuma tarifa configurada, por isso não é possível adicionar clientes.{" "}
-                        {ehAdministrador ? (
-                            <>
-                                Configure pelo menos uma em{" "}
-                                <Link href="/tarifas" className="font-semibold underline underline-offset-2">
-                                    Valores e Regras
-                                </Link>
-                                .
-                            </>
-                        ) : (
-                            "Peça a um administrador para configurar em Valores e Regras."
-                        )}
-                    </InlineNotice>
+            <div className="mx-auto flex max-w-7xl flex-col gap-[22px] px-4 sm:px-6 lg:px-8">
+                <CabecalhoLista
+                    titulo="Clientes"
+                    resumo={partesResumo.map((parte, i) => (
+                        <span key={i}>
+                            {i > 0 && " · "}
+                            {parte}
+                        </span>
+                    ))}
+                >
+                    <PrimaryButton
+                        type="button"
+                        onClick={abrirNovo}
+                        disabled={tarifas.length === 0}
+                        title={tarifas.length === 0 ? "É preciso configurar pelo menos uma tarifa primeiro." : undefined}
+                        className="min-h-[48px] px-[22px]"
+                    >
+                        <Plus className="h-[18px] w-[18px]" aria-hidden="true" />
+                        Novo cliente
+                    </PrimaryButton>
+                </CabecalhoLista>
 
-                    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        {metrics.map((metric, index) => (
-                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
-                        ))}
-                    </section>
+                <InlineNotice show={tarifas.length === 0} tone="info">
+                    Ainda não há nenhuma tarifa configurada, por isso não é possível adicionar clientes.{" "}
+                    {ehAdministrador ? (
+                        <>
+                            Configure pelo menos uma em{" "}
+                            <Link href="/tarifas" className="font-semibold underline underline-offset-2">
+                                Tarifas e regras
+                            </Link>
+                            .
+                        </>
+                    ) : (
+                        "Peça a um administrador para configurar em Tarifas e regras."
+                    )}
+                </InlineNotice>
 
-                    <DataTable
-                        rota="/clientes"
-                        filtros={filtros}
-                        padroes={padroes}
-                        paginador={clientes}
-                        colunas={colunas}
-                        cartao={cartaoCliente}
-                        detalhe={detalheCliente}
-                        placeholder="Pesquisar nome, nº ou bairro"
-                        filtrosConfig={filtrosConfig}
-                        accoes={accoesCliente}
-                        rotuloAccoes={(cliente) => `Mais acções sobre ${cliente.nome}`}
-                        vazio={{
-                            mensagem: "Ainda não há clientes registados.",
-                            mensagemFiltrada: "Nenhum cliente encontrado para os filtros seleccionados.",
-                            accao: { rotulo: "Novo cliente", icone: Plus, onClick: abrirNovo, disabled: tarifas.length === 0 },
-                        }}
-                    />
+                <div role="group" aria-label="Filtrar clientes" className="flex flex-wrap gap-2">
+                    {rapidos.map((rapido) => {
+                        const on = rapido.chave === rapidoActivo;
+                        return (
+                            <button
+                                key={rapido.chave}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => escolherRapido(rapido)}
+                                className={cn(
+                                    "min-h-[40px] rounded-full border px-3.5 text-sm font-semibold transition-colors",
+                                    on
+                                        ? "border-[#B9CCFF] bg-cyan-100 text-brand dark:border-[rgba(110,162,255,0.32)] dark:bg-[rgba(110,162,255,0.16)] dark:text-cyan-300"
+                                        : "border-[#DDE2EE] bg-white text-ink hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-[#F2F5FB] dark:hover:bg-[#1E232D]",
+                                )}
+                            >
+                                {rapido.rotulo} <span className="tabular-nums opacity-80">{rapido.contagem}</span>
+                            </button>
+                        );
+                    })}
                 </div>
+
+                <DataTable
+                    rota="/clientes"
+                    filtros={filtros}
+                    padroes={padroes}
+                    paginador={clientes}
+                    colunas={colunasPara(mesCiclo)}
+                    cartao={cartaoCliente}
+                    detalhe={detalheCliente}
+                    aoClicar={(cliente) => router.visit(`/clientes/${cliente.numero_cliente}`)}
+                    placeholder="Nome, nº de cliente, telefone ou bairro"
+                    filtrosConfig={filtrosConfig}
+                    accoes={accoesCliente}
+                    rotuloAccoes={(cliente) => `Mais acções sobre ${cliente.nome}`}
+                    rodape={
+                        ehAdministrador && (
+                            <Link href="/lixeira?tipo=clientes" className="inline-flex items-center gap-1.5 font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400">
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                Clientes removidos
+                            </Link>
+                        )
+                    }
+                    vazio={{
+                        ilustracao: "pesquisa",
+                        titulo: "Ainda não há clientes",
+                        mensagem: "Registe o primeiro cliente para começar a ler contadores e facturar.",
+                        mensagemFiltrada: "Nenhum cliente encontrado para os filtros seleccionados.",
+                        accao: { rotulo: "Novo cliente", icone: Plus, onClick: abrirNovo, disabled: tarifas.length === 0 },
+                    }}
+                />
             </div>
-
-            <Modal
-                show={etapaNovo === "escolha"}
-                onClose={() => setEtapaNovo(null)}
-                title="Novo cliente"
-                maxWidth="lg"
-            >
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Este registo é para um novo contrato de fornecimento de água ou para um cliente que já
-                    existe (a ser adicionado ao sistema)?
-                </p>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <button
-                        type="button"
-                        onClick={() => escolherTipoRegisto(true)}
-                        className="flex flex-col items-start gap-3 rounded-lg border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-cyan-600"
-                    >
-                        <div className="flex h-11 w-11 items-center justify-center rounded-md bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300">
-                            <Sparkles className="h-5 w-5" aria-hidden="true" />
-                        </div>
-                        <div>
-                            <p className="font-semibold text-slate-950 dark:text-white">Novo contrato</p>
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                Primeira ligação de água deste cliente. É gerada automaticamente uma factura da
-                                taxa de ligação de {formatMoney(taxaLigacao)}.
-                            </p>
-                        </div>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => escolherTipoRegisto(false)}
-                        className="flex flex-col items-start gap-3 rounded-lg border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-cyan-600"
-                    >
-                        <div className="flex h-11 w-11 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                            <UserPlus className="h-5 w-5" aria-hidden="true" />
-                        </div>
-                        <div>
-                            <p className="font-semibold text-slate-950 dark:text-white">Cliente existente</p>
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                Cliente que já tinha ligação de água antes deste sistema — apenas adicionar os
-                                dados, sem cobrar taxa de ligação.
-                            </p>
-                        </div>
-                    </button>
-                </div>
-            </Modal>
 
             <Modal
                 show={etapaNovo === "formulario"}
                 onClose={fecharModalCliente}
-                title={editando ? "Editar cliente" : novoContrato ? "Novo contrato de água" : "Novo cliente"}
-                maxWidth="lg"
+                variante={editando ? "painel" : "centro"}
+                maxWidth="xl"
+                title={editando ? "Editar cliente" : "Novo cliente"}
+                description={editando ? `${editando.numero_cliente} · ${editando.nome}` : "Três perguntas: tipo de ligação, quem é e onde fica."}
             >
-                <form onSubmit={submitCliente} className="space-y-4">
-                    {!editando && novoContrato && (
-                        <InlineNotice show tone="info">
-                            Será criada automaticamente uma factura da taxa de ligação de água no valor de{" "}
-                            {formatMoney(taxaLigacao)} após guardar.
-                        </InlineNotice>
-                    )}
+                <form onSubmit={submitCliente} className="flex flex-col gap-5">
+                    <ResumoErros erros={form.errors} />
 
-                    <div>
-                        <InputLabel htmlFor="nome" value="Nome" />
-                        <TextInput
-                            id="nome"
-                            required
-                            value={form.data.nome}
-                            onChange={(event) => form.setData("nome", event.target.value)}
-                            className="mt-1 block w-full"
-                            placeholder="Nome completo ou razão social"
-                        />
-                        <InputError message={form.errors.nome} className="mt-1" />
-                    </div>
+                    {editando ? (
+                        <>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Campo id="nome" rotulo="Nome completo" className="sm:col-span-2" alterado={form.data.nome !== (editando.nome ?? "")} erro={form.errors.nome}>
+                                    <input id="nome" required value={form.data.nome} onChange={(e) => form.setData("nome", e.target.value)} className={cn(classeCampo, form.data.nome !== (editando.nome ?? "") && classeAlterado)} />
+                                </Campo>
+                                <Campo id="telefone" rotulo="Telefone" alterado={form.data.telefone !== (editando.telefone ?? "")} erro={form.errors.telefone}>
+                                    <input id="telefone" type="tel" value={form.data.telefone} onChange={(e) => form.setData("telefone", e.target.value)} placeholder="84 562 6156" className={cn(classeCampo, form.data.telefone !== (editando.telefone ?? "") && classeAlterado)} />
+                                </Campo>
+                                <Campo id="email" rotulo="Email" opcional alterado={form.data.email !== (editando.email ?? "")} erro={form.errors.email}>
+                                    <input id="email" type="email" value={form.data.email} onChange={(e) => form.setData("email", e.target.value)} placeholder="Para receber facturas" autoComplete="off" className={cn(classeCampo, form.data.email !== (editando.email ?? "") && classeAlterado)} />
+                                </Campo>
+                                <Campo id="zona_id" rotulo="Zona" alterado={String(form.data.zona_id ?? "") !== String(editando.zona_id ?? "")} erro={form.errors.zona_id}>
+                                    <select id="zona_id" value={form.data.zona_id} onChange={(e) => form.setData("zona_id", e.target.value)} className={cn(classeCampo, String(form.data.zona_id ?? "") !== String(editando.zona_id ?? "") && classeAlterado)}>
+                                        <option value="">Sem zona</option>
+                                        {zonas.map((zona) => (
+                                            <option key={zona.id} value={zona.id}>{zona.nome}</option>
+                                        ))}
+                                    </select>
+                                </Campo>
+                                <Campo id="tarifa_id" rotulo="Tarifa" alterado={String(form.data.tarifa_id) !== String(editando.tarifa_id)} erro={form.errors.tarifa_id}>
+                                    <select id="tarifa_id" value={form.data.tarifa_id} onChange={(e) => form.setData("tarifa_id", e.target.value)} className={cn(classeCampo, String(form.data.tarifa_id) !== String(editando.tarifa_id) && classeAlterado)}>
+                                        {tarifas.map((tarifa) => (
+                                            <option key={tarifa.id} value={tarifa.id}>{tarifa.nome}</option>
+                                        ))}
+                                    </select>
+                                </Campo>
+                                <Campo id="endereco" rotulo="Morada" opcional className="sm:col-span-2" alterado={form.data.endereco !== (editando.endereco ?? "")} erro={form.errors.endereco}>
+                                    <input id="endereco" value={form.data.endereco} onChange={(e) => form.setData("endereco", e.target.value)} className={cn(classeCampo, form.data.endereco !== (editando.endereco ?? "") && classeAlterado)} />
+                                </Campo>
+                                {ehAdministrador && (
+                                    <Campo
+                                        id="leitura_inicial"
+                                        rotulo="Leitura inicial do contador"
+                                        className="sm:col-span-2"
+                                        alterado={String(form.data.leitura_inicial ?? "") !== String(editando.leitura_inicial ?? "")}
+                                        erro={form.errors.leitura_inicial}
+                                        ajuda="Muda o consumo da primeira leitura. Antes de gravar, mostra o efeito na factura."
+                                    >
+                                        <input id="leitura_inicial" type="number" min="0" step="0.01" value={form.data.leitura_inicial} onChange={(e) => form.setData("leitura_inicial", e.target.value)} className={classeCampo} />
+                                    </Campo>
+                                )}
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <CampoBloqueado rotulo="Nº de cliente" valor={editando.numero_cliente} motivo="Fixo: está nas facturas e recibos." />
+                                <CampoBloqueado rotulo="Estado" valor={estadoConfig[editando.estado]?.label ?? editando.estado} motivo="Suspender ou reactivar na ficha do cliente." />
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <BlocoNumerado numero={1} titulo="Tipo de ligação">
+                                <div role="radiogroup" aria-label="Tipo de ligação" className="grid gap-3 sm:grid-cols-2">
+                                    {[
+                                        { valor: true, titulo: "Ligação nova", texto: `Primeira ligação de água. É emitida a factura da taxa de ligação de ${formatMoney(taxaLigacao)}.`, icone: Sparkles },
+                                        { valor: false, titulo: "Já tem água", texto: "Cliente que já estava ligado antes do sistema. Só registar, sem taxa.", icone: UserPlus },
+                                    ].map((opcao) => {
+                                        const on = novoContrato === opcao.valor;
+                                        const Icone = opcao.icone;
+                                        return (
+                                            <button
+                                                key={opcao.titulo}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={on}
+                                                onClick={() => {
+                                                    setNovoContrato(opcao.valor);
+                                                    form.setData("novo_contrato", opcao.valor);
+                                                }}
+                                                className={cn(
+                                                    "flex items-start gap-3 rounded-[14px] border p-4 text-left transition-colors",
+                                                    on ? "border-brand bg-[#F7F9FF] dark:border-cyan-400 dark:bg-[rgba(0,89,255,0.10)]" : "border-[#DDE2EE] hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-white/[0.04]",
+                                                )}
+                                            >
+                                                <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-md", on ? "bg-brand text-white dark:bg-cyan-500" : "bg-[#EEF2FA] text-brand dark:bg-[#1E232D] dark:text-cyan-300")}>
+                                                    <Icone className="h-5 w-5" aria-hidden="true" />
+                                                </span>
+                                                <span className="flex flex-col gap-1">
+                                                    <strong className="text-[15px] text-ink dark:text-[#F2F5FB]">{opcao.titulo}</strong>
+                                                    <span className="text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">{opcao.texto}</span>
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </BlocoNumerado>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <InputLabel htmlFor="zona_id" value="Zona / bairro" />
-                            <select
-                                id="zona_id"
-                                value={form.data.zona_id}
-                                onChange={(event) => form.setData("zona_id", event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                <option value="">{zonas.length === 0 ? "Sem zonas — crie em Zonas" : "Sem zona"}</option>
-                                {zonas.map((zona) => (
-                                    <option key={zona.id} value={zona.id}>
-                                        {zona.nome}
-                                    </option>
-                                ))}
-                            </select>
-                            <InputError message={form.errors.zona_id} className="mt-1" />
-                            {!editando && (
-                                <button type="button" onClick={() => setNovaZonaAberta(true)} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-cyan-700 hover:underline dark:text-cyan-300">
-                                    <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                                    Adicionar bairro/zona
-                                </button>
+                            <BlocoNumerado numero={2} titulo="Quem é">
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Campo id="nome" rotulo="Nome completo" className="sm:col-span-2" erro={form.errors.nome}>
+                                        <input id="nome" required value={form.data.nome} onChange={(e) => form.setData("nome", e.target.value)} placeholder="Nome completo ou da empresa" className={classeCampo} />
+                                    </Campo>
+                                    <Campo id="telefone" rotulo="Telefone" erro={form.errors.telefone} ajuda="Para lembretes e cobrança.">
+                                        <input id="telefone" type="tel" value={form.data.telefone} onChange={(e) => form.setData("telefone", e.target.value)} placeholder="84 562 6156" className={classeCampo} />
+                                    </Campo>
+                                    <Campo id="email" rotulo="Email" opcional erro={form.errors.email}>
+                                        <input id="email" type="email" value={form.data.email} onChange={(e) => form.setData("email", e.target.value)} placeholder="Para receber facturas" autoComplete="off" className={classeCampo} />
+                                    </Campo>
+                                </div>
+                            </BlocoNumerado>
+
+                            <BlocoNumerado numero={3} titulo="Onde fica">
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Campo id="zona_id" rotulo="Zona" erro={form.errors.zona_id}>
+                                        <select id="zona_id" value={form.data.zona_id} onChange={(e) => form.setData("zona_id", e.target.value)} className={classeCampo}>
+                                            <option value="">{zonas.length === 0 ? "Sem zonas — crie em Zonas" : "Escolha a zona"}</option>
+                                            {zonas.map((zona) => (
+                                                <option key={zona.id} value={zona.id}>{zona.nome}</option>
+                                            ))}
+                                        </select>
+                                        <button type="button" onClick={() => setNovaZonaAberta(true)} className="inline-flex items-center gap-1 self-start text-[13px] font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400">
+                                            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                                            Adicionar zona
+                                        </button>
+                                    </Campo>
+                                    <Campo id="tarifa_id" rotulo="Tarifa" erro={form.errors.tarifa_id}>
+                                        <select id="tarifa_id" value={form.data.tarifa_id} onChange={(e) => form.setData("tarifa_id", e.target.value)} className={classeCampo}>
+                                            {tarifas.map((tarifa) => (
+                                                <option key={tarifa.id} value={tarifa.id}>{tarifa.nome}</option>
+                                            ))}
+                                        </select>
+                                    </Campo>
+                                    <Campo id="endereco" rotulo="Morada" opcional className="sm:col-span-2" erro={form.errors.endereco}>
+                                        <input id="endereco" value={form.data.endereco} onChange={(e) => form.setData("endereco", e.target.value)} placeholder="Rua, nº da casa ou ponto de referência" className={classeCampo} />
+                                    </Campo>
+                                    <Campo
+                                        id="leitura_inicial"
+                                        rotulo="Leitura inicial do contador"
+                                        className="sm:col-span-2"
+                                        erro={form.errors.leitura_inicial}
+                                        ajuda="O que o contador marca hoje. A primeira factura parte deste valor. Use 0 só num contador novo."
+                                    >
+                                        <input id="leitura_inicial" type="number" min="0" step="0.01" required value={form.data.leitura_inicial} onChange={(e) => form.setData("leitura_inicial", e.target.value)} placeholder="Ex.: 430" className={classeCampo} />
+                                    </Campo>
+                                </div>
+                            </BlocoNumerado>
+
+                            {novoContrato !== null && (
+                                <div className="rounded-[14px] bg-slate-50 px-4 py-3.5 text-sm leading-relaxed text-slate-600 dark:bg-[#1E232D] dark:text-slate-300">
+                                    <strong className="text-ink dark:text-[#F2F5FB]">{form.data.nome.trim() || "O cliente"}</strong> fica activo
+                                    {novoContrato ? (
+                                        <>
+                                            {" "}e é emitida a factura da taxa de ligação de <strong className="text-ink dark:text-[#F2F5FB]">{formatMoney(taxaLigacao)}</strong>.
+                                        </>
+                                    ) : (
+                                        <> sem taxa de ligação: não é emitida nenhuma factura agora.</>
+                                    )}
+                                </div>
                             )}
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="telefone" value="Telefone" />
-                            <TextInput
-                                id="telefone"
-                                value={form.data.telefone}
-                                onChange={(event) => form.setData("telefone", event.target.value)}
-                                className="mt-1 block w-full"
-                                placeholder="84 562 6156"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <InputLabel htmlFor="email" value="Email de contacto" />
-                        <TextInput
-                            id="email"
-                            type="email"
-                            value={form.data.email}
-                            onChange={(event) => form.setData("email", event.target.value)}
-                            className="mt-1 block w-full"
-                            placeholder="cliente@exemplo.co.mz"
-                            autoComplete="off"
-                        />
-                        <InputError message={form.errors.email} className="mt-1" />
-                    </div>
-
-                    <div>
-                        <InputLabel htmlFor="endereco" value="Endereço" />
-                        <TextInput
-                            id="endereco"
-                            value={form.data.endereco}
-                            onChange={(event) => form.setData("endereco", event.target.value)}
-                            className="mt-1 block w-full"
-                        />
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <InputLabel htmlFor="tarifa_id" value="Tipo de consumo" />
-                            <select
-                                id="tarifa_id"
-                                value={form.data.tarifa_id}
-                                onChange={(event) => form.setData("tarifa_id", event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                {tarifas.map((tarifa) => (
-                                    <option key={tarifa.id} value={tarifa.id}>
-                                        {tarifa.nome}
-                                    </option>
-                                ))}
-                            </select>
-                            <InputError message={form.errors.tarifa_id} className="mt-1" />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="estado" value="Estado" />
-                            <select
-                                id="estado"
-                                value={form.data.estado}
-                                onChange={(event) => form.setData("estado", event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                            >
-                                <option value="ativo">Activo</option>
-                                <option value="inativo">Inactivo</option>
-                                <option value="cortado">Cortado</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {!editando && (
-                        <div>
-                            <InputLabel htmlFor="leitura_inicial" value="Leitura inicial do contador" />
-                            <TextInput
-                                id="leitura_inicial"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                required
-                                value={form.data.leitura_inicial}
-                                onChange={(event) => form.setData("leitura_inicial", event.target.value)}
-                                className="mt-1 block w-full"
-                                placeholder="Ex.: 430,00"
-                            />
-                            <InputError message={form.errors.leitura_inicial} className="mt-1" />
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                O que o contador marca hoje. A primeira leitura mensal parte deste valor, para o cliente
-                                não pagar o consumo anterior à ligação. Use 0 só num contador novo.
-                            </p>
-                        </div>
+                        </>
                     )}
-                    {editando && ehAdministrador && (
-                        <div>
-                            <InputLabel htmlFor="leitura_inicial" value="Leitura inicial do contador" />
-                            <TextInput id="leitura_inicial" type="number" min="0" step="0.01" value={form.data.leitura_inicial} onChange={(event) => form.setData("leitura_inicial", event.target.value)} className="mt-1 block w-full" />
-                            <InputError message={form.errors.leitura_inicial} className="mt-1" />
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">A alteração recalcula o consumo da primeira leitura. Se a factura tiver pagamentos, a alteração fica bloqueada até à regularização.</p>
-                        </div>
-                    )}
-                    <InputError message={form.errors.telefone} className="-mt-2" />
 
-                    <div className="flex justify-end gap-3 pt-2">
+                    <div className="flex flex-wrap justify-end gap-3 border-t border-[#E8ECF4] pt-4 dark:border-slate-700">
                         <SecondaryButton type="button" onClick={fecharModalCliente}>
                             Cancelar
                         </SecondaryButton>
-                        <PrimaryButton type="submit" disabled={form.processing}>
-                            {editando ? "Guardar alterações" : "Adicionar cliente"}
+                        <PrimaryButton type="submit" disabled={form.processing || (!editando && novoContrato === null)}>
+                            {form.processing ? "A guardar…" : editando ? "Guardar alterações" : "Criar cliente"}
                         </PrimaryButton>
                     </div>
                 </form>

@@ -1,8 +1,14 @@
+import { cn } from "@/lib/utils";
+
+/** Acção secundária: contorno neutro. */
 export default function SecondaryButton({ className = "", children, ...props }) {
     return (
         <button
             {...props}
-            className={`inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-normal text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 dark:focus:ring-offset-slate-950 ${className}`}
+            className={cn(
+                "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border border-[#DDE2EE] bg-white px-5 text-[15px] font-semibold text-ink transition hover:bg-slate-50 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-[#1E232D]",
+                className,
+            )}
         >
             {children}
         </button>

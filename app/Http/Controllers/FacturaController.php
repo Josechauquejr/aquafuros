@@ -191,7 +191,7 @@ class FacturaController extends Controller
         $mesAno = $request->query('mes_ano'); // "mes/ano", vindo do resumo mensal
         $comMulta = $request->query('com_multa') === '1';
 
-        $estadosPermitidos = ['pendente', 'parcial', 'paga', 'transferida', 'vencida'];
+        $estadosPermitidos = ['aberto', 'pendente', 'parcial', 'paga', 'transferida', 'vencida'];
         if ($request->user()?->hasRole('administrador')) {
             $estadosPermitidos[] = 'anulada';
         }
@@ -210,7 +210,10 @@ class FacturaController extends Controller
             $query->whereIn('facturas.id', $idsPesquisa);
         }
 
-        if ($estado === 'vencida') {
+        if ($estado === 'aberto') {
+            // Separador "Por pagar": pendentes e parciais (vencidas incluídas).
+            $query->whereIn('facturas.estado', ['pendente', 'parcial']);
+        } elseif ($estado === 'vencida') {
             $query->whereIn('facturas.estado', ['pendente', 'parcial'])->where('facturas.data_vencimento', '<', now()->toDateString());
         } elseif ($estado !== 'todos') {
             $query->where('facturas.estado', $estado);
@@ -481,6 +484,32 @@ class FacturaController extends Controller
      * anterior. Se for a primeira leitura do cliente, assinala-se para o
      * layout não tratar a leitura anterior (0) como um período real.
      */
+    /**
+     * "Factura explicada": como se chegou ao valor (5 passos), o que acontece
+     * se pagar uma parte, a linha do tempo e o resumo.
+     */
+    public function show(Factura $factura)
+    {
+        $factura->load([
+            'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
+            'leitura' => fn ($q) => $q->withTrashed(),
+            'leituraEstimada',
+            'geradaPor' => fn ($q) => $q->withTrashed(),
+            'anuladaPor' => fn ($q) => $q->withTrashed(),
+            'pagamentos' => fn ($q) => $q->with('recebidoPor:id,name')->orderBy('created_at'),
+        ]);
+        $factura->total_pago = $factura->totalPago();
+        $factura->em_falta = $factura->emFalta();
+        $factura->multa_prevista = $factura->multaAtrasoPrevista();
+        $factura->multa_em_falta = $factura->multaEmFalta();
+        $factura->principal_em_falta = $factura->principalEmFalta();
+
+        return Inertia::render('Facturas/Show', [
+            'factura' => $factura,
+            'qrUrl' => $this->qrUrl($factura),
+        ]);
+    }
+
     public function imprimir(Factura $factura)
     {
         $factura->load([

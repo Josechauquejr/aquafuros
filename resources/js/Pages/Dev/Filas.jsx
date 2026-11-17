@@ -25,8 +25,7 @@ export default function Filas({ aba, ligacao, trabalhador, totais, pendentes, fa
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Filas e jobs</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Filas e jobs</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Ligação: <strong>{ligacao}</strong>. A fila na base de dados só guarda o que está pendente ou falhou; os concluídos não ficam registados.
                         O conteúdo dos jobs nunca é mostrado.
@@ -84,7 +83,7 @@ export default function Filas({ aba, ligacao, trabalhador, totais, pendentes, fa
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {lista.data.map((j) => (
                                         <tr key={j.id} className="align-top">
-                                            <td className="px-4 py-3 font-mono text-xs text-slate-900 dark:text-white">{j.job}</td>
+                                            <td className="px-4 py-3 font-mono text-xs text-ink dark:text-white">{j.job}</td>
                                             <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{j.fila}</td>
                                             {aba === "falhados" ? (
                                                 <>

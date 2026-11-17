@@ -1,35 +1,28 @@
 import { Link, router, useForm, usePage } from "@inertiajs/react";
-import { ChevronDown, Download, LogOut, User } from "lucide-react";
+import { ChevronsUpDown, Download, LogOut, Moon, Plus, QrCode, Search, Sun, User, WifiOff } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import PageHelp from "@/Components/PageHelp";
 import {
     Sidebar,
     SidebarContent,
     SidebarFooter,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarGroupLabel,
     SidebarHeader,
     SidebarInset,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
     SidebarProvider,
     SidebarRail,
     SidebarTrigger,
     useSidebar,
 } from "@/Components/animate-ui/components/radix/sidebar";
-import ApplicationLogo from "@/Components/ApplicationLogo";
-import { useInstalarApp } from "@/lib/pwa";
-import BranchedMenu from "@/Components/BranchedMenu";
-import Breadcrumbs from "@/Components/Breadcrumbs";
 import FlashToasts from "@/Components/FlashToasts";
+import MarcaAquafuros from "@/Components/MarcaAquafuros";
 import NovidadesModal from "@/Components/NovidadesModal";
-import ThemeToggle from "@/Components/ThemeToggle";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { EVENTO_NOVO } from "@/hooks/useAbrirNovo";
+import { useTheme } from "@/hooks/use-theme";
+import { useInstalarApp } from "@/lib/pwa";
 import { cn } from "@/lib/utils";
+import BarraProgresso from "@/Components/BarraProgresso";
 
 function activo(url, href) {
     const caminho = url.split("?")[0];
@@ -37,7 +30,7 @@ function activo(url, href) {
 }
 
 // O prefixo mais longo que liga o URL ao item: o próprio href ou um dos
-// `activoEm` (páginas agrupadas por separadores sob uma só entrada do menu).
+// `activoEm` (páginas agrupadas sob uma só entrada do menu).
 function correspondencia(url, item) {
     return [item.href, ...(item.activoEm ?? [])]
         .filter((prefixo) => activo(url, prefixo))
@@ -51,27 +44,8 @@ function correspondencia(url, item) {
  */
 export const CabecalhoContext = createContext(undefined);
 
-function ItemMenu({ item, url }) {
-    const { setOpenMobile } = useSidebar();
-    const Icone = item.icon;
-
-    return (
-        <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={Boolean(correspondencia(url, item))} tooltip={item.label}>
-                <Link href={item.href} prefetch="hover" cacheFor="5m" onClick={() => setOpenMobile(false)}>
-                    <Icone aria-hidden="true" />
-                    <span>{item.label}</span>
-                </Link>
-            </SidebarMenuButton>
-        </SidebarMenuItem>
-    );
-}
-
-// Todas as páginas de uma categoria, com ou sem subcategorias.
 // Categoria simples: { categoria, items }. Com subcategorias: { categoria, subgrupos: [{ nome, items }] }.
 const itensDoGrupo = (grupo) => grupo.subgrupos?.flatMap((sub) => sub.items) ?? grupo.items ?? [];
-
-const folha = (item) => ({ value: item.href, label: item.label, icon: <item.icon aria-hidden="true" className="h-4 w-4" /> });
 
 // A página mais específica ganha (ex.: /dev/logs/acessos antes de /dev).
 function paginaActiva(groups, url) {
@@ -84,181 +58,102 @@ function paginaActiva(groups, url) {
     );
 }
 
-// Linhas de 44 px no telemóvel (alvo de toque confortável); 36 px com rato.
-const estiloDaArvore = (movel) => ({
-    rowHeight: movel ? 44 : 36,
-    color: "hsl(var(--sidebar-foreground))",
-    accentColor: "hsl(var(--sidebar-primary))",
-    lineColor: "hsl(var(--sidebar-border))",
-    width: 260,
-    className: "px-1",
-});
+const PAPEIS = {
+    administrador: "Administrador",
+    gestor: "Gestor",
+    caixa: "Caixa",
+    tecnico: "Técnico",
+    desenvolvedor: "Desenvolvedor",
+};
 
-// Categoria com subcategorias: o título recolhe/expande, e cada subcategoria é
-// um ramo (BranchedMenu) cujas folhas são as páginas.
-function CategoriaComSubgrupos({ grupo, activa, aberta, alternar, estilo }) {
-    const items = grupo.subgrupos.map((sub) => ({ label: sub.nome, children: sub.items.map(folha) }));
-
-    return (
-        <div>
-            <button
-                type="button"
-                onClick={alternar}
-                aria-expanded={aberta}
-                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-            >
-                {grupo.categoria}
-                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", !aberta && "-rotate-90")} aria-hidden="true" />
-            </button>
-            <AnimatePresence initial={false}>
-                {aberta && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                        className="overflow-hidden"
-                    >
-                        <BranchedMenu
-                            items={items}
-                            defaultOpen={items.map((_, indice) => indice)}
-                            defaultActive={activa}
-                            onSelect={(valor) => router.visit(valor)}
-                            {...estilo}
-                        />
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
-    );
+function iniciais(nome = "") {
+    const partes = nome.trim().split(/\s+/).filter(Boolean);
+    return ((partes[0]?.[0] ?? "") + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase() || "?";
 }
 
-// Menu em árvore (BranchedMenu). Categorias simples: cada categoria é um ramo e
-// cada página uma folha. Com subcategorias (Desenvolvedor): título da categoria +
-// um ramo por subcategoria. O valor de cada folha é o seu href.
-function MenuArvore({ groups, url, chave }) {
-    const activa = paginaActiva(groups, url);
-    const estilo = estiloDaArvore(useIsMobile());
-    const categoriaActiva = groups.find((grupo) => itensDoGrupo(grupo).some((item) => item.href === activa))?.categoria;
+export { MarcaAquafuros };
 
-    // Categorias abertas: a da página actual abre sempre; as outras lembram-se do que o utilizador fez.
-    const [abertas, setAbertas] = useState(() => {
-        let guardadas = [];
-        try {
-            guardadas = JSON.parse(localStorage.getItem(`${chave}-categorias`) ?? "[]");
-        } catch {
-            // sem armazenamento: só abre a actual
-        }
-        return new Set([...guardadas, categoriaActiva].filter(Boolean));
-    });
-    const alternar = (categoria) =>
-        setAbertas((anterior) => {
-            const seguinte = new Set(anterior);
-            seguinte.has(categoria) ? seguinte.delete(categoria) : seguinte.add(categoria);
-            try {
-                localStorage.setItem(`${chave}-categorias`, JSON.stringify([...seguinte]));
-            } catch {
-                // preferência não guardada: não é grave
-            }
-            return seguinte;
-        });
-
-    // Sem subcategorias (Administrador, Gestor, Caixa, Técnico): cada categoria é um
-    // ramo e cada página uma folha, tudo num só menu.
-    if (!groups.some((grupo) => grupo.subgrupos)) {
-        const items = groups.map((grupo) => ({ label: grupo.categoria, children: itensDoGrupo(grupo).map(folha) }));
-
-        return (
-            <BranchedMenu
-                items={items}
-                defaultOpen={groups.map((_, indice) => indice)}
-                defaultActive={activa}
-                onSelect={(valor) => router.visit(valor)}
-                {...estilo}
-            />
-        );
-    }
+function ItemMenu({ item, activo: estaActivo }) {
+    const { setOpenMobile } = useSidebar();
+    const Icone = item.icon;
 
     return (
-        <div className="space-y-1">
-            {groups.map((grupo) =>
-                grupo.subgrupos ? (
-                    <CategoriaComSubgrupos
-                        key={grupo.categoria}
-                        grupo={grupo}
-                        activa={activa}
-                        aberta={abertas.has(grupo.categoria)}
-                        alternar={() => alternar(grupo.categoria)}
-                        estilo={estilo}
-                    />
-                ) : (
-                    <BranchedMenu
-                        key={grupo.categoria}
-                        items={[{ label: grupo.categoria, children: grupo.items.map(folha) }]}
-                        defaultOpen={[0]}
-                        defaultActive={activa}
-                        onSelect={(valor) => router.visit(valor)}
-                        {...estilo}
-                    />
-                ),
+        <Link
+            href={item.href}
+            prefetch="hover"
+            cacheFor="5m"
+            onClick={() => setOpenMobile(false)}
+            aria-current={estaActivo ? "page" : undefined}
+            title={item.label}
+            className={cn(
+                "flex min-h-[42px] items-center gap-3 rounded-md px-2 text-sm transition-colors group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0",
+                estaActivo
+                    ? "bg-cyan-100 font-bold text-brand dark:bg-[rgba(0,89,255,0.18)] dark:text-white"
+                    : "font-medium text-slate-600 hover:bg-slate-50 hover:text-ink dark:text-[#C9D3E6] dark:hover:bg-white/[0.04] dark:hover:text-white",
             )}
+        >
+            <span
+                className={cn(
+                    "flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px]",
+                    estaActivo ? "bg-cyan-500 text-white" : "bg-[#EEF2FA] text-brand dark:bg-[#1E232D] dark:text-cyan-300",
+                )}
+            >
+                <Icone className="h-[17px] w-[17px]" strokeWidth={2} aria-hidden="true" />
+            </span>
+            <span className="flex-1 truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
+            {item.badge ? (
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold tabular-nums text-amber-700 group-data-[collapsible=icon]:hidden dark:bg-[rgba(243,199,122,0.14)] dark:text-amber-300">
+                    {item.badge}
+                </span>
+            ) : null}
+        </Link>
+    );
+}
+
+/** "Ciclo de Novembro · dia 7 de 30": em que fase do mês estamos. */
+function BlocoCiclo({ ciclo }) {
+    if (!ciclo) return null;
+    const progresso = Math.min(100, Math.round((ciclo.dia / ciclo.dias) * 100));
+
+    return (
+        <div className="mx-1 flex flex-col gap-2 rounded-[14px] bg-[#EEF3FF] p-3.5 group-data-[collapsible=icon]:hidden dark:bg-[#1E232D]">
+            <div className="flex items-baseline justify-between gap-2">
+                <strong className="text-sm text-ink dark:text-[#F2F5FB]">Ciclo de {ciclo.mes}</strong>
+                <span className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+                    dia {ciclo.dia} de {ciclo.dias}
+                </span>
+            </div>
+            <BarraProgresso pct={progresso} className="h-1.5" fundo="bg-cyan-200 dark:bg-slate-800" />
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+                Leituras até {ciclo.leiturasAte} · vence {ciclo.vence}
+            </span>
         </div>
     );
 }
 
-function MenuLateral({ groups, casa, empresa, chave }) {
-    const { url } = usePage();
-
-    return (
-        <Sidebar collapsible="icon" animateOnHover={false}>
-            <SidebarHeader>
-                <Link href={casa} className="flex items-center gap-3 px-1 py-1">
-                    <ApplicationLogo className="h-8 w-8 shrink-0 text-sm" />
-                        <span className="max-w-[13rem] break-words text-sm font-bold leading-tight group-data-[collapsible=icon]:hidden">
-                        {empresa?.nome ?? "Aquafuros"}
-                    </span>
-                </Link>
-            </SidebarHeader>
-
-            <SidebarContent>
-                {/* Sidebar aberta: menu em árvore. Recolhida (só ícones): os botões
-                    com tooltip de sempre (com pré-carregamento), que a árvore não mostra. */}
-                <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
-                    <MenuArvore groups={groups} url={url} chave={chave} />
-                </div>
-                {groups.map((grupo) => (
-                    <SidebarGroup key={grupo.categoria} className="hidden group-data-[collapsible=icon]:block">
-                        <SidebarGroupLabel>{grupo.categoria}</SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <SidebarMenu>
-                                {itensDoGrupo(grupo).map((item) => (
-                                    <ItemMenu key={item.href} item={item} url={url} />
-                                ))}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                ))}
-            </SidebarContent>
-
-            <SidebarFooter className="group-data-[collapsible=icon]:hidden">
-                <p className="text-xs font-medium text-muted-foreground">
-                    {empresa?.nome ?? "Aquafuros"} &middot; Gestão de furos de água
-                </p>
-                <p className="text-[11px] leading-snug text-muted-foreground/70">
-                    Desenvolvido pela RJM Consultórios e Serviços
-                    <br />
-                    José Zeferino Chaúque Júnior
-                </p>
-            </SidebarFooter>
-            <SidebarRail />
-        </Sidebar>
-    );
-}
-
-function MenuConta({ nome }) {
+function MenuConta() {
+    const { auth } = usePage().props;
     const [aberto, setAberto] = useState(false);
     const logout = useForm({});
     const instalarApp = useInstalarApp();
+    const { resolvedTheme, setTheme } = useTheme();
+    const caixa = useRef(null);
+    const nome = auth?.user?.name ?? "";
+    const papel = PAPEIS[auth?.roles?.[0]] ?? "";
+    const escuro = resolvedTheme === "dark";
+
+    useEffect(() => {
+        if (!aberto) return undefined;
+        const fechar = (evento) => {
+            if (evento.type === "keydown" ? evento.key === "Escape" : !caixa.current?.contains(evento.target)) setAberto(false);
+        };
+        document.addEventListener("mousedown", fechar);
+        document.addEventListener("keydown", fechar);
+        return () => {
+            document.removeEventListener("mousedown", fechar);
+            document.removeEventListener("keydown", fechar);
+        };
+    }, [aberto]);
 
     const terminarSessao = (evento) => {
         evento.preventDefault();
@@ -266,58 +161,74 @@ function MenuConta({ nome }) {
         logout.post("/logout");
     };
 
+    const linha =
+        "flex min-h-[44px] w-full items-center gap-3 rounded-[10px] px-3 text-left text-sm font-semibold text-ink hover:bg-slate-50 dark:text-[#F2F5FB] dark:hover:bg-white/[0.06]";
+
     return (
-        <div className="relative">
+        <div ref={caixa} className="relative">
             <button
                 type="button"
                 onClick={() => setAberto((valor) => !valor)}
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                 aria-haspopup="menu"
                 aria-expanded={aberto}
+                title={nome}
+                className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-slate-50 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 dark:hover:bg-white/[0.04]"
             >
-                <User className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">{nome}</span>
-                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cyan-100 text-[13px] font-bold text-brand dark:bg-[#262C38] dark:text-[#F2F5FB]">
+                    {iniciais(nome)}
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
+                    <span className="truncate text-sm font-semibold text-ink dark:text-[#F2F5FB]">{nome}</span>
+                    <span className="truncate text-xs text-slate-500 dark:text-slate-400">{papel}</span>
+                </span>
+                <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-400 group-data-[collapsible=icon]:hidden" aria-hidden="true" />
             </button>
 
             <AnimatePresence>
                 {aberto && (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.96, y: -6 }}
+                        role="menu"
+                        initial={{ opacity: 0, scale: 0.97, y: 6 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.96, y: -6 }}
+                        exit={{ opacity: 0, scale: 0.97, y: 6 }}
                         transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-                        className="absolute right-0 z-50 mt-2 w-52 origin-top-right rounded-md border border-slate-200 bg-white py-1 shadow-lg shadow-slate-950/10 dark:border-slate-800 dark:bg-slate-900"
+                        className="absolute bottom-full left-0 z-50 mb-2 w-60 origin-bottom-left rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-800 dark:bg-[#262C38]"
                     >
-                        <Link
-                            href="/profile"
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                        >
-                            <User className="h-4 w-4" aria-hidden="true" />
+                        <Link href="/profile" role="menuitem" className={linha} onClick={() => setAberto(false)}>
+                            <User className="h-4 w-4 text-slate-500 dark:text-slate-400" aria-hidden="true" />
                             Perfil
                         </Link>
+                        <button type="button" role="menuitem" className={linha} onClick={() => setTheme(escuro ? "light" : "dark")}>
+                            {escuro ? (
+                                <Sun className="h-4 w-4 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                            ) : (
+                                <Moon className="h-4 w-4 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                            )}
+                            {escuro ? "Tema claro" : "Tema escuro"}
+                        </button>
                         {instalarApp && (
                             <button
                                 type="button"
+                                role="menuitem"
+                                className={linha}
                                 onClick={() => {
                                     setAberto(false);
                                     instalarApp();
                                 }}
-                                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                             >
-                                <Download className="h-4 w-4" aria-hidden="true" />
+                                <Download className="h-4 w-4 text-slate-500 dark:text-slate-400" aria-hidden="true" />
                                 Instalar aplicação
                             </button>
                         )}
-                        <form onSubmit={terminarSessao}>
-                            <button
-                                type="submit"
-                                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                            >
-                                <LogOut className="h-4 w-4" aria-hidden="true" />
+                        <form onSubmit={terminarSessao} className="mt-1 border-t border-[#E8ECF4] pt-1 dark:border-slate-800">
+                            <button type="submit" role="menuitem" className={linha}>
+                                <LogOut className="h-4 w-4 text-slate-500 dark:text-slate-400" aria-hidden="true" />
                                 Sair
                             </button>
                         </form>
+                        <p className="px-3 pb-1.5 pt-2 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+                            Desenvolvido pela RJM Consultórios e Serviços · José Zeferino Chaúque Júnior
+                        </p>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -325,15 +236,209 @@ function MenuConta({ nome }) {
     );
 }
 
+function MenuLateral({ groups, casa }) {
+    const { url, props } = usePage();
+    const { empresa, ciclo } = props;
+    const activa = paginaActiva(groups, url);
+
+    return (
+        <Sidebar collapsible="icon" animateOnHover={false} className="border-r-0 shadow-[1px_0_0_#E1E7F3,10px_0_30px_rgba(4,26,83,0.06)] dark:shadow-[1px_0_0_#2A3140]">
+            <SidebarHeader className="px-3.5 pb-0 pt-5">
+                <Link href={casa} className="flex items-center gap-3 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+                    <MarcaAquafuros className="h-[38px] w-[38px]" />
+                    <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
+                        <span className="truncate text-xl font-bold leading-tight text-ink dark:text-[#F2F5FB]">{empresa?.nome ?? "Aquafuros"}</span>
+                        {empresa?.localizacao ? (
+                            <span className="truncate text-xs text-slate-500 dark:text-slate-400">{empresa.localizacao}</span>
+                        ) : null}
+                    </span>
+                </Link>
+            </SidebarHeader>
+
+            <SidebarContent className="gap-5 px-3.5 py-5">
+                <BlocoCiclo ciclo={ciclo} />
+                <nav aria-label="Menu principal" className="flex flex-col gap-5">
+                    {groups.map((grupo) => (
+                        <div key={grupo.categoria} className="flex flex-col gap-0.5">
+                            <span className="px-2.5 pb-1.5 text-[11px] font-bold uppercase tracking-[1px] text-[#6B7388] group-data-[collapsible=icon]:hidden dark:text-[#7F8BA6]">
+                                {grupo.categoria}
+                            </span>
+                            {itensDoGrupo(grupo).map((item) => (
+                                <ItemMenu key={item.href} item={item} activo={item.href === activa} />
+                            ))}
+                        </div>
+                    ))}
+                </nav>
+            </SidebarContent>
+
+            <SidebarFooter className="mx-3.5 mb-2 border-t border-[#E8ECF4] px-0 pt-3 dark:border-slate-800">
+                <MenuConta />
+            </SidebarFooter>
+            <SidebarRail />
+        </Sidebar>
+    );
+}
+
+// O utilizador está a escrever: as teclas de atalho não fazem nada.
+function aEscrever(alvo) {
+    return alvo instanceof HTMLElement && (alvo.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(alvo.tagName));
+}
+
+function irPara(accao) {
+    if (window.location.pathname === accao.href) {
+        window.dispatchEvent(new Event(EVENTO_NOVO));
+    } else {
+        router.visit(accao.abre === false ? accao.href : `${accao.href}?novo=1`);
+    }
+}
+
+/** "+ Novo": as acções mais usadas, com teclas de atalho (P, L, N, F). */
+function MenuNovo({ accoes }) {
+    const [aberto, setAberto] = useState(false);
+    const caixa = useRef(null);
+
+    useEffect(() => {
+        const atalho = (evento) => {
+            if (evento.ctrlKey || evento.metaKey || evento.altKey || aEscrever(evento.target)) return;
+            if (document.querySelector('[role="dialog"]')) return;
+            const accao = accoes.find((a) => a.tecla && a.tecla.toLowerCase() === evento.key.toLowerCase());
+            if (!accao) return;
+            evento.preventDefault();
+            setAberto(false);
+            irPara(accao);
+        };
+        window.addEventListener("keydown", atalho);
+        return () => window.removeEventListener("keydown", atalho);
+    }, [accoes]);
+
+    useEffect(() => {
+        if (!aberto) return undefined;
+        const fechar = (evento) => {
+            if (evento.type === "keydown" ? evento.key === "Escape" : !caixa.current?.contains(evento.target)) setAberto(false);
+        };
+        document.addEventListener("mousedown", fechar);
+        document.addEventListener("keydown", fechar);
+        return () => {
+            document.removeEventListener("mousedown", fechar);
+            document.removeEventListener("keydown", fechar);
+        };
+    }, [aberto]);
+
+    if (accoes.length === 0) return null;
+
+    return (
+        <div ref={caixa} className="relative">
+            <button
+                type="button"
+                onClick={() => setAberto((valor) => !valor)}
+                aria-haspopup="menu"
+                aria-expanded={aberto}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-brand px-4 text-sm font-bold text-white transition hover:bg-brand-hover active:translate-y-px dark:bg-cyan-500 dark:hover:bg-cyan-600"
+            >
+                <Plus className="h-4 w-4" strokeWidth={2.6} aria-hidden="true" />
+                Novo
+            </button>
+            <AnimatePresence>
+                {aberto && (
+                    <motion.div
+                        role="menu"
+                        initial={{ opacity: 0, scale: 0.97, y: -6 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.97, y: -6 }}
+                        transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                        className="absolute right-0 top-[52px] z-50 flex w-[280px] origin-top-right flex-col rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-800 dark:bg-[#262C38]"
+                    >
+                        {accoes.map((accao) => {
+                            const Icone = accao.icon;
+                            return (
+                                <button
+                                    key={accao.label}
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                        setAberto(false);
+                                        irPara(accao);
+                                    }}
+                                    className="flex min-h-[46px] items-center gap-3 rounded-[10px] px-2.5 text-left text-sm font-bold text-ink hover:bg-slate-50 dark:text-[#F2F5FB] dark:hover:bg-white/[0.06]"
+                                >
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#EEF2FA] text-brand dark:bg-[#1E232D] dark:text-cyan-300">
+                                        <Icone className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+                                    </span>
+                                    <span className="flex-1">{accao.label}</span>
+                                    {accao.tecla ? (
+                                        <kbd className="rounded-md border border-b-2 border-[#DDE2EE] bg-slate-50 px-[7px] py-px font-sans text-xs font-extrabold text-slate-500 dark:border-slate-700 dark:bg-[#1E232D] dark:text-slate-300">
+                                            {accao.tecla}
+                                        </kbd>
+                                    ) : null}
+                                </button>
+                            );
+                        })}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+/** Pesquisa do topo: FAT-… vai para Facturas, REC-… para o Caixa, o resto para Clientes. */
+function Pesquisa({ pesquisa }) {
+    const [texto, setTexto] = useState("");
+
+    const procurar = (evento) => {
+        evento.preventDefault();
+        const termo = texto.trim();
+        if (!termo) return;
+        router.get(pesquisa.destino(termo), { search: termo });
+    };
+
+    return (
+        <form role="search" onSubmit={procurar} className="min-w-0 flex-1 basis-[320px]">
+            <label className="flex min-h-[44px] items-center gap-2.5 rounded-md border border-[#DDE2EE] bg-slate-50 px-3.5 focus-within:border-cyan-500 focus-within:shadow-[0_0_0_4px_rgba(0,89,255,0.18)] dark:border-slate-800 dark:bg-[#1E232D]">
+                <Search className="h-[18px] w-[18px] shrink-0 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                <input
+                    type="search"
+                    value={texto}
+                    onChange={(evento) => setTexto(evento.target.value)}
+                    placeholder={pesquisa.placeholder}
+                    aria-label="Procurar"
+                    className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] text-ink placeholder:text-slate-500 focus:!border-0 focus:!shadow-none focus:ring-0 dark:text-[#F2F5FB] dark:placeholder:text-slate-400"
+                />
+            </label>
+        </form>
+    );
+}
+
 /**
  * Estrutura partilhada das áreas autenticadas (AdminLayout e DevLayout):
- * sidebar do Animate UI (recolhe para ícones; folha no móvel), barra de topo
- * com breadcrumbs, tema e conta, e o conteúdo da página.
+ * menu lateral agrupado pelo ciclo do mês (recolhe para pastilhas; folha no
+ * móvel), barra de topo com pesquisa, QR e "+ Novo", e o conteúdo da página.
  */
-export default function AppShell({ groups, casa, chaveRecolhido, header, children }) {
+/** Faixa "Sem ligação": pode consultar o que está no ecrã, mas gravar fica bloqueado. */
+function AvisoSemLigacao() {
+    const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+    useEffect(() => {
+        const mudar = () => setOnline(navigator.onLine);
+        window.addEventListener("online", mudar);
+        window.addEventListener("offline", mudar);
+        return () => {
+            window.removeEventListener("online", mudar);
+            window.removeEventListener("offline", mudar);
+        };
+    }, []);
+    if (online) return null;
+    return (
+        <div role="status" className="flex items-center gap-3 bg-amber-50 px-4 py-2.5 text-sm text-amber-700 sm:px-8 dark:bg-[rgba(243,199,122,0.14)] dark:text-amber-300">
+            <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>
+                <strong>Sem ligação à internet.</strong> Pode consultar o que está no ecrã; gravar fica bloqueado até a ligação voltar.
+            </span>
+        </div>
+    );
+}
+
+export default function AppShell({ groups, casa, chaveRecolhido, header, children, accoesNovo = [], pesquisa = null, lerQr = false }) {
     const pagina = usePage();
     const [cabecalho, setCabecalho] = useState(null);
-    const { auth, empresa } = pagina.props;
     const url = pagina.url;
     const [aberta, setAberta] = useState(() => {
         try {
@@ -356,47 +461,52 @@ export default function AppShell({ groups, casa, chaveRecolhido, header, childre
         <SidebarProvider open={aberta} onOpenChange={alterar}>
             <a
                 href="#conteudo-principal"
-                className="fixed left-4 top-[-4rem] z-[100] rounded-md bg-cyan-800 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-[top] focus:top-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+                className="fixed left-4 top-[-4rem] z-[100] rounded-md bg-brand px-4 py-3 text-sm font-semibold text-white shadow-lg transition-[top] focus:top-4"
             >
                 Saltar para o conteúdo principal
             </a>
             <FlashToasts />
             <NovidadesModal />
-            <MenuLateral groups={groups} casa={casa} empresa={empresa} chave={chaveRecolhido} />
+            <MenuLateral groups={groups} casa={casa} />
 
             <SidebarInset
                 id="conteudo-principal"
                 tabIndex={-1}
-                className="min-w-0 bg-slate-50 text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-600 dark:bg-slate-950 dark:text-slate-100"
+                className="min-w-0 bg-slate-100 text-ink focus-visible:outline-none dark:bg-slate-950 dark:text-slate-100"
             >
-                <div className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/85 sm:px-6">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <SidebarTrigger className="size-9 shrink-0" aria-label="Alternar menu lateral" />
-                        <Breadcrumbs casa={casa} />
-                    </div>
+                <div className="shell-topo sticky top-0 z-40 flex flex-wrap items-center gap-3 border-b border-[#DDE2EE] bg-white px-4 py-3 sm:px-8 sm:py-4 dark:border-slate-800 dark:bg-[#12151C]">
+                    <SidebarTrigger
+                        className="size-11 shrink-0 rounded-md border border-[#DDE2EE] dark:border-slate-800"
+                        aria-label="Abrir ou recolher o menu"
+                    />
+                    {pesquisa ? <Pesquisa pesquisa={pesquisa} /> : <div className="flex-1" />}
                     <div className="flex shrink-0 items-center gap-2">
+                        {lerQr && (
+                            <Link
+                                href="/ler-qr"
+                                aria-label="Ler QR code"
+                                title="Ler QR code"
+                                className="flex h-11 w-11 items-center justify-center rounded-md border border-[#DDE2EE] bg-white text-ink hover:bg-slate-50 dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB] dark:hover:bg-[#262C38]"
+                            >
+                                <QrCode className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+                            </Link>
+                        )}
                         <PageHelp url={url} />
-                        <ThemeToggle />
-                        <MenuConta nome={auth?.user?.name} />
+                        <MenuNovo accoes={accoesNovo} />
                     </div>
                 </div>
 
-                {/* Escondido enquanto vazio: páginas sem cabeçalho não ganham uma faixa. */}
-                <header className="border-b border-slate-200 bg-white has-[>div:empty]:hidden dark:border-slate-800 dark:bg-slate-950">
-                    <div ref={setCabecalho} className="px-4 py-6 sm:px-6 lg:px-8">
+                <AvisoSemLigacao />
+
+                {/* Título da página (vem de cada página). Escondido enquanto vazio. */}
+                <header className="has-[>div:empty]:hidden">
+                    <div ref={setCabecalho} className="mx-auto max-w-7xl px-4 pb-2 pt-8 sm:px-6 lg:px-8">
                         {header}
                     </div>
                 </header>
 
-                <div className="flex-1">
-                    <motion.div
-                        key={url.split("?")[0]}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                        <CabecalhoContext.Provider value={cabecalho}>{children}</CabecalhoContext.Provider>
-                    </motion.div>
+                <div className="flex-1 pb-10 pt-4">
+                    <CabecalhoContext.Provider value={cabecalho}>{children}</CabecalhoContext.Provider>
                 </div>
             </SidebarInset>
         </SidebarProvider>

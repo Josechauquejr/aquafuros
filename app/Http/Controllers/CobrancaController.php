@@ -8,6 +8,7 @@ use App\Models\Credito;
 use App\Models\Factura;
 use App\Models\PromessaPagamento;
 use App\Models\Zona;
+use App\Support\AnaliseRisco;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -25,7 +26,9 @@ class CobrancaController extends Controller
 
         $search = trim((string) $request->query('search', ''));
         $zonaId = $request->query('zona');
-        $filtro = $request->query('filtro', 'todos'); // todos | sem_contacto | com_promessa | promessa_falhada
+        $filtro = $request->query('filtro', 'todos'); // todos | sem_contacto | com_promessa | promessa_falhada | risco
+        $ordem = $request->query('ordem', 'valor'); // valor | dias | contacto
+        $idsRisco = AnaliseRisco::idsEmRiscoCorte();
 
         $vencidas = Factura::whereIn('estado', ['pendente', 'parcial'])
             ->where('data_vencimento', '<', now()->toDateString())
@@ -44,7 +47,7 @@ class CobrancaController extends Controller
             ->orderByDesc('created_at')->get()->groupBy('cliente_id');
         $promessas = PromessaPagamento::whereIn('cliente_id', $porCliente->keys())->orderByDesc('created_at')->get()->groupBy('cliente_id');
 
-        $linhas = $porCliente->map(function ($dados, $clienteId) use ($clientes, $contactos, $promessas) {
+        $linhas = $porCliente->map(function ($dados, $clienteId) use ($clientes, $contactos, $promessas, $idsRisco) {
             $cliente = $clientes->get($clienteId);
             if (! $cliente) {
                 return null;
@@ -56,6 +59,7 @@ class CobrancaController extends Controller
                 'cliente' => ['id' => $cliente->id, 'nome' => $cliente->nome, 'numero_cliente' => $cliente->numero_cliente, 'telefone' => $cliente->telefone, 'email' => $cliente->email, 'estado' => $cliente->estado],
                 'zona' => $cliente->zona?->nome,
                 'zona_id' => $cliente->zona_id,
+                'emRisco' => in_array((int) $clienteId, $idsRisco, true),
                 ...$dados,
                 'ultimoContacto' => $ultimo ? [
                     'data' => $ultimo->created_at->toDateString(),
@@ -78,6 +82,7 @@ class CobrancaController extends Controller
             'semContacto' => $linhas->filter(fn ($l) => ! $l['ultimoContacto'] || $l['ultimoContacto']['dias'] >= 15)->count(),
             'promessasPendentes' => $linhas->where('promessa.estado', 'pendente')->count(),
             'promessasFalhadas' => $linhas->where('promessa.estado', 'falhada')->count(),
+            'emRisco' => $linhas->where('emRisco', true)->count(),
         ];
 
         if ($search !== '') {
@@ -91,15 +96,22 @@ class CobrancaController extends Controller
             'sem_contacto' => $linhas->filter(fn ($l) => ! $l['ultimoContacto'] || $l['ultimoContacto']['dias'] >= 15),
             'com_promessa' => $linhas->where('promessa.estado', 'pendente'),
             'promessa_falhada' => $linhas->where('promessa.estado', 'falhada'),
+            'risco' => $linhas->where('emRisco', true),
             default => $linhas,
+        };
+        $linhas = match ($ordem) {
+            'dias' => $linhas->sortByDesc('diasAtraso'),
+            // Contacto mais antigo primeiro (quem nunca foi contactado vem à frente).
+            'contacto' => $linhas->sortByDesc(fn ($l) => $l['ultimoContacto']['dias'] ?? PHP_INT_MAX),
+            default => $linhas->sortByDesc('valor'),
         };
 
         return Inertia::render('Cobranca/Index', [
-            'linhas' => $linhas->sortByDesc('valor')->values()->take(150)->all(),
+            'linhas' => $linhas->values()->take(150)->all(),
             'totais' => $totais,
             'zonas' => Zona::orderBy('nome')->get(['id', 'nome']),
             'canais' => ContactoCobranca::CANAIS,
-            'filtros' => ['search' => $search, 'zona' => $zonaId ?: 'todas', 'filtro' => $filtro],
+            'filtros' => ['search' => $search, 'zona' => $zonaId ?: 'todas', 'filtro' => $filtro, 'ordem' => in_array($ordem, ['dias', 'contacto'], true) ? $ordem : 'valor'],
         ]);
     }
 

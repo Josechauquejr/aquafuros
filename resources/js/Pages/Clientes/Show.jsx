@@ -1,12 +1,14 @@
-import { Head, Link, useForm, usePage } from "@inertiajs/react";
-import { ArrowDown, ArrowLeft, ArrowUp, Pencil, Droplets, RotateCcw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
+import { AlertTriangle, ArrowLeft, Banknote, ChevronDown, ChevronRight, Droplet, FileText, Pause, Pencil, Phone, Play, Plus, Printer, RotateCcw, Trash2, Wallet } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import StatusBadge from "@/Components/StatusBadge";
-import { Campo, Campos, Destaque, Destaques } from "@/Components/DataTable/Detalhe";
+import AbasEstado from "@/Components/AbasEstado";
+import ConfirmDialog from "@/Components/ConfirmDialog";
+import ConfirmarComTexto from "@/Components/ConfirmarComTexto";
+import EstadoVazio from "@/Components/EstadoVazio";
 import { formatDate, formatMoney, formatNumero } from "@/lib/utils";
-import AnimatedButton from "@/Components/AnimatedButton";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
 import Modal from "@/Components/Modal";
@@ -15,48 +17,93 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import TextInput from "@/Components/TextInput";
 import { previewPost } from "@/lib/previewPost";
 import { consumoLeitura } from "@/lib/consumoLeitura";
+import { cn } from "@/lib/utils";
 
 const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const estadosCliente = { ativo: ["Activo", "emerald"], inativo: ["Inactivo", "slate"], cortado: ["Cortado", "rose"] };
-const estadosFactura = { paga: ["Paga", "emerald"], pendente: ["Pendente", "amber"], parcial: ["Parcial", "cyan"], anulada: ["Anulada", "slate"], transferida: ["Transferida", "slate"] };
-function criarRegistos(cliente) {
-    const facturaPorLeitura = new Map((cliente.facturas ?? []).filter((factura) => factura.leitura_id).map((factura) => [factura.leitura_id, factura]));
+const mesesLongos = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const estadosCliente = { ativo: ["Activo", "emerald"], inativo: ["Inactivo", "slate"], cortado: ["Cortado", "slate"] };
+const metodos = { dinheiro: "Dinheiro", mpesa: "M-Pesa", "e-mola": "E-Mola", banco: "Banco" };
 
-    const mensais = (cliente.leituras ?? []).map((leitura) => {
-        const factura = facturaPorLeitura.get(leitura.id);
-        const recibos = (factura?.pagamentos ?? []).map((pagamento) => ({
-            rotulo: pagamento.numero_recibo,
-            href: `/pagamentos/${pagamento.numero_recibo}/imprimir`,
-            anulado: Boolean(pagamento.deleted_at),
-        }));
+// Cor por tipo de acontecimento, como no design: alteração (azul), dinheiro
+// (verde), leitura (neutro), cobrança (âmbar).
+const TIPOS = {
+    alt: "bg-cyan-100 text-brand dark:bg-[rgba(110,162,255,0.16)] dark:text-cyan-300",
+    din: "bg-emerald-50 text-emerald-700 dark:bg-[rgba(46,160,99,0.16)] dark:text-emerald-300",
+    lei: "bg-[#EEF1F7] text-slate-600 dark:bg-white/[0.06] dark:text-slate-300",
+    cob: "bg-amber-50 text-amber-700 dark:bg-[rgba(243,199,122,0.14)] dark:text-amber-300",
+};
+const ICONES = { editar: Pencil, novo: Plus, factura: FileText, alerta: AlertTriangle, dinheiro: Banknote, gota: Droplet, telefone: Phone };
 
-        return {
-            id: `leitura-${leitura.id}`,
-            data: `${meses[leitura.mes - 1]}/${leitura.ano}`,
-            dataOrdenacao: leitura.ano * 100 + leitura.mes,
-            referenciaLeitura: leitura.numero_leitura ?? `LEI-${leitura.id}`,
-            leituraAnterior: leitura.leitura_anterior,
-            leituraActual: leitura.leitura_actual,
-            leituraHref: factura ? `/facturas/${factura.numero_factura}/imprimir` : null,
-            consumo: `${formatNumero(consumoLeitura(leitura))} m³`,
-            consumoOrdenacao: consumoLeitura(leitura),
-            valor: factura ? formatMoney(factura.total_pagar) : "—",
-            valorOrdenacao: factura ? Number(factura.total_pagar) : null,
-            factura: factura ? { rotulo: factura.numero_factura, href: `/facturas/${factura.numero_factura}/imprimir` } : null,
-            recibos,
-            estado: leitura.deleted_at ? ["Anulada", "rose"] : factura ? (estadosFactura[factura.estado] ?? [factura.estado, "slate"]) : leitura.confirmado ? ["Confirmada", "emerald"] : ["Pendente", "amber"],
-        };
-    });
-    const abertura = cliente.leitura_inicial == null ? [] : [{
-        id: "leitura-inicial", abertura: true, data: "Abertura", dataOrdenacao: 0,
-        referenciaLeitura: "Abertura do contador", leituraAnterior: null,
-        leituraActual: cliente.leitura_inicial, leituraHref: null, consumo: "—",
-        consumoOrdenacao: null, valor: "—", valorOrdenacao: null, factura: null,
-        recibos: [], estado: ["Não faturável", "slate"],
-    }];
-    return [...abertura, ...mensais];
+function quando(dataHora) {
+    const d = new Date(String(dataHora).replace(" ", "T"));
+    const dia = `${String(d.getDate()).padStart(2, "0")} ${meses[d.getMonth()]} ${d.getFullYear()}`;
+    const hora = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return hora === "00:00" ? dia : `${dia}, ${hora}`;
 }
-export default function Show({ cliente, zonas = [], tarifas = [], ajustesLeitura = [] }) {
+
+function diasAte(data) {
+    const alvo = new Date(String(data).slice(0, 10) + "T00:00:00");
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    return Math.round((alvo - hoje) / 86400000);
+}
+
+function EstadoFactura({ factura }) {
+    if (factura.deleted_at || factura.estado === "anulada") return <StatusBadge tone="slate">Anulada</StatusBadge>;
+    if (factura.estado === "paga") return <StatusBadge tone="emerald">Paga</StatusBadge>;
+    if (["pendente", "parcial"].includes(factura.estado) && factura.data_vencimento && diasAte(factura.data_vencimento) < 0) {
+        const dias = -diasAte(factura.data_vencimento);
+        return <StatusBadge tone={dias > 30 ? "rose" : "amber"}>Vencida há {dias} {dias === 1 ? "dia" : "dias"}</StatusBadge>;
+    }
+    if (factura.estado === "parcial") return <StatusBadge tone="cyan">Parcial</StatusBadge>;
+    return <StatusBadge tone="slate">Por pagar</StatusBadge>;
+}
+
+/** Linha das listas dos separadores: título, detalhe, valor à direita e etiqueta. */
+function LinhaLista({ href, titulo, detalhe, valor, etiqueta, externo }) {
+    const corpo = (
+        <>
+            <span className="flex min-w-0 flex-1 flex-col">
+                <strong className="text-[15px] text-ink dark:text-[#F2F5FB]">{titulo}</strong>
+                <span className="text-[13px] text-slate-500 dark:text-slate-400">{detalhe}</span>
+            </span>
+            {valor && <span className="text-[15px] font-bold tabular-nums text-ink dark:text-[#F2F5FB]">{valor}</span>}
+            {etiqueta}
+            {href && <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />}
+        </>
+    );
+    const classe = "flex min-h-[60px] flex-wrap items-center gap-3 px-6 py-3";
+    if (!href) return <li className={classe}>{corpo}</li>;
+    return (
+        <li>
+            {externo ? (
+                <a href={href} className={cn(classe, "hover:bg-slate-50 dark:hover:bg-white/[0.03]")}>{corpo}</a>
+            ) : (
+                <Link href={href} className={cn(classe, "hover:bg-slate-50 dark:hover:bg-white/[0.03]")}>{corpo}</Link>
+            )}
+        </li>
+    );
+}
+
+function Cartao({ titulo, children, className = "" }) {
+    return (
+        <AnimatedPanel className={cn("flex flex-col gap-3.5 p-5", className)}>
+            <span className="text-xs font-bold tracking-[0.6px] text-slate-500 dark:text-slate-400">{titulo}</span>
+            {children}
+        </AnimatedPanel>
+    );
+}
+
+function Par({ rotulo, children }) {
+    return (
+        <div className="flex flex-col gap-0.5">
+            <span className="text-[13px] text-slate-500 dark:text-slate-400">{rotulo}</span>
+            <strong className="break-words text-[15px] text-ink dark:text-[#F2F5FB]">{children ?? "—"}</strong>
+        </div>
+    );
+}
+
+export default function Show({ cliente, zonas = [], tarifas = [], ajustesLeitura = [], situacao, historico = [] }) {
     const { auth } = usePage().props;
     const ehAdministrador = auth.roles?.includes("administrador");
     const [editar, setEditar] = useState(false);
@@ -65,12 +112,18 @@ export default function Show({ cliente, zonas = [], tarifas = [], ajustesLeitura
     const [ajusteParaReverter, setAjusteParaReverter] = useState(null);
     const reversaoForm = useForm({ motivo: "" });
     const form = useForm({ nome: "", endereco: "", zona_id: "", telefone: "", email: "", tarifa_id: "", estado: "ativo", leitura_inicial: "" });
-    const [ordenacao, setOrdenacao] = useState({ campo: "dataOrdenacao", direccao: "desc" });
+    const [separador, setSeparador] = useState("hist");
+    const [filtroHist, setFiltroHist] = useState("tudo");
+    const [menuAberto, setMenuAberto] = useState(false);
+    const [suspenderAberto, setSuspenderAberto] = useState(false);
+    const [motivoEstado, setMotivoEstado] = useState("");
+    const [removerAccao, setRemoverAccao] = useState(null);
+    const [paraReverter, setParaReverter] = useState(null);
+    const menuRef = useRef(null);
     const [estadoNome, estadoTom] = estadosCliente[cliente.estado] ?? [cliente.estado, "slate"];
     const pagamentos = cliente.pagamentos ?? [];
     const facturas = cliente.facturas ?? [];
     const leituras = cliente.leituras ?? [];
-    const totalPago = pagamentos.filter((pagamento) => !pagamento.deleted_at).reduce((total, pagamento) => total + Number(pagamento.valor_pago), 0);
     const resumo = cliente.resumo_consumo ?? { total: 0, quantidade: 0, primeira: null, evolucao: [] };
     const maxConsumo = Math.max(1, ...(resumo.evolucao ?? []).map((item) => Number(item.consumo)));
 
@@ -123,172 +176,375 @@ export default function Show({ cliente, zonas = [], tarifas = [], ajustesLeitura
         });
     };
 
-    const registos = useMemo(() => criarRegistos(cliente), [cliente]);
-    const registosOrdenados = useMemo(() => [...registos].sort((a, b) => {
-        if (a.abertura) return -1;
-        if (b.abertura) return 1;
-        const valorA = a[ordenacao.campo];
-        const valorB = b[ordenacao.campo];
-        if (valorA == null && valorB == null) return 0;
-        if (valorA == null) return 1;
-        if (valorB == null) return -1;
-        return (valorA - valorB) * (ordenacao.direccao === "asc" ? 1 : -1);
-    }), [registos, ordenacao]);
-    const ordenarPor = (campo) => setOrdenacao((actual) => ({
-        campo,
-        direccao: actual.campo === campo && actual.direccao === "asc" ? "desc" : "asc",
-    }));
-    const tituloOrdenavel = (rotulo, campo, alinhamento = "") => (
-        <button type="button" onClick={() => ordenarPor(campo)} className={`inline-flex items-center gap-1.5 font-semibold hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${alinhamento}`}>
-            {rotulo}
-            {ordenacao.campo === campo ? (ordenacao.direccao === "asc" ? <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />) : <span aria-hidden="true">↕</span>}
-        </button>
-    );
+
+    useEffect(() => {
+        if (!menuAberto) return undefined;
+        const fechar = (e) => {
+            if (e.type === "keydown" ? e.key === "Escape" : !menuRef.current?.contains(e.target)) setMenuAberto(false);
+        };
+        document.addEventListener("mousedown", fechar);
+        document.addEventListener("keydown", fechar);
+        return () => {
+            document.removeEventListener("mousedown", fechar);
+            document.removeEventListener("keydown", fechar);
+        };
+    }, [menuAberto]);
+
+    const deve = Number(cliente.saldo_em_aberto ?? 0);
+    const cortado = cliente.estado === "cortado";
+    const iniciais = cliente.nome.trim().split(/\s+/).filter(Boolean).map((p, i, arr) => (i === 0 || i === arr.length - 1 ? p[0] : "")).join("").toUpperCase();
+    const ultimos = (resumo.evolucao ?? []).slice(-6);
+    const maxUlt = Math.max(1, ...ultimos.map((u) => Number(u.consumo)));
+    const media = ultimos.length ? Math.round(ultimos.reduce((t, u) => t + Number(u.consumo), 0) / ultimos.length) : 0;
+    const eventos = historico.filter((e) => filtroHist === "tudo" || e.tipo === filtroHist);
+    const passouLimite = situacao?.limiteCorte && deve >= situacao.limiteCorte;
+
+    const alternarSuspensao = () => {
+        router.put(
+            `/clientes/${cliente.numero_cliente}`,
+            {
+                nome: cliente.nome,
+                endereco: cliente.endereco ?? "",
+                zona_id: cliente.zona_id ?? "",
+                telefone: cliente.telefone ?? "",
+                email: cliente.email ?? "",
+                tarifa_id: cliente.tarifa_id,
+                estado: cortado ? "ativo" : "cortado",
+                motivo_estado: motivoEstado,
+            },
+            { preserveScroll: true, onFinish: () => { setSuspenderAberto(false); setMotivoEstado(""); } },
+        );
+    };
+
+    const linhaMenu = "flex min-h-[44px] w-full items-center gap-3 rounded-[10px] px-3 text-left text-sm font-semibold hover:bg-slate-50 dark:hover:bg-white/[0.06]";
 
     return (
         <AdminLayout>
             <Head title={`Ficha do cliente · ${cliente.nome}`} />
-            <div className="py-8 sm:py-10">
-                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div>
-                        <Link href="/clientes" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-700 hover:underline dark:text-cyan-300">
-                            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voltar aos clientes
-                        </Link>
-                        <p className="mt-5 text-sm font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Ficha do cliente</p>
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <h1 className="mt-1 text-3xl font-bold text-slate-950 dark:text-white">{cliente.nome}</h1>
-                            <AnimatedButton variant="secondary" onClick={abrirEdicao}><Pencil className="h-4 w-4" aria-hidden="true" /> Editar dados</AnimatedButton>
+            <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+                <Link href="/clientes" className="inline-flex items-center gap-2 self-start text-sm font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400">
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Clientes
+                </Link>
+
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex min-w-0 items-center gap-4">
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-cyan-100 text-lg font-bold text-brand dark:bg-[#262C38] dark:text-[#F2F5FB]">{iniciais}</span>
+                        <div className="flex min-w-0 flex-col gap-1">
+                            <div className="flex flex-wrap items-center gap-2.5">
+                                <h1 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">{cliente.nome}</h1>
+                                <StatusBadge tone={estadoTom}>{estadoNome}</StatusBadge>
+                            </div>
+                            <span className="text-sm text-slate-500 dark:text-slate-400">
+                                {cliente.numero_cliente} · {cliente.zona?.nome ?? cliente.bairro ?? "sem zona"} · Tarifa {cliente.tarifa?.nome?.toLowerCase() ?? "—"} · cliente desde {formatDate(cliente.data_adesao ?? cliente.created_at)}
+                            </span>
                         </div>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Nº de cliente: {cliente.numero_cliente}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {deve > 0 && (
+                            <Link
+                                href={`/pagamentos?cliente_id=${cliente.id}`}
+                                className="inline-flex min-h-[48px] items-center gap-2 rounded-md bg-brand px-5 text-[15px] font-bold text-white hover:bg-brand-hover dark:bg-cyan-500 dark:hover:bg-cyan-600"
+                            >
+                                <Wallet className="h-[18px] w-[18px]" aria-hidden="true" />
+                                Receber pagamento
+                            </Link>
+                        )}
+                        <SecondaryButton type="button" onClick={abrirEdicao} className="min-h-[48px]">
+                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                            Editar
+                        </SecondaryButton>
+                        <div ref={menuRef} className="relative">
+                            <SecondaryButton type="button" onClick={() => setMenuAberto((v) => !v)} aria-haspopup="menu" aria-expanded={menuAberto} className="min-h-[48px]">
+                                Mais
+                                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                            </SecondaryButton>
+                            {menuAberto && (
+                                <div role="menu" className="absolute right-0 top-[56px] z-30 flex w-60 flex-col rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-800 dark:bg-[#262C38]">
+                                    <a role="menuitem" href={`/clientes/${cliente.numero_cliente}/imprimir`} className={cn(linhaMenu, "text-ink dark:text-[#F2F5FB]")}>
+                                        <Printer className="h-4 w-4 text-slate-500" aria-hidden="true" /> Imprimir ficha
+                                    </a>
+                                    <button type="button" role="menuitem" onClick={() => { setMenuAberto(false); setSuspenderAberto(true); }} className={cn(linhaMenu, "text-ink dark:text-[#F2F5FB]")}>
+                                        {cortado ? <Play className="h-4 w-4 text-slate-500" aria-hidden="true" /> : <Pause className="h-4 w-4 text-slate-500" aria-hidden="true" />}
+                                        {cortado ? "Reactivar (abrir a água)" : "Suspender (fechar a água)"}
+                                    </button>
+                                    <div className="my-1 border-t border-[#E8ECF4] dark:border-slate-700" />
+                                    <button
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => {
+                                            setMenuAberto(false);
+                                            setRemoverAccao({ metodo: "delete", url: `/clientes/${cliente.numero_cliente}` });
+                                        }}
+                                        className={cn(linhaMenu, "text-rose-700 dark:text-rose-300")}
+                                    >
+                                        <Trash2 className="h-4 w-4" aria-hidden="true" /> Remover cliente
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid items-start gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+                    <div className="flex flex-col gap-4">
+                        <Cartao titulo="SITUAÇÃO">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[13px] text-slate-500 dark:text-slate-400">Deve</span>
+                                <span className={cn("text-[30px] font-bold tabular-nums", deve > 0 ? "text-ink dark:text-[#F2F5FB]" : "text-slate-500")}>{deve > 0 ? formatMoney(deve) : "Em dia"}</span>
+                                {situacao?.vencidas > 0 && (
+                                    <StatusBadge tone={situacao.diasAtraso > 30 ? "rose" : "amber"} className="self-start">
+                                        {situacao.vencidas} {situacao.vencidas === 1 ? "factura vencida" : "facturas vencidas"} há {situacao.diasAtraso} dias
+                                    </StatusBadge>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 border-t border-[#E8ECF4] pt-3.5 dark:border-slate-800">
+                                <Par rotulo="Crédito disponível">{formatMoney(situacao?.credito ?? 0)}</Par>
+                                <Par rotulo="Promessa">{situacao?.promessa ? `${formatMoney(situacao.promessa.valor)} até ${formatDate(situacao.promessa.data)}` : "—"}</Par>
+                                <Par rotulo="Limite de corte">{situacao?.limiteCorte ? formatMoney(situacao.limiteCorte) : "—"}</Par>
+                            </div>
+                            {passouLimite && (
+                                <p className="rounded-md bg-rose-100 px-3 py-2.5 text-[13px] leading-relaxed text-rose-700 dark:bg-[rgba(244,163,154,0.14)] dark:text-rose-300">
+                                    Já passou o limite de corte.{situacao.promessa ? ` Se não pagar até ${formatDate(situacao.promessa.data)}, entra em risco de corte.` : " Está em risco de corte."}
+                                </p>
+                            )}
+                        </Cartao>
+
+                        <Cartao titulo="CONSUMO · ÚLTIMOS 6 MESES">
+                            {ultimos.length ? (
+                                <>
+                                    <div className="flex h-24 items-end gap-2" role="img" aria-label={`Consumo dos últimos meses, média de ${media} m³`}>
+                                        {ultimos.map((u, i) => {
+                                            const v = Number(u.consumo);
+                                            return (
+                                                <div key={`${u.ano}-${u.mes}`} className="flex flex-1 flex-col items-center gap-1">
+                                                    <span className="text-[11px] font-semibold tabular-nums text-slate-600 dark:text-slate-300">{formatNumero(v)}</span>
+                                                    <div className={cn("w-full max-w-[28px] rounded-t-md", i === ultimos.length - 1 ? "bg-cyan-500" : "bg-[#B9CCFF] dark:bg-cyan-900")} style={{ height: `${Math.max(4, (v / maxUlt) * 70)}px` }} />
+                                                    <span className="text-[11px] text-slate-500 dark:text-slate-400">{meses[u.mes - 1]}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <span className="text-[13px] text-slate-500 dark:text-slate-400">Média: {media} m³ por mês · em m³</span>
+                                </>
+                            ) : (
+                                <span className="text-sm text-slate-500 dark:text-slate-400">Ainda sem leituras para mostrar.</span>
+                            )}
+                        </Cartao>
+
+                        <Cartao titulo="CONTACTO E LIGAÇÃO">
+                            <div className="grid grid-cols-2 gap-3">
+                                <Par rotulo="Telefone">{cliente.telefone}</Par>
+                                <Par rotulo="Email">{cliente.email}</Par>
+                                <Par rotulo="Morada">{cliente.endereco}</Par>
+                                <Par rotulo="Leitura inicial">{cliente.leitura_inicial != null ? `${formatNumero(cliente.leitura_inicial)} m³` : null}</Par>
+                            </div>
+                        </Cartao>
                     </div>
 
-                    <AnimatedPanel className="p-5 sm:p-7">
-                        <h2 className="mb-5 text-lg font-semibold text-foreground">Dados do cliente</h2>
-                        <Campos>
-                            <Campo rotulo="Telefone">{cliente.telefone}</Campo>
-                            <Campo rotulo="Email">{cliente.email}</Campo>
-                            <Campo rotulo="Endereço">{cliente.endereco}</Campo>
-                            <Campo rotulo="Bairro / zona">{cliente.zona?.nome ?? cliente.bairro}</Campo>
-                            <Campo rotulo="Tarifa">{cliente.tarifa?.nome}</Campo>
-                            <Campo rotulo="Leitura inicial">{cliente.leitura_inicial != null ? formatNumero(cliente.leitura_inicial) : null}</Campo>
-                            <Campo rotulo="Cliente desde">{formatDate(cliente.data_adesao ?? cliente.created_at)}</Campo>
-                        </Campos>
-                    </AnimatedPanel>
+                    <AnimatedPanel className="min-w-0 overflow-hidden">
+                        <AbasEstado
+                            rotulo="Informação do cliente"
+                            activa={separador}
+                            onEscolher={(aba) => setSeparador(aba.chave)}
+                            abas={[
+                                { chave: "hist", rotulo: "Histórico" },
+                                { chave: "fac", rotulo: "Facturas", contagem: facturas.length },
+                                { chave: "pag", rotulo: "Pagamentos", contagem: pagamentos.filter((p) => !p.deleted_at).length },
+                                { chave: "lei", rotulo: "Leituras", contagem: leituras.filter((l) => !l.deleted_at).length },
+                            ]}
+                        />
 
-                    <Destaques className="sm:grid-cols-2 xl:grid-cols-4">
-                        <Destaque rotulo="Dívida em aberto" tom={Number(cliente.saldo_em_aberto) > 0 ? "perigo" : "sucesso"}>{formatMoney(cliente.saldo_em_aberto)}</Destaque>
-                        <Destaque rotulo="Pagamentos registados" tom="primario" sub={`${pagamentos.filter((pagamento) => !pagamento.deleted_at).length} pagamento(s)`}>{formatMoney(totalPago)}</Destaque>
-                        <Destaque rotulo="Facturas" sub={`${facturas.length} no histórico`}>{facturas.length}</Destaque>
-                        <Destaque rotulo="Estado"><StatusBadge tone={estadoTom}>{estadoNome}</StatusBadge></Destaque>
-                    </Destaques>
-
-                    <AnimatedPanel className="p-5 sm:p-6">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div><h2 className="text-lg font-semibold text-foreground">Evolução do consumo</h2><p className="text-sm text-muted-foreground">Consumo acumulado e leituras mensais registadas.</p></div>
-                            <span className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-sm font-semibold text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200"><Droplets className="h-4 w-4" aria-hidden="true" /> {formatNumero(resumo.total)} m³ no total</span>
-                        </div>
-                        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                            <div className="rounded-lg border border-border p-4">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Primeira leitura registada</p>
-                                {resumo.primeira ? <><p className="mt-2 text-xl font-bold text-foreground">{formatNumero(resumo.primeira.leitura_actual)} m³</p><p className="mt-1 text-sm text-muted-foreground">{String(resumo.primeira.mes).padStart(2, "0")}/{resumo.primeira.ano} · primeiro consumo: {formatNumero(resumo.primeira.consumo)} m³</p><p className="mt-1 text-xs text-muted-foreground">Contador: {formatNumero(resumo.primeira.leitura_anterior)} → {formatNumero(resumo.primeira.leitura_actual)}</p></> : <p className="mt-2 text-sm text-muted-foreground">Ainda não há leituras registadas.</p>}
-                            </div>
-                            <div className="rounded-lg border border-border p-4">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Últimas leituras · m³</p>
-                                {resumo.evolucao?.length ? <div className="mt-4 flex h-24 items-end gap-2" role="img" aria-label="Gráfico da evolução mensal do consumo">
-                                    {resumo.evolucao.map((item) => { const valor = Number(item.consumo); const altura = Math.max(6, (valor / maxConsumo) * 100); return <div key={`${item.ano}-${item.mes}`} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${String(item.mes).padStart(2, "0")}/${item.ano}: ${formatNumero(valor)} m³`}><div className="w-full max-w-8 rounded-t bg-cyan-600 dark:bg-cyan-400" style={{ height: `${altura}%` }} /><span className="text-[10px] text-muted-foreground">{String(item.mes).padStart(2, "0")}/{String(item.ano).slice(-2)}</span></div>; })}
-                                </div> : <p className="mt-2 text-sm text-muted-foreground">Sem dados para mostrar.</p>}
-                                <p className="mt-2 text-xs text-muted-foreground">{resumo.quantidade} leitura(s) consideradas; anuladas excluídas.</p>
-                            </div>
-                        </div>
-                    </AnimatedPanel>
-
-                    <AnimatedPanel className="overflow-hidden">
-                        <div className="border-b border-border p-5 sm:p-6">
-                            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                                <div>
-                                    <h2 className="text-lg font-semibold text-foreground">Histórico do cliente</h2>
-                                    <p className="text-sm text-muted-foreground">A abertura do contador aparece separada; as linhas mensais mostram consumo, factura e recibos.</p>
+                        {separador === "hist" && (
+                            <div className="flex flex-col gap-4 p-6">
+                                <div role="group" aria-label="Filtrar histórico" className="flex flex-wrap gap-2">
+                                    {[["tudo", "Tudo"], ["alt", "Alterações"], ["din", "Dinheiro"], ["lei", "Leituras"], ["cob", "Cobrança"]].map(([chave, rotulo]) => (
+                                        <button
+                                            key={chave}
+                                            type="button"
+                                            aria-pressed={filtroHist === chave}
+                                            onClick={() => setFiltroHist(chave)}
+                                            className={cn(
+                                                "min-h-[36px] rounded-full border px-3.5 text-sm font-semibold",
+                                                filtroHist === chave
+                                                    ? "border-[#B9CCFF] bg-cyan-100 text-brand dark:border-[rgba(110,162,255,0.32)] dark:bg-[rgba(110,162,255,0.16)] dark:text-cyan-300"
+                                                    : "border-[#DDE2EE] text-ink hover:bg-slate-50 dark:border-slate-800 dark:text-[#F2F5FB]",
+                                            )}
+                                        >
+                                            {rotulo}
+                                        </button>
+                                    ))}
                                 </div>
-                                <p className="text-sm text-muted-foreground">{registosOrdenados.length} registo(s): {cliente.leitura_inicial != null ? "1 abertura" : "nenhuma abertura"} e {leituras.filter((leitura) => !leitura.deleted_at).length} leitura(s) mensal(is)</p>
+                                {eventos.length === 0 ? (
+                                    <EstadoVazio ilustracao="pesquisa" titulo="Nada neste filtro">Ainda não há registos deste tipo para o cliente.</EstadoVazio>
+                                ) : (
+                                    <ol className="flex flex-col">
+                                        {eventos.map((e, i) => {
+                                            const Icone = ICONES[e.icone] ?? FileText;
+                                            return (
+                                                <li key={e.chave} className="relative flex gap-3.5 pb-5">
+                                                    {i < eventos.length - 1 && <span className="absolute left-[17px] top-10 h-[calc(100%-2.5rem)] w-px bg-[#E8ECF4] dark:bg-slate-800" aria-hidden="true" />}
+                                                    <span className={cn("z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TIPOS[e.tipo])}>
+                                                        <Icone className="h-4 w-4" aria-hidden="true" />
+                                                    </span>
+                                                    <div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-1">
+                                                        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                                                            <strong className="text-[15px] text-ink dark:text-[#F2F5FB]">{e.titulo}</strong>
+                                                            <span className="text-[13px] text-slate-500 dark:text-slate-400">{quando(e.quando)}</span>
+                                                        </div>
+                                                        <span className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{e.texto}</span>
+                                                        {e.quem && <span className="text-[13px] text-slate-500 dark:text-slate-400">{e.quem.startsWith("registada") ? e.quem : `por ${e.quem}`}</span>}
+                                                        {e.reverter && ehAdministrador && (
+                                                            <button type="button" onClick={() => setParaReverter(e)} className="mt-1 inline-flex items-center gap-1.5 self-start text-[13px] font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400">
+                                                                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Reverter alteração
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </li>
+                                            );
+                                        })}
+                                    </ol>
+                                )}
                             </div>
+                        )}
 
-                        </div>
+                        {separador === "fac" &&
+                            (facturas.length === 0 ? (
+                                <EstadoVazio ilustracao="factura" titulo="Ainda sem facturas">A primeira factura sai depois da primeira leitura confirmada.</EstadoVazio>
+                            ) : (
+                                <ul className="divide-y divide-[#EEF1F7] dark:divide-slate-800">
+                                    {facturas.map((f) => (
+                                        <LinhaLista
+                                            key={f.id}
+                                            href={`/facturas/${f.numero_factura}`}
+                                            titulo={`${f.numero_factura} · ${mesesLongos[f.mes - 1]}`}
+                                            detalhe={f.data_vencimento ? `vence a ${formatDate(f.data_vencimento)}` : formatDate(f.created_at)}
+                                            valor={formatMoney(f.total_pagar)}
+                                            etiqueta={<EstadoFactura factura={f} />}
+                                        />
+                                    ))}
+                                </ul>
+                            ))}
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[900px] text-left text-sm">
-                                <thead className="bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                    <tr>
-                                        <th aria-sort={ordenacao.campo === "dataOrdenacao" ? (ordenacao.direccao === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3">{tituloOrdenavel("Data", "dataOrdenacao")}</th>
-                                        <th className="px-4 py-3">Leitura</th>
-                                        <th aria-sort={ordenacao.campo === "consumoOrdenacao" ? (ordenacao.direccao === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3">{tituloOrdenavel("Consumo", "consumoOrdenacao")}</th>
-                                        <th aria-sort={ordenacao.campo === "valorOrdenacao" ? (ordenacao.direccao === "asc" ? "ascending" : "descending") : "none"} className="px-4 py-3 text-right">{tituloOrdenavel("Valor", "valorOrdenacao", "ml-auto")}</th>
-                                        <th className="px-4 py-3">Factura</th>
-                                        <th className="px-4 py-3">Estado</th>
-                                        <th className="px-4 py-3">Recibo(s)</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {registosOrdenados.length ? registosOrdenados.map((registo) => (
-                                        <tr key={registo.id} className="align-top hover:bg-muted/30">
-                                            <td className="whitespace-nowrap px-4 py-3">{registo.data}</td>
-                                            <td className="px-4 py-3">
-                                                {registo.leituraHref ? <Link href={registo.leituraHref} prefetch="hover" cacheFor="5m" cacheTags="factura" className="font-semibold text-primary hover:underline">{registo.referenciaLeitura}</Link> : <span className="font-medium">{registo.referenciaLeitura}</span>}
-                                                <div className="mt-1 text-xs text-muted-foreground">{registo.abertura ? `Contador: ${formatNumero(registo.leituraActual)}` : `${formatNumero(registo.leituraAnterior)} → ${formatNumero(registo.leituraActual)}`}</div>
-                                            </td>
-                                            <td className="whitespace-nowrap px-4 py-3">{registo.consumo}</td>
-                                            <td className="whitespace-nowrap px-4 py-3 text-right font-semibold">{registo.valor}</td>
-                                            <td className="px-4 py-3">{registo.factura ? <Link href={registo.factura.href} prefetch="hover" cacheFor="5m" cacheTags="factura" className="font-semibold text-primary hover:underline">{registo.factura.rotulo}</Link> : <span className="text-muted-foreground">—</span>}</td>
-                                            <td className="px-4 py-3"><StatusBadge tone={registo.estado[1]}>{registo.estado[0]}</StatusBadge></td>
-                                            <td className="px-4 py-3">{registo.recibos.length ? <div className="flex max-w-xs flex-wrap gap-1.5">{registo.recibos.map((recibo) => <Link key={recibo.rotulo} href={recibo.href} prefetch="hover" cacheFor="5m" cacheTags="recibo" className={`rounded-md px-2 py-1 text-xs font-semibold hover:underline ${recibo.anulado ? "bg-rose-50 text-rose-700 line-through dark:bg-rose-950 dark:text-rose-300" : "bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200"}`}>{recibo.rotulo}</Link>)}</div> : <span className="text-muted-foreground">—</span>}</td>
-                                        </tr>
-                                    )) : (
-                                        <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">Ainda não há leituras registadas.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </AnimatedPanel>
-                    {ajustesLeitura.length > 0 && <AnimatedPanel className="p-5 sm:p-6">
-                        <div className="mb-4">
-                            <h2 className="text-lg font-semibold text-foreground">Auditoria de ajustes de leitura</h2>
-                            <p className="text-sm text-muted-foreground">Alterações à abertura e inserções retroactivas, com os motivos e reversões registados.</p>
-                        </div>
-                        <div className="space-y-3">
-                            {ajustesLeitura.map((ajuste) => {
-                                const tipo = ajuste.tipo === "insercao_retroactiva" ? "Inserção retroactiva" : ajuste.tipo === "leitura_inicial" ? "Alteração da leitura inicial" : "Reversão de ajuste";
-                                const podeReverter = ehAdministrador && ["insercao_retroactiva", "leitura_inicial"].includes(ajuste.tipo) && !ajuste.reversao;
-                                return <div key={ajuste.id} className="rounded-lg border border-border p-4">
-                                    <div className="flex flex-wrap items-start justify-between gap-3">
-                                        <div>
-                                            <p className="font-semibold text-foreground">{tipo} <span className="text-xs font-normal text-muted-foreground">#{ajuste.id}</span></p>
-                                            <p className="mt-1 text-sm text-muted-foreground">{formatDate(ajuste.criado_em)} · {ajuste.utilizador ?? "Utilizador removido"}</p>
-                                            <p className="mt-2 text-sm">Motivo: {ajuste.motivo}</p>
-                                        </div>
-                                        {podeReverter && <AnimatedButton variant="secondary" onClick={() => abrirReversao(ajuste)}><RotateCcw className="h-4 w-4" aria-hidden="true" /> Reverter ajuste</AnimatedButton>}
+                        {separador === "pag" &&
+                            (pagamentos.length === 0 ? (
+                                <EstadoVazio ilustracao="recibo" titulo="Ainda sem pagamentos">Os recibos deste cliente aparecem aqui.</EstadoVazio>
+                            ) : (
+                                <ul className="divide-y divide-[#EEF1F7] dark:divide-slate-800">
+                                    {pagamentos.map((p) => (
+                                        <LinhaLista
+                                            key={p.id}
+                                            href={`/pagamentos/${p.numero_recibo}/imprimir`}
+                                            titulo={p.numero_recibo}
+                                            detalhe={`${formatDate(p.pago_em ?? p.created_at)} · ${metodos[p.metodo_pagamento] ?? p.metodo_pagamento}${p.referencia_pagamento ? ` · ref. ${p.referencia_pagamento}` : ""}`}
+                                            valor={formatMoney(p.valor_pago)}
+                                            etiqueta={p.deleted_at ? <StatusBadge tone="slate">Estornado</StatusBadge> : p.factura ? <StatusBadge tone="slate">{mesesLongos[p.factura.mes - 1]}</StatusBadge> : null}
+                                        />
+                                    ))}
+                                </ul>
+                            ))}
+
+                        {separador === "lei" && (
+                            <>
+                                {leituras.length === 0 && cliente.leitura_inicial == null ? (
+                                    <EstadoVazio ilustracao="contador" titulo="Ainda sem leituras">As leituras mensais deste cliente aparecem aqui.</EstadoVazio>
+                                ) : (
+                                    <ul className="divide-y divide-[#EEF1F7] dark:divide-slate-800">
+                                        {leituras.map((l) => (
+                                            <LinhaLista
+                                                key={l.id}
+                                                href={l.deleted_at ? null : `/leituras/${l.id}`}
+                                                titulo={`${mesesLongos[l.mes - 1]} ${l.ano}`}
+                                                detalhe={`${formatNumero(l.leitura_actual)} m³ · ${formatDate(l.created_at)}`}
+                                                valor={`${formatNumero(consumoLeitura(l))} m³`}
+                                                etiqueta={l.deleted_at ? <StatusBadge tone="slate">Anulada</StatusBadge> : l.confirmado ? <StatusBadge tone="emerald">Confirmada</StatusBadge> : <StatusBadge tone="amber">Por confirmar</StatusBadge>}
+                                            />
+                                        ))}
+                                        {cliente.leitura_inicial != null && (
+                                            <LinhaLista titulo="Abertura do contador" detalhe="Valor inicial, não gera factura" valor={`${formatNumero(cliente.leitura_inicial)} m³`} etiqueta={<StatusBadge tone="slate">Não facturável</StatusBadge>} />
+                                        )}
+                                    </ul>
+                                )}
+                                {ajustesLeitura.length > 0 && (
+                                    <div className="flex flex-col gap-3 border-t border-[#E8ECF4] p-6 dark:border-slate-800">
+                                        <span className="text-xs font-bold tracking-[0.6px] text-slate-500 dark:text-slate-400">AJUSTES DE LEITURA</span>
+                                        {ajustesLeitura.map((ajuste) => {
+                                            const tipo = ajuste.tipo === "insercao_retroactiva" ? "Inserção retroactiva" : ajuste.tipo === "leitura_inicial" ? "Alteração da leitura inicial" : "Reversão de ajuste";
+                                            const podeReverter = ehAdministrador && ["insercao_retroactiva", "leitura_inicial"].includes(ajuste.tipo) && !ajuste.reversao;
+                                            return (
+                                                <div key={ajuste.id} className="rounded-[14px] border border-[#E3E8F2] p-4 dark:border-slate-800">
+                                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                                        <div>
+                                                            <p className="font-bold text-ink dark:text-[#F2F5FB]">{tipo}</p>
+                                                            <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">{formatDate(ajuste.criado_em)} · {ajuste.utilizador ?? "Utilizador removido"}</p>
+                                                            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300">Motivo: {ajuste.motivo}</p>
+                                                        </div>
+                                                        {podeReverter && (
+                                                            <SecondaryButton type="button" onClick={() => abrirReversao(ajuste)} className="min-h-[40px]">
+                                                                <RotateCcw className="h-4 w-4" aria-hidden="true" /> Reverter
+                                                            </SecondaryButton>
+                                                        )}
+                                                    </div>
+                                                    {ajuste.reversao && (
+                                                        <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-slate-600 dark:bg-[#1E232D] dark:text-slate-300">
+                                                            Revertido em {formatDate(ajuste.reversao.criado_em)} por {ajuste.reversao.utilizador ?? "Utilizador removido"} — {ajuste.reversao.motivo}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                    {ajuste.reversao && <div className="mt-3 rounded-md bg-muted/50 p-3 text-sm">
-                                        <p className="font-medium">Revertido em {formatDate(ajuste.reversao.criado_em)} por {ajuste.reversao.utilizador ?? "Utilizador removido"}</p>
-                                        <p className="mt-1 text-muted-foreground">Motivo: {ajuste.reversao.motivo}</p>
-                                    </div>}
-                                    {ajuste.ajuste_revertido_id && <p className="mt-2 text-xs text-muted-foreground">Reversão do ajuste #{ajuste.ajuste_revertido_id}</p>}
-                                </div>;
-                            })}
-                        </div>
-                    </AnimatedPanel>}
+                                )}
+                            </>
+                        )}
+                    </AnimatedPanel>
                 </div>
             </div>
-            <Modal show={editar} onClose={() => setEditar(false)} title={`Editar cliente · ${cliente.numero_cliente}`} maxWidth="lg">
+
+            <ConfirmDialog
+                show={suspenderAberto}
+                onClose={() => setSuspenderAberto(false)}
+                onConfirm={alternarSuspensao}
+                title={cortado ? "Voltar a abrir a água?" : `Fechar a água de ${cliente.nome}?`}
+                description={cortado ? "O cliente volta a ficar activo. Fica registado no histórico." : "Fica marcado como cortado até reactivar. A dívida mantém-se e fica registado no histórico."}
+                confirmLabel={cortado ? "Reactivar" : "Suspender"}
+                tone={cortado ? "primary" : "danger"}
+                ilustracao={cortado ? "confirmar" : "torneira"}
+                campo={{
+                    rotulo: "Motivo",
+                    valor: motivoEstado,
+                    onChange: setMotivoEstado,
+                    placeholder: cortado ? "Ex.: pagou a dívida toda" : "Ex.: dívida acima do limite",
+                    obrigatorio: true,
+                }}
+            />
+            <ConfirmarComTexto
+                accao={removerAccao}
+                palavra="REMOVER"
+                titulo={`Remover ${cliente.nome}?`}
+                descricao="O cliente vai para a lixeira com as suas facturas, leituras e pagamentos. As facturas em aberto são anuladas. Pode ser recuperado durante 30 dias. Escreva REMOVER para confirmar."
+                rotulo="Remover cliente"
+                onClose={() => setRemoverAccao(null)}
+            />
+            <ConfirmDialog
+                show={Boolean(paraReverter)}
+                onClose={() => setParaReverter(null)}
+                onConfirm={() => router.post(`/clientes/historico/${paraReverter.reverter}/reverter`, {}, { preserveScroll: true, onFinish: () => setParaReverter(null) })}
+                title="Reverter esta alteração?"
+                description={paraReverter ? `${paraReverter.titulo}: ${paraReverter.texto} Os valores anteriores voltam a ficar activos.` : ""}
+                confirmLabel="Reverter"
+            />
+            <Modal show={editar} onClose={() => setEditar(false)} title="Editar cliente" description={`${cliente.numero_cliente} · ${cliente.nome}`} variante="painel">
                 <form onSubmit={guardarEdicao} className="space-y-4">
                     <div><InputLabel htmlFor="cliente-nome" value="Nome" /><TextInput id="cliente-nome" required value={form.data.nome} onChange={(e) => form.setData("nome", e.target.value)} className="mt-1 block w-full" /><InputError message={form.errors.nome} className="mt-1" /></div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <div><InputLabel htmlFor="cliente-zona" value="Zona / bairro" /><select id="cliente-zona" value={form.data.zona_id} onChange={(e) => form.setData("zona_id", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"><option value="">Sem zona</option>{zonas.map((zona) => <option key={zona.id} value={zona.id}>{zona.nome}</option>)}</select><InputError message={form.errors.zona_id} className="mt-1" /></div>
+                        <div><InputLabel htmlFor="cliente-zona" value="Zona / bairro" /><select id="cliente-zona" value={form.data.zona_id} onChange={(e) => form.setData("zona_id", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-ink shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"><option value="">Sem zona</option>{zonas.map((zona) => <option key={zona.id} value={zona.id}>{zona.nome}</option>)}</select><InputError message={form.errors.zona_id} className="mt-1" /></div>
                         <div><InputLabel htmlFor="cliente-telefone" value="Telefone" /><TextInput id="cliente-telefone" value={form.data.telefone} onChange={(e) => form.setData("telefone", e.target.value)} className="mt-1 block w-full" /><InputError message={form.errors.telefone} className="mt-1" /></div>
                     </div>
                     <div><InputLabel htmlFor="cliente-email" value="Email" /><TextInput id="cliente-email" type="email" value={form.data.email} onChange={(e) => form.setData("email", e.target.value)} className="mt-1 block w-full" /><InputError message={form.errors.email} className="mt-1" /></div>
                     <div><InputLabel htmlFor="cliente-endereco" value="Endereço" /><TextInput id="cliente-endereco" value={form.data.endereco} onChange={(e) => form.setData("endereco", e.target.value)} className="mt-1 block w-full" /><InputError message={form.errors.endereco} className="mt-1" /></div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <div><InputLabel htmlFor="cliente-tarifa" value="Tarifa" /><select id="cliente-tarifa" required value={form.data.tarifa_id} onChange={(e) => form.setData("tarifa_id", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"><option value="">Seleccione</option>{tarifas.map((tarifa) => <option key={tarifa.id} value={tarifa.id}>{tarifa.nome}</option>)}</select><InputError message={form.errors.tarifa_id} className="mt-1" /></div>
-                        <div><InputLabel htmlFor="cliente-estado" value="Estado" /><select id="cliente-estado" value={form.data.estado} onChange={(e) => form.setData("estado", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"><option value="ativo">Activo</option><option value="inativo">Inactivo</option><option value="cortado">Cortado</option></select><InputError message={form.errors.estado} className="mt-1" /></div>
+                        <div><InputLabel htmlFor="cliente-tarifa" value="Tarifa" /><select id="cliente-tarifa" required value={form.data.tarifa_id} onChange={(e) => form.setData("tarifa_id", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-ink shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"><option value="">Seleccione</option>{tarifas.map((tarifa) => <option key={tarifa.id} value={tarifa.id}>{tarifa.nome}</option>)}</select><InputError message={form.errors.tarifa_id} className="mt-1" /></div>
+                        <div><InputLabel htmlFor="cliente-estado" value="Estado" /><select id="cliente-estado" value={form.data.estado} onChange={(e) => form.setData("estado", e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-ink shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"><option value="ativo">Activo</option><option value="inativo">Inactivo</option><option value="cortado">Cortado</option></select><InputError message={form.errors.estado} className="mt-1" /></div>
                     </div>
                     {ehAdministrador && <div><InputLabel htmlFor="cliente-leitura-inicial" value="Leitura inicial do contador" /><TextInput id="cliente-leitura-inicial" type="number" min="0" step="0.01" value={form.data.leitura_inicial} onChange={(e) => form.setData("leitura_inicial", e.target.value)} className="mt-1 block w-full" /><InputError message={form.errors.leitura_inicial} className="mt-1" /><p className="mt-1 text-xs text-muted-foreground">É o valor de abertura, não é consumo mensal e não gera factura. Uma alteração mostra primeiro o efeito no primeiro mês.</p></div>}
                     <div className="flex justify-end gap-2 border-t border-border pt-4"><SecondaryButton type="button" onClick={() => setEditar(false)}>Cancelar</SecondaryButton><PrimaryButton type="submit" disabled={form.processing}>{form.processing ? "A guardar…" : "Guardar alterações"}</PrimaryButton></div>

@@ -1,46 +1,137 @@
-import { Droplets } from "lucide-react";
+import { Droplets, Scissors } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { formatDate } from "@/lib/format";
 import { estadoDocumento, mesesFactura, moedaDocumento, resumoDocumento, telefonePagamento, volumeDocumento } from "@/lib/facturaDocumento";
 
-export default function FacturaCompacta({ factura, empresa }) {
+/**
+ * Factura em tira (3 por folha A4). Três colunas — quem emite · o que se
+ * consumiu · quanto pagar e até quando (Gestalt da região comum). O total
+ * fica num quadro de borda grossa: é o que o cliente procura primeiro. Sem
+ * fundos cheios, para sobreviver a uma impressora a preto e branco.
+ * Altura fixa de 85mm: 3 tiras + linhas de corte cabem numa A4.
+ */
+export default function FacturaCompacta({ factura, empresa, qrUrl }) {
     const estado = estadoDocumento(factura);
     const resumo = resumoDocumento(factura);
     const leitura = factura.leitura;
+    const ligacao = factura.tipo === "ligacao";
     const meios = [
-        ["M-Pesa", empresa?.mpesa_numero, empresa?.mpesa_titular],
-        ["E-Mola", empresa?.emola_numero, empresa?.emola_titular],
+        ["M-Pesa", empresa?.mpesa_numero],
+        ["E-Mola", empresa?.emola_numero],
     ].filter(([, numero]) => numero);
-    const detalhesFinanceiros = [
-        resumo.multaEmitida > 0 && `Multa: ${moedaDocumento(resumo.multaEmitida)}`,
-        resumo.acertoLeitura !== 0 && `Acerto: ${moedaDocumento(resumo.acertoLeitura)}`,
-        resumo.outrosAjustamentosPosteriores !== 0 && `Ajustamentos: ${moedaDocumento(resumo.outrosAjustamentosPosteriores)}`,
-    ].filter(Boolean).join(" · ");
+    const linhas = [
+        [ligacao ? "Taxa de ligação" : `Consumo ${volumeDocumento(resumo.consumo)}`, resumo.consumoEmitido],
+        ...(resumo.acertoLeitura !== 0 ? [["Acerto de leituras", resumo.acertoLeitura]] : []),
+        ...(resumo.saldoAnterior > 0 ? [["Dívida anterior", resumo.saldoAnterior]] : []),
+        ...(resumo.multaEmitida > 0 ? [["Multa por atraso", resumo.multaEmitida]] : []),
+        ...(resumo.pago > 0 ? [["Pago depois da emissão", -resumo.pago]] : []),
+    ];
 
-    return <article className="box-border flex h-[89mm] w-full flex-col gap-[3mm] overflow-hidden border-b border-dashed border-slate-500 px-[1.5mm] pb-[1.4mm] pt-[2mm] text-[8pt] leading-tight text-black" style={{ breakInside: "avoid", pageBreakInside: "avoid", printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
-        <header className="flex shrink-0 items-center justify-between gap-[3mm] border-b border-slate-300 pb-[1mm]">
-            <div className="flex min-w-0 items-center gap-[2mm]">
-                {empresa?.logotipoUrl ? <img src={empresa.logotipoUrl} crossOrigin="anonymous" alt={empresa.nome} className="h-[8mm] w-[8mm] shrink-0 object-contain" /> : <Droplets className="h-[7mm] w-[7mm] shrink-0 text-cyan-800" aria-hidden="true" />}
-                <div className="min-w-0"><p className="truncate text-[9pt] font-bold">{empresa?.nome ?? "Aquafuros"}</p><p className="truncate text-[7.5pt]">NUIT: {empresa?.nuit || "Não indicado"}{empresa?.localizacao ? ` · ${empresa.localizacao}` : ""}</p></div>
-            </div>
-            <div className="shrink-0 text-right"><p className="text-[7pt] font-semibold uppercase">Factura · {mesesFactura[factura.mes - 1]} {factura.ano}</p><p className="text-[9pt] font-bold text-cyan-900">{factura.numero_factura}</p><span className={`inline-block rounded border px-1 py-0.5 text-[7pt] font-semibold ${estado.classes}`}>{estado.label}</span></div>
-        </header>
+    return (
+        <article
+            className="relative box-border grid h-[85mm] w-full grid-cols-[48mm_1fr_47mm] overflow-hidden rounded-[2.5mm] border border-[#C9D2E3] text-[7.5pt] leading-tight text-black"
+            style={{ breakInside: "avoid", pageBreakInside: "avoid", printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}
+        >
+            <section className="flex flex-col gap-[2mm] border-r border-[#C9D2E3] bg-[#F2F5FC] px-[3.5mm] py-[3mm]">
+                <div className="flex items-center gap-[2mm]">
+                    {empresa?.logotipoUrl ? (
+                        <img src={empresa.logotipoUrl} crossOrigin="anonymous" alt={empresa.nome} className="h-[8mm] w-[8mm] shrink-0 object-contain" />
+                    ) : (
+                        <Droplets className="h-[7mm] w-[7mm] shrink-0 text-brand" aria-hidden="true" />
+                    )}
+                    <div className="min-w-0 leading-tight">
+                        <p className="truncate text-[9pt] font-bold">{empresa?.nome ?? "Aquafuros"}</p>
+                        {empresa?.localizacao && <p className="truncate text-[7pt] text-slate-600">{empresa.localizacao}</p>}
+                    </div>
+                </div>
+                <div>
+                    <p className="text-[7pt] font-extrabold tracking-[1.5px] text-brand">FACTURA</p>
+                    <p className="text-[10pt] font-bold">{factura.numero_factura}</p>
+                    <span className={`mt-[0.5mm] inline-block rounded border px-1 py-[0.3mm] text-[6.5pt] font-semibold ${estado.classes}`}>{estado.label}</span>
+                </div>
+                <dl className="flex flex-col gap-[0.8mm] text-[7.5pt]">
+                    <div className="flex justify-between gap-2"><dt className="text-slate-600">Mês</dt><dd className="font-bold">{mesesFactura[factura.mes - 1]} {factura.ano}</dd></div>
+                    <div className="flex justify-between gap-2"><dt className="text-slate-600">Emitida</dt><dd className="font-bold">{formatDate(factura.created_at)}</dd></div>
+                    <div className="flex justify-between gap-2"><dt className="text-slate-600">Tarifa</dt><dd className="truncate font-bold">{factura.cliente?.tarifa?.nome ?? "—"}</dd></div>
+                </dl>
+                <div className="mt-auto flex flex-col gap-[0.3mm] text-[6.5pt] leading-snug text-slate-600">
+                    <p className="font-bold text-black">{empresa?.nome ?? "Aquafuros"}</p>
+                    {empresa?.nuit && <p>NUIT {empresa.nuit}</p>}
+                    {empresa?.localizacao && <p>{empresa.localizacao}</p>}
+                </div>
+            </section>
 
-        <table className="w-full shrink-0 border-collapse text-[8pt]"><tbody>
-            <tr className="border-b border-slate-200"><th colSpan="4" className="bg-slate-100 px-[2mm] py-[0.7mm] text-left font-bold uppercase tracking-wide">Dados do cliente</th></tr>
-            <tr className="border-b border-slate-200"><th className="w-[15%] px-[2mm] py-[0.7mm] text-left font-semibold">Nome</th><td className="w-[35%] px-[2mm] py-[0.7mm] text-[9pt] font-black">{factura.cliente?.nome ?? "Cliente removido"}</td><th className="w-[15%] px-[2mm] py-[0.7mm] text-left font-semibold">Código</th><td className="px-[2mm] py-[0.7mm] font-semibold">{factura.cliente?.numero_cliente ?? "—"}</td></tr>
-            <tr className="border-b border-slate-200"><th className="px-[2mm] py-[0.7mm] text-left font-semibold">Morada</th><td className="px-[2mm] py-[0.7mm] font-semibold">{[factura.cliente?.endereco, factura.cliente?.bairro].filter(Boolean).join(" · ") || "Não indicada"}</td><th className="px-[2mm] py-[0.7mm] text-left font-semibold">Contador</th><td className="px-[2mm] py-[0.7mm] font-semibold">{factura.cliente?.numero_contador || "—"}</td></tr>
-        </tbody></table>
+            <section className="flex min-w-0 flex-col gap-[2mm] px-[4mm] py-[3mm]">
+                <div>
+                    <p className="text-[7pt] text-slate-600">Cliente</p>
+                    <p className="truncate text-[11pt] font-bold">{factura.cliente?.nome ?? "Cliente removido"}</p>
+                    <p className="truncate text-[7pt] text-slate-600">
+                        {factura.cliente?.numero_cliente ?? "—"}
+                        {factura.cliente?.bairro ? ` · ${factura.cliente.bairro}` : ""}
+                    </p>
+                </div>
+                {!ligacao && (
+                    <div className="grid grid-cols-3 overflow-hidden rounded-[1.8mm] border border-[#DDE2EE] text-center text-[7pt]">
+                        <div className="border-r border-[#DDE2EE] p-[1.2mm]">
+                            <p className="text-slate-600">Anterior</p>
+                            <p className="text-[9pt] font-bold tabular-nums">{factura.tipo === "consumo_estimado" ? "—" : volumeDocumento(leitura?.leitura_anterior)}</p>
+                        </div>
+                        <div className="border-r border-[#DDE2EE] p-[1.2mm]">
+                            <p className="text-slate-600">Actual</p>
+                            <p className="text-[9pt] font-bold tabular-nums">{factura.tipo === "consumo_estimado" ? "estimado" : volumeDocumento(leitura?.leitura_actual)}</p>
+                        </div>
+                        <div className="p-[1.2mm]">
+                            <p className="font-semibold text-brand">Consumo</p>
+                            <p className="text-[9pt] font-extrabold tabular-nums text-brand">{volumeDocumento(resumo.consumo)}</p>
+                        </div>
+                    </div>
+                )}
+                <table className="w-full border-collapse text-[7.5pt] tabular-nums">
+                    <tbody>
+                        {linhas.slice(0, 5).map(([texto, valor]) => (
+                            <tr key={texto} className="border-b border-[#E8ECF4] last:border-0">
+                                <td className="py-[0.8mm] pr-2">{texto}</td>
+                                <td className="whitespace-nowrap py-[0.8mm] text-right">{moedaDocumento(valor)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                <p className="mt-auto border-t border-[#DDE2EE] pt-[1.5mm] text-[6.8pt] leading-snug text-slate-600">
+                    <strong className="text-black">Aviso:</strong> pague até {formatDate(factura.data_vencimento)}. Depois desta data aplica-se multa por atraso e o fornecimento de água pode ser cortado.
+                </p>
+            </section>
 
-        <table className="w-full shrink-0 table-fixed border-collapse text-[7.5pt]"><thead><tr className="bg-slate-100 text-left font-semibold"><th className="px-[2mm] py-[0.8mm]">Leitura anterior</th><th className="px-[2mm] py-[0.8mm]">Leitura actual</th><th className="px-[2mm] py-[0.8mm]">Período</th><th className="px-[2mm] py-[0.8mm]">Emissão / vencimento</th></tr></thead><tbody><tr className="border-b border-slate-200"><td className="px-[2mm] py-[0.8mm] text-[9pt] font-bold tabular-nums">{volumeDocumento(leitura?.leitura_anterior)}</td><td className="px-[2mm] py-[0.8mm] text-[9pt] font-black tabular-nums">{volumeDocumento(leitura?.leitura_actual)}</td><td className="px-[2mm] py-[0.8mm] font-semibold">{mesesFactura[factura.mes - 1]} {factura.ano}</td><td className="px-[2mm] py-[0.8mm] font-black">{formatDate(factura.created_at)} · {formatDate(factura.data_vencimento)}</td></tr></tbody></table>
+            <section className="flex flex-col gap-[2mm] border-l border-[#C9D2E3] px-[3.5mm] py-[3mm]">
+                <div className="rounded-[2.5mm] border-[0.6mm] border-brand px-[3mm] py-[2mm]">
+                    <p className="text-[7pt] font-bold text-brand">TOTAL A PAGAR</p>
+                    <p className="text-[15pt] font-extrabold leading-tight tabular-nums">{moedaDocumento(resumo.aPagar)}</p>
+                    <p className="text-[7pt] text-slate-600">
+                        até <strong className="text-black">{formatDate(factura.data_vencimento)}</strong>
+                    </p>
+                </div>
+                <div className="flex flex-col gap-[0.4mm] text-[7pt] leading-snug text-slate-600">
+                    <p className="font-bold text-black">Como pagar</p>
+                    {meios.length ? meios.map(([nome, numero]) => <p key={nome}>{nome} {telefonePagamento(numero)}</p>) : <p>Contacte a empresa.</p>}
+                    <p>Dinheiro no escritório</p>
+                    <p>Ref.: {factura.cliente?.numero_cliente ?? factura.numero_factura}</p>
+                </div>
+                {qrUrl && (
+                    <div className="mt-auto flex items-center gap-[2mm]">
+                        <QRCodeSVG value={qrUrl} size={46} level="M" marginSize={1} />
+                        <p className="text-[6.5pt] leading-tight text-slate-600">Verificar autenticidade</p>
+                    </div>
+                )}
+            </section>
+        </article>
+    );
+}
 
-        <table className="w-full shrink-0 table-fixed border-collapse text-[7.5pt]"><thead><tr className="border-b border-slate-300 text-left font-semibold uppercase tracking-wide"><th className="px-[2mm] py-[0.6mm]">Consumo do mês</th><th className="px-[2mm] py-[0.6mm]">Valor em dívida</th><th className="px-[2mm] py-[0.6mm]">Total a pagar</th></tr></thead><tbody><tr><td className="bg-cyan-50 px-[2mm] py-[1mm] text-[12pt] font-black tabular-nums text-cyan-950">{volumeDocumento(resumo.consumo)}</td><td className="px-[2mm] py-[1mm] text-[10pt] font-semibold tabular-nums">{moedaDocumento(resumo.saldoAnterior)}</td><td className="bg-cyan-800 px-[2mm] py-[1mm] text-[12pt] font-bold tabular-nums text-white">{moedaDocumento(resumo.aPagar)}</td></tr></tbody></table>
-        {detalhesFinanceiros && <p className="shrink-0 text-[7pt] font-semibold">{detalhesFinanceiros}</p>}
-
-        <div className="min-h-[2mm] flex-1 basis-0" aria-hidden="true" />
-        <div className="grid shrink-0 grid-cols-[1fr_1.2fr] items-stretch gap-[2mm]">
-            <section className="rounded border border-slate-200 bg-slate-50 px-[2mm] py-[1mm]"><p className="mb-[0.5mm] text-[7.5pt] font-black uppercase tracking-wide">Formas de pagamento</p>{meios.length ? <div className="grid grid-cols-2 gap-[2mm]">{meios.map(([nome, numero, titular]) => <div key={nome} className="min-w-0"><p className="text-[7pt] font-semibold">{nome}</p><p className="text-[8pt] font-bold tabular-nums">{telefonePagamento(numero)}</p>{titular && <p className="truncate text-[7pt]">{titular}</p>}</div>)}</div> : <p className="text-[7pt]">Contacte a empresa para obter os meios de pagamento.</p>}</section>
-            <section className="rounded border border-amber-300 bg-amber-50 px-[2mm] py-[1mm] text-[7.5pt] font-semibold uppercase leading-snug"><p className="mb-[0.5mm] font-black uppercase tracking-wide">Aviso de multas e corte</p><p className="text-[6.5pt]">A FACTURA DEVE SER PAGA ATÉ AO DIA 10. APÓS ESSA DATA, PODERÁ SER APLICADA MULTA E O FORNECIMENTO DE ÁGUA PODERÁ SER CORTADO.</p></section>
+/** Linha de corte entre tiras (tesoura + tracejado). */
+export function LinhaCorte() {
+    return (
+        <div className="flex h-[6mm] items-center gap-[2mm] text-slate-400" aria-hidden="true">
+            <Scissors className="h-[3.5mm] w-[3.5mm]" />
+            <span className="flex-1 border-t border-dashed border-slate-400" />
         </div>
-        <div className="min-h-[3mm] flex-1 basis-0" aria-hidden="true" />
-    </article>;
+    );
 }

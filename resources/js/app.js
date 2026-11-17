@@ -22,8 +22,8 @@ const paginasDev = new Set(["Admin/Logs", "Users/Index", "Users/Lixeira"]);
 const paginasAdmin = new Set([
     "Admin/Dashboard", "Admin/Kpis", "Caixa/Dashboard", "Clientes/Index", "Cobranca/Index",
     "Emails/Index", "Facturas/Index", "Gestor/Dashboard", "Leituras/Index", "LerQr", "Lixeira/Index",
-    "Notificacoes/Index", "NotificacoesSistema/Index", "Ocorrencias/Index", "Pagamentos/Index",
-    "Producao/Index", "Tarifas/Index", "Tecnico/Dashboard", "Zonas/Index",
+    "Notificacoes/Index", "NotificacoesSistema/Index", "Ocorrencias/Index", "Pagamentos/Index", "Pagamentos/FechoCaixa", "Leituras/Estimadas",
+    "Producao/Index", "Tarifas/Index", "Tecnico/Dashboard", "Zonas/Index", "Clientes/Show", "Facturas/Show", "Leituras/Show",
 ]);
 
 function shellDaPagina(nome, pagina) {
@@ -34,7 +34,7 @@ function shellDaPagina(nome, pagina) {
     return paginasAdmin.has(nome) ? ShellAdmin : undefined;
 }
 
-const storedTheme = localStorage.getItem("theme") || "system";
+const storedTheme = localStorage.getItem("theme") || "light";
 const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 const shouldUseDark = storedTheme === "dark" || (storedTheme === "system" && prefersDark);
 
@@ -43,7 +43,13 @@ document.documentElement.style.colorScheme = shouldUseDark ? "dark" : "light";
 
 // Não reutilizar páginas pré-carregadas depois de uma gravação ou acção de sessão.
 router.on("before", (event) => {
-    if (event.detail.visit.method !== "get") router.flushAll();
+    if (event.detail.visit.method === "get") return;
+    // Sem ligação: não tenta gravar (os dados ficariam por enviar sem aviso).
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        event.preventDefault();
+        return;
+    }
+    router.flushAll();
 });
 
 createInertiaApp({

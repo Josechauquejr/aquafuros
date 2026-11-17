@@ -42,8 +42,7 @@ export default function Auditoria({ registos, filtros }) {
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Auditoria do painel</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Auditoria do painel</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Tudo o que foi alterado a partir do painel do Desenvolvedor. O registo só se acrescenta: não pode ser editado nem apagado.
                     </p>
@@ -88,7 +87,7 @@ export default function Auditoria({ registos, filtros }) {
                                         {registos.data.map((registo) => (
                                             <tr key={registo.id} className="align-top">
                                                 <td className="whitespace-nowrap px-4 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(registo.created_at)}</td>
-                                                <td className="px-4 py-3 text-slate-900 dark:text-white">{registo.user?.name ?? "—"}</td>
+                                                <td className="px-4 py-3 text-ink dark:text-white">{registo.user?.name ?? "—"}</td>
                                                 <td className="px-4 py-3">
                                                     <StatusBadge tone={registo.detalhes?.estado >= 400 ? "rose" : "cyan"}>{registo.acao}</StatusBadge>
                                                 </td>

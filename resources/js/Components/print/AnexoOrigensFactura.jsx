@@ -4,7 +4,7 @@ import { moedaDocumento, periodoOrigem, resumoDocumento } from "@/lib/facturaDoc
 
 export default function AnexoOrigensFactura({ factura, empresa, origens, numero, totalPaginas, qrUrl }) {
     const resumo = resumoDocumento(factura);
-    return <article className="text-[10pt] leading-snug text-slate-900" style={{printColorAdjust: "exact", WebkitPrintColorAdjust: "exact"}}>
+    return <article className="text-[10pt] leading-snug text-ink" style={{printColorAdjust: "exact", WebkitPrintColorAdjust: "exact"}}>
         <CabecalhoDocumento textoMaior empresa={empresa} titulo="Anexo de dívida" numero={factura.numero_factura} />
         <h1 className="mt-5 text-[14pt] font-semibold">Discriminação das facturas anteriores em aberto</h1>
         <p className="mt-2 break-words font-semibold">{factura.cliente?.nome ?? "Cliente removido"} · {factura.cliente?.numero_cliente}</p>

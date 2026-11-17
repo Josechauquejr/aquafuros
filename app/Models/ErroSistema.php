@@ -19,6 +19,8 @@ class ErroSistema extends Model
 
     protected $casts = [
         'resolvido' => 'boolean',
+        'explicacao_ia' => 'array',
+        'explicacao_ia_em' => 'datetime',
     ];
 
     public function user()

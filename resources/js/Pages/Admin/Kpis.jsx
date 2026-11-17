@@ -1,4 +1,4 @@
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, usePage } from "@inertiajs/react";
 import {
     AlertTriangle,
     AreaChart as AreaChartIcon,
@@ -23,15 +23,18 @@ import {
     Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
+import AbasEstado from "@/Components/AbasEstado";
+import CabecalhoLista from "@/Components/CabecalhoLista";
+import StatusBadge from "@/Components/StatusBadge";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import KpiCard from "@/Components/KpiCard";
 import DevedoresChart from "@/Components/charts/DevedoresChart";
 import SeletorMes from "@/Components/SeletorMes";
-import StatusBadge from "@/Components/StatusBadge";
 import DistribuicaoMetodoChart from "@/Components/charts/DistribuicaoMetodoChart";
 import GraficoSerie, { FILTROS_MESES, formatarCompacto, rotuloMensal } from "@/Components/charts/GraficoSerie";
-import { formatCurrency, formatMoney, formatVolume } from "@/lib/utils";
+import { cn, formatCurrency, formatMoney, formatVolume } from "@/lib/utils";
 import { itemVariants, listVariants } from "@/lib/motion";
 
 const metodoRotulo = { dinheiro: "Dinheiro", banco: "Transferência", mpesa: "M-Pesa", "e-mola": "e-Mola" };
@@ -59,8 +62,8 @@ function Seccao({ titulo, descricao, children }) {
     return (
         <section className="space-y-4">
             <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{titulo}</h3>
-                {descricao && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{descricao}</p>}
+                <h3 className="text-lg font-bold text-ink dark:text-[#F2F5FB]">{titulo}</h3>
+                {descricao && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{descricao}</p>}
             </div>
             {children}
         </section>
@@ -70,9 +73,9 @@ function Seccao({ titulo, descricao, children }) {
 function Painel({ titulo, descricao, icone: Icone, delay = 0.1, children }) {
     return (
         <AnimatedPanel delay={delay} className="overflow-hidden">
-            <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
-                    {Icone && <Icone className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />}
+            <div className="border-b border-[#E8ECF4] px-6 py-5 dark:border-slate-800">
+                <h3 className="flex items-center gap-2 text-base font-bold text-ink dark:text-[#F2F5FB]">
+                    {Icone && <Icone className="h-4 w-4 text-slate-500 dark:text-slate-400" aria-hidden="true" />}
                     {titulo}
                 </h3>
                 {descricao && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{descricao}</p>}
@@ -83,6 +86,38 @@ function Painel({ titulo, descricao, icone: Icone, delay = 0.1, children }) {
 }
 
 const Vazio = ({ children }) => <p className="px-6 py-6 text-sm text-slate-500 dark:text-slate-400">{children}</p>;
+
+/** Sinal vital: número grande, estado (cor + texto) e a meta ou limite por baixo. */
+function SinalVital({ titulo, valor, estado, detalhe, texto, link, progresso, marca }) {
+    const [rotulo, tom] = estado;
+    return (
+        <AnimatedPanel className="flex flex-col gap-2.5 p-5">
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{titulo}</span>
+                <StatusBadge tone={tom}>{rotulo}</StatusBadge>
+            </div>
+            {valor !== null ? (
+                <span className="text-[30px] font-bold leading-tight tabular-nums text-ink dark:text-[#F2F5FB]">{valor}</span>
+            ) : (
+                <span className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                    {texto}{" "}
+                    {link && (
+                        <Link href={link.href} className="font-bold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400">
+                            {link.rotulo}
+                        </Link>
+                    )}
+                </span>
+            )}
+            {progresso !== undefined && (
+                <span className="relative h-1.5 rounded-full bg-[#E8ECF4] dark:bg-slate-800">
+                    <span className={cn("block h-full rounded-full", tom === "rose" ? "bg-rose-600" : tom === "amber" ? "bg-amber-600" : "bg-cyan-500")} style={{ width: `${Math.min(100, progresso)}%` }} />
+                    {marca !== undefined && <span className="absolute -top-1 h-3.5 w-0.5 bg-ink dark:bg-[#F2F5FB]" style={{ left: `${marca}%` }} aria-hidden="true" />}
+                </span>
+            )}
+            <span className="text-[13px] text-slate-500 dark:text-slate-400">{detalhe}</span>
+        </AnimatedPanel>
+    );
+}
 
 export default function Kpis({
     mes,
@@ -120,43 +155,6 @@ export default function Kpis({
     const dividaEmAtraso = antiguidadeDivida.filter((b) => b.chave !== "aVencer").reduce((s, b) => s + b.valor, 0);
     const detalheVariacao = (chave) => `ano passado: ${variacoes[chave].homologo === null ? "novo" : `${variacoes[chave].homologo > 0 ? "+" : ""}${num(variacoes[chave].homologo)}%`}`;
 
-    const principais = [
-        {
-            label: "Total facturado",
-            value: formatCurrency(mes.totalFacturado),
-            detail: `${mes.numeroFacturas} factura(s) · ${detalheVariacao("totalFacturado")}`,
-            icon: FileText,
-            tone: "cyan",
-            variacao: variacoes.totalFacturado.anterior,
-            grafico: { tipo: "spark", serie: ultimos.map((d) => d.facturado), rotulos: ultimos.map(rotuloMensal), formatar: formatMoney },
-        },
-        {
-            label: "Total recebido",
-            value: formatCurrency(mes.totalRecebido),
-            detail: `${mes.numeroPagamentos} pagamento(s) · ${detalheVariacao("totalRecebido")}`,
-            icon: Receipt,
-            tone: "emerald",
-            variacao: variacoes.totalRecebido.anterior,
-            grafico: { tipo: "spark", serie: ultimos.map((d) => d.recebido), rotulos: ultimos.map(rotuloMensal), formatar: formatMoney },
-        },
-        {
-            label: "Taxa de cobrança",
-            value: pct(cobranca.taxaMes),
-            detail: `acumulada: ${pct(cobranca.taxaAcumulada)} · mês anterior: ${pct(anterior.taxaCobranca)}`,
-            icon: TrendingUp,
-            tone: "amber",
-            grafico: { tipo: "radial", valor: cobranca.taxaMes ?? 0 },
-        },
-        {
-            label: "Consumo de água",
-            value: formatarM3(mes.consumoM3),
-            detail: `${consumo.clientesComLeitura} cliente(s) · ${detalheVariacao("consumoM3")}`,
-            icon: Droplets,
-            tone: "cyan",
-            variacao: variacoes.consumoM3.anterior,
-            grafico: { tipo: "spark", serie: consumos.map((d) => d.consumo), rotulos: consumos.map(rotuloMensal), formatar: formatVolume },
-        },
-    ];
 
     const eficiencia = [
         {
@@ -189,6 +187,74 @@ export default function Kpis({
         },
     ];
 
+
+    const { auth } = usePage().props;
+    const ehAdministrador = auth.roles?.includes("administrador");
+    const [aba, setAba] = useState(() => {
+        try {
+            const pedida = new URLSearchParams(window.location.search).get("aba");
+            return ["din", "agua", "cli", "eq", "ctl"].includes(pedida) ? pedida : "din";
+        } catch {
+            return "din";
+        }
+    });
+    const escolherAba = (chave) => {
+        setAba(chave);
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.set("aba", chave);
+            window.history.replaceState(window.history.state, "", url);
+        } catch {
+            // sem histórico: só muda no ecrã
+        }
+    };
+    const abas = [
+        { chave: "din", rotulo: "Dinheiro" },
+        { chave: "agua", rotulo: "Água" },
+        { chave: "cli", rotulo: "Clientes" },
+        { chave: "eq", rotulo: "Equipa" },
+        ...(controlo && ehAdministrador ? [{ chave: "ctl", rotulo: "Controlo" }] : []),
+    ];
+
+    // 4 sinais vitais, cada um com a meta ou o limite ao lado (Ancoragem).
+    const lidosPct = clientes.activos > 0 ? Math.round((consumo.clientesComLeitura / clientes.activos) * 100) : 0;
+    const emRisco = risco.emRiscoCorte?.total ?? 0;
+    const sinais = [
+        {
+            titulo: "Leituras feitas",
+            valor: `${lidosPct}%`,
+            estado: lidosPct >= 100 ? ["Em dia", "emerald"] : ["Atenção", "amber"],
+            detalhe: `Meta: 100% até dia ${ciclo.diaLimite} · ${consumo.clientesComLeitura} de ${clientes.activos}`,
+            progresso: lidosPct,
+        },
+        cobranca.taxaMes === null
+            ? { titulo: "Taxa de cobrança", valor: null, estado: ["Ainda não", "slate"], texto: `Disponível depois da facturação de ${mesReferencia.rotulo}.`, detalhe: "Meta sugerida: 90% do facturado" }
+            : {
+                  titulo: "Taxa de cobrança",
+                  valor: pct(cobranca.taxaMes),
+                  estado: cobranca.taxaMes >= 90 ? ["Em dia", "emerald"] : cobranca.taxaMes >= 70 ? ["Atenção", "amber"] : ["Risco", "rose"],
+                  detalhe: "Meta: 90% do facturado",
+                  progresso: cobranca.taxaMes,
+                  marca: 90,
+              },
+        perdas.perdasPct === null
+            ? { titulo: "Perdas de água", valor: null, estado: ["Sem dados", "slate"], texto: "Falta registar a produção do mês.", link: { href: "/producao", rotulo: "Registar" }, detalhe: "Limite: abaixo de 30%" }
+            : {
+                  titulo: "Perdas de água",
+                  valor: pct(perdas.perdasPct),
+                  estado: perdas.perdasPct < 30 ? ["Em dia", "emerald"] : ["Risco", "rose"],
+                  detalhe: `Limite: abaixo de 30% · ${formatarM3(perdas.perdasM3)} perdidos`,
+                  progresso: Math.max(0, perdas.perdasPct),
+                  marca: 30,
+              },
+        {
+            titulo: "Dívida em atraso",
+            valor: formatMoney(dividaEmAtraso),
+            estado: dividaEmAtraso === 0 ? ["Em dia", "emerald"] : emRisco > 0 ? ["Risco", "rose"] : ["Atenção", "amber"],
+            detalhe: `${emRisco} ${emRisco === 1 ? "cliente" : "clientes"} em risco de corte`,
+        },
+    ];
+
     const comparacao = [
         { rotulo: "Facturado", chave: "totalFacturado", f: formatMoney },
         { rotulo: "Recebido", chave: "totalRecebido", f: formatMoney },
@@ -197,46 +263,43 @@ export default function Kpis({
     ];
 
     return (
-        <AdminLayout
-            header={
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <Link
-                            href="/admin/dashboard"
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                        >
-                            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                            Voltar ao painel
-                        </Link>
-                        <h2 className="mt-1 text-2xl font-bold leading-tight text-slate-950 dark:text-white">KPIs e Estatísticas</h2>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Análise de {mesReferencia.rotulo}: cobrança, consumo, clientes, facturação e equipa, comparados com o mês anterior e com o ano passado.
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                        <SeletorMes rota="/admin/kpis" mesReferencia={mesReferencia} extra={filtros} />
-                        <a
-                            href={`/admin/kpis/exportar${mesReferencia.eActual ? "" : `?mes=${mesReferencia.valor}`}`}
-                            className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                            title="Exportar esta análise em CSV"
-                        >
-                            <Download className="h-4 w-4" aria-hidden="true" />
-                            Exportar
-                        </a>
-                    </div>
-                </div>
-            }
-        >
-            <Head title="KPIs e Estatísticas" />
+        <AdminLayout>
+            <Head title="Indicadores" />
+            <div className="mx-auto mb-8 max-w-7xl px-4 sm:px-6 lg:px-8">
+                <CabecalhoLista
+                    titulo="Indicadores"
+                    resumo={`Como está o negócio em ${mesReferencia.rotulo}, comparado com o mês anterior.`}
+                >
+                    <SeletorMes rota="/admin/kpis" mesReferencia={mesReferencia} extra={{ ...filtros, aba }} />
+                    <a
+                        href={`/admin/kpis/exportar${mesReferencia.eActual ? "" : `?mes=${mesReferencia.valor}`}`}
+                        className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#DDE2EE] bg-white px-4 text-sm font-semibold text-ink hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-[#F2F5FB] dark:hover:bg-[#1E232D]"
+                        title="Exportar esta análise em CSV"
+                    >
+                        <Download className="h-4 w-4" aria-hidden="true" />
+                        Exportar
+                    </a>
+                </CabecalhoLista>
+            </div>
 
-            <div className="py-8 sm:py-10">
-                <div className="mx-auto max-w-7xl space-y-10 px-4 sm:px-6 lg:px-8">
-                    <Seccao titulo="Resumo do mês" descricao="A variação (setas) é face ao mês anterior; o texto mostra a do mesmo mês do ano passado.">
+            <div>
+                <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 sm:px-6 lg:px-8">
+                    <section aria-labelledby="sinais" className="flex flex-col gap-4">
+                        <h2 id="sinais" className="text-lg font-bold text-ink dark:text-[#F2F5FB]">Sinais vitais</h2>
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                            {principais.map((metric, index) => (
-                                <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
+                            {sinais.map((sinal) => (
+                                <SinalVital key={sinal.titulo} {...sinal} />
                             ))}
                         </div>
+                    </section>
+
+                    <div className="flex flex-col gap-6">
+                        <AnimatedPanel className="overflow-hidden">
+                            <AbasEstado abas={abas} activa={aba} onEscolher={(a) => escolherAba(a.chave)} rotulo="Área" className="border-b-0" />
+                        </AnimatedPanel>
+                    {aba === "din" && (
+                        <>
+                    <Seccao titulo="Eficiência e comparação" descricao="A variação (setas) é face ao mês anterior; o texto mostra a do mesmo mês do ano passado.">
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                             {eficiencia.map((metric, index) => (
                                 <KpiCard key={metric.label} {...metric} delay={0.24 + index * 0.05} />
@@ -256,8 +319,8 @@ export default function Kpis({
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                         {comparacao.map((linha) => (
                                             <tr key={linha.chave}>
-                                                <td className="px-6 py-3 font-medium text-slate-900 dark:text-white">{linha.rotulo}</td>
-                                                <td className="px-6 py-3 text-right font-semibold text-slate-900 dark:text-white">{linha.f(mes[linha.chave])}</td>
+                                                <td className="px-6 py-3 font-medium text-ink dark:text-white">{linha.rotulo}</td>
+                                                <td className="px-6 py-3 text-right font-semibold text-ink dark:text-white">{linha.f(mes[linha.chave])}</td>
                                                 <td className="px-6 py-3 text-right text-slate-600 dark:text-slate-300">
                                                     {linha.f(anterior[linha.chave])} <Variacao valor={variacoes[linha.chave].anterior} />
                                                 </td>
@@ -271,17 +334,20 @@ export default function Kpis({
                             </div>
                         </Painel>
                     </Seccao>
-
+                        </>
+                    )}
+                    {aba === "din" && (
+                        <>
                     <Seccao titulo="Tendências" descricao="Últimos meses até ao mês escolhido; as linhas claras são a média móvel de 3 meses.">
                         <GraficoSerie
                             titulo="Facturado vs. recebido"
                             icone={AreaChartIcon}
                             dados={evolucaoMensal}
                             series={[
-                                { chave: "facturado", label: "Facturado", cor: "#2a78d6" },
-                                { chave: "recebido", label: "Recebido", cor: "#1baf7a" },
-                                { chave: "facturadoMedia", label: "Média móvel — facturado", cor: "#93c5fd" },
-                                { chave: "recebidoMedia", label: "Média móvel — recebido", cor: "#6ee7b7" },
+                                { chave: "facturado", label: "Facturado", cor: "#0059FF" },
+                                { chave: "recebido", label: "Recebido", cor: "#1E7148" },
+                                { chave: "facturadoMedia", label: "Média móvel — facturado", cor: "#9DBBFF" },
+                                { chave: "recebidoMedia", label: "Média móvel — recebido", cor: "#7DD3A3" },
                             ]}
                             tipo="line"
                             filtros={FILTROS_MESES}
@@ -289,7 +355,10 @@ export default function Kpis({
                             formatarEixo={formatarCompacto}
                         />
                     </Seccao>
-
+                        </>
+                    )}
+                    {aba === "din" && (
+                        <>
                     <Seccao titulo="Cobrança" descricao="Quanto do facturado se recebe, como se paga e há quanto tempo está em dívida.">
                         <div className="grid gap-6 lg:grid-cols-2">
                             <DistribuicaoMetodoChart
@@ -312,10 +381,10 @@ export default function Kpis({
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                             {cobranca.porMetodo.map((linha) => (
                                                 <tr key={linha.metodo}>
-                                                    <td className="px-6 py-3 font-medium text-slate-900 dark:text-white">{metodoRotulo[linha.metodo] ?? linha.metodo}</td>
+                                                    <td className="px-6 py-3 font-medium text-ink dark:text-white">{metodoRotulo[linha.metodo] ?? linha.metodo}</td>
                                                     <td className="px-3 py-3 text-right text-slate-600 dark:text-slate-300">{linha.quantidade}</td>
                                                     <td className="px-3 py-3 text-right text-slate-600 dark:text-slate-300">{formatMoney(linha.ticketMedio)}</td>
-                                                    <td className="px-6 py-3 text-right font-semibold text-slate-900 dark:text-white">{pct(linha.percentagem)}</td>
+                                                    <td className="px-6 py-3 text-right font-semibold text-ink dark:text-white">{pct(linha.percentagem)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -334,7 +403,7 @@ export default function Kpis({
                                 {antiguidadeDivida.map((balde) => (
                                     <div key={balde.chave}>
                                         <div className="flex items-baseline justify-between text-sm">
-                                            <span className="font-medium text-slate-900 dark:text-white">{balde.rotulo}</span>
+                                            <span className="font-medium text-ink dark:text-white">{balde.rotulo}</span>
                                             <span className="text-slate-600 dark:text-slate-300">
                                                 {formatMoney(balde.valor)} · {balde.quantidade} factura(s)
                                             </span>
@@ -350,8 +419,10 @@ export default function Kpis({
                             </div>
                         </Painel>
                     </Seccao>
-
-
+                        </>
+                    )}
+                    {aba === "din" && (
+                        <>
                     <Seccao titulo="Previsão de caixa e evolução da dívida" descricao="Estimativas construídas com o histórico de pagamentos da empresa — os componentes estão à vista.">
                         <div className="grid gap-6 lg:grid-cols-2">
                             <Painel titulo="Previsão para os próximos 30 dias" icone={TrendingUp} descricao="Quanto se espera receber, e de onde vem" delay={0.1}>
@@ -367,7 +438,7 @@ export default function Kpis({
                                             <dt className="text-slate-500 dark:text-slate-400">
                                                 A vencer em 30 dias ({previsao.aVencer.facturas} factura(s)) · {formatMoney(previsao.aVencer.valor)}
                                             </dt>
-                                            <dd className="font-semibold text-slate-900 dark:text-white">
+                                            <dd className="font-semibold text-ink dark:text-white">
                                                 × {previsao.aVencer.taxa === null ? "—" : pct(previsao.aVencer.taxa * 100)} costuma pagar a prazo
                                             </dd>
                                         </div>
@@ -375,7 +446,7 @@ export default function Kpis({
                                             <dt className="text-slate-500 dark:text-slate-400">
                                                 Já em atraso ({previsao.emAtraso.facturas} factura(s)) · {formatMoney(previsao.emAtraso.valor)}
                                             </dt>
-                                            <dd className="font-semibold text-slate-900 dark:text-white">
+                                            <dd className="font-semibold text-ink dark:text-white">
                                                 × {previsao.emAtraso.taxa === null ? "—" : pct(previsao.emAtraso.taxa * 100)} recuperado por mês
                                             </dd>
                                         </div>
@@ -388,7 +459,7 @@ export default function Kpis({
                                 descricao="Valor por receber no fim de cada mês (facturado próprio − pago)"
                                 icone={AreaChartIcon}
                                 dados={evolucaoDivida}
-                                series={[{ chave: "divida", label: "Por receber", cor: "#e11d48" }]}
+                                series={[{ chave: "divida", label: "Por receber", cor: "#B42318" }]}
                                 tipo="area"
                                 filtros={FILTROS_MESES}
                                 formatar={formatMoney}
@@ -396,7 +467,10 @@ export default function Kpis({
                             />
                         </div>
                     </Seccao>
-
+                        </>
+                    )}
+                    {aba === "cli" && (
+                        <>
                     <Seccao titulo="Risco de cobrança e cobertura" descricao="Quem está em risco, quanto das facturas do mês já entrou e se o ciclo leitura → factura está completo.">
                         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                             <KpiCard
@@ -471,7 +545,7 @@ export default function Kpis({
                                         {risco.emRiscoCorte.clientes.map((linha) => (
                                             <div key={linha.cliente} className="flex items-center justify-between gap-3 px-6 py-3">
                                                 <div className="min-w-0">
-                                                    <p className="truncate font-medium text-slate-900 dark:text-white">{linha.cliente}</p>
+                                                    <p className="truncate font-medium text-ink dark:text-white">{linha.cliente}</p>
                                                     <p className="text-xs text-slate-500 dark:text-slate-400">{linha.facturas} factura(s) vencida(s)</p>
                                                 </div>
                                                 <span className="shrink-0 font-semibold text-rose-600 dark:text-rose-400">{formatMoney(linha.valor)}</span>
@@ -497,7 +571,10 @@ export default function Kpis({
                             </Painel>
                         </div>
                     </Seccao>
-
+                        </>
+                    )}
+                    {aba === "agua" && (
+                        <>
                     <Seccao titulo="Ciclo de leituras e facturação" descricao={`Prazo das leituras: dia ${ciclo.diaLimite} de cada mês (configurável em Tarifas > Prazos e limites).`}>
                         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                             <KpiCard
@@ -530,7 +607,10 @@ export default function Kpis({
                             />
                         </div>
                     </Seccao>
-
+                        </>
+                    )}
+                    {aba === "agua" && (
+                        <>
                     <Seccao titulo="Consumo e perdas" descricao="O que foi medido, o que foi facturado e onde há anomalias.">
                         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                             <KpiCard label="Consumo medido" value={formatarM3(consumo.medidoM3)} detail={`${num(consumo.m3PorCliente, 2)} m³ por cliente`} icon={Droplets} tone="cyan" />
@@ -562,7 +642,7 @@ export default function Kpis({
                             descricao="Metros cúbicos registados por mês"
                             icone={Droplets}
                             dados={consumoMensal}
-                            series={[{ chave: "consumo", label: "Consumo", cor: "#2a78d6" }]}
+                            series={[{ chave: "consumo", label: "Consumo", cor: "#0059FF" }]}
                             tipo="line"
                             filtros={FILTROS_MESES}
                             formatar={formatVolume}
@@ -578,11 +658,11 @@ export default function Kpis({
                                         {consumo.anomalias.map((linha, indice) => (
                                             <div key={`${linha.cliente}-${indice}`} className="flex items-center justify-between gap-3 px-6 py-3">
                                                 <div className="min-w-0">
-                                                    <p className="truncate font-medium text-slate-900 dark:text-white">{linha.cliente}</p>
+                                                    <p className="truncate font-medium text-ink dark:text-white">{linha.cliente}</p>
                                                     <p className="text-xs text-slate-500 dark:text-slate-400">média habitual {formatarM3(linha.media)}</p>
                                                 </div>
                                                 <div className="shrink-0 text-right">
-                                                    <p className="font-semibold text-slate-900 dark:text-white">{formatarM3(linha.consumo)}</p>
+                                                    <p className="font-semibold text-ink dark:text-white">{formatarM3(linha.consumo)}</p>
                                                     <StatusBadge tone={linha.variacao > 0 ? "rose" : "amber"}>
                                                         {linha.variacao > 0 ? "+" : ""}
                                                         {linha.variacao}%
@@ -605,7 +685,7 @@ export default function Kpis({
                                                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                                                         {indice + 1}
                                                     </span>
-                                                    <p className="font-medium text-slate-900 dark:text-white">{linha.cliente}</p>
+                                                    <p className="font-medium text-ink dark:text-white">{linha.cliente}</p>
                                                 </div>
                                                 <span className="font-semibold text-cyan-700 dark:text-cyan-300">{formatarM3(linha.consumo)}</span>
                                             </div>
@@ -624,8 +704,10 @@ export default function Kpis({
                             </Painel>
                         )}
                     </Seccao>
-
-
+                        </>
+                    )}
+                    {aba === "agua" && (
+                        <>
                     <Seccao titulo="Perdas de água e resultado por zona" descricao="Quanta água se produz face à que se factura, e como vai cada zona.">
                         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                             <KpiCard label="Água produzida" value={formatVolume(perdas.produzidoM3)} detail={perdas.temDados ? mesReferencia.rotulo : "registar em Produção de água"} icon={Droplets} tone="cyan" />
@@ -653,7 +735,7 @@ export default function Kpis({
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                             {porZona.map((z) => (
                                                 <tr key={z.zona}>
-                                                    <td className="px-6 py-3 font-medium text-slate-900 dark:text-white">{z.zona}</td>
+                                                    <td className="px-6 py-3 font-medium text-ink dark:text-white">{z.zona}</td>
                                                     <td className="px-3 py-3 text-right text-slate-600 dark:text-slate-300">{z.clientes}</td>
                                                     <td className="px-3 py-3 text-right text-slate-600 dark:text-slate-300">{formatMoney(z.facturado)}</td>
                                                     <td className="px-3 py-3 text-right text-slate-600 dark:text-slate-300">{formatMoney(z.recebido)}</td>
@@ -668,7 +750,10 @@ export default function Kpis({
                             )}
                         </Painel>
                     </Seccao>
-
+                        </>
+                    )}
+                    {aba === "cli" && (
+                        <>
                     <Seccao titulo="Cobrança activa, ocorrências e crédito" descricao="O que a equipa faz para cobrar, quanto demora a resolver problemas e o crédito dos clientes.">
                         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                             <KpiCard label="Contactos de cobrança" value={cobrancaOp.contactos} detail={`${cobrancaOp.semContacto15d} em atraso sem contacto há 15 dias`} icon={Users} tone={cobrancaOp.semContacto15d > 0 ? "amber" : "emerald"} />
@@ -687,14 +772,17 @@ export default function Kpis({
                                     {Object.entries(ocorrencias.porZona).map(([zona, total]) => (
                                         <div key={zona} className="flex justify-between gap-4 px-6 py-3">
                                             <span className="text-slate-700 dark:text-slate-300">{zona}</span>
-                                            <span className="font-semibold text-slate-900 dark:text-white">{total}</span>
+                                            <span className="font-semibold text-ink dark:text-white">{total}</span>
                                         </div>
                                     ))}
                                 </div>
                             </Painel>
                         )}
                     </Seccao>
-
+                        </>
+                    )}
+                    {aba === "cli" && (
+                        <>
                     <Seccao titulo="Clientes e facturação">
                         <div className="grid gap-6 lg:grid-cols-2">
                             <Painel titulo="Clientes" icone={UserPlus} delay={0.1}>
@@ -712,7 +800,7 @@ export default function Kpis({
                                     ].map(([rotulo, valor]) => (
                                         <div key={rotulo} className="flex justify-between gap-4 px-6 py-3">
                                             <dt className="text-slate-500 dark:text-slate-400">{rotulo}</dt>
-                                            <dd className="font-semibold text-slate-900 dark:text-white">{valor}</dd>
+                                            <dd className="font-semibold text-ink dark:text-white">{valor}</dd>
                                         </div>
                                     ))}
                                 </dl>
@@ -728,7 +816,7 @@ export default function Kpis({
                                     ].map(([rotulo, valor]) => (
                                         <div key={rotulo} className="flex justify-between gap-4 px-6 py-3">
                                             <dt className="text-slate-500 dark:text-slate-400">{rotulo}</dt>
-                                            <dd className="font-semibold text-slate-900 dark:text-white">{valor}</dd>
+                                            <dd className="font-semibold text-ink dark:text-white">{valor}</dd>
                                         </div>
                                     ))}
                                     {facturacao.anuladas.motivos.length > 0 && (
@@ -748,7 +836,10 @@ export default function Kpis({
                             </Painel>
                         </div>
                     </Seccao>
-
+                        </>
+                    )}
+                    {aba === "eq" && (
+                        <>
                     <Seccao titulo="Equipa">
                         <Painel
                             titulo="Desempenho por colaborador"
@@ -779,11 +870,11 @@ export default function Kpis({
                                                             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                                                                 {index + 1}
                                                             </span>
-                                                            <span className="font-medium text-slate-900 dark:text-white">{linha.utilizador}</span>
+                                                            <span className="font-medium text-ink dark:text-white">{linha.utilizador}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">{linha.pagamentosQuantidade}</td>
-                                                    <td className="px-6 py-4 text-right font-medium text-slate-900 dark:text-white">{formatCurrency(linha.pagamentosTotal)}</td>
+                                                    <td className="px-6 py-4 text-right font-medium text-ink dark:text-white">{formatCurrency(linha.pagamentosTotal)}</td>
                                                     <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">{linha.facturasQuantidade}</td>
                                                     <td className="px-6 py-4 text-right text-slate-700 dark:text-slate-300">{linha.leiturasQuantidade}</td>
                                                     <td className="px-6 py-4 text-right">
@@ -797,8 +888,10 @@ export default function Kpis({
                             )}
                         </Painel>
                     </Seccao>
-
-
+                        </>
+                    )}
+                    {aba === "ctl" && (
+                        <>
                     {controlo && (
                     <Seccao titulo="Controlo e auditoria" descricao="Sinais de erro ou abuso: quem anula, quem estorna e que pagamentos não se conseguem verificar.">
                         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
@@ -857,13 +950,13 @@ export default function Kpis({
                                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
                                         {controlo.anulacoes.map((l) => (
                                             <div key={`a-${l.utilizador}`} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
-                                                <span className="font-medium text-slate-900 dark:text-white">{l.utilizador} <span className="font-normal text-slate-500">anulou</span></span>
+                                                <span className="font-medium text-ink dark:text-white">{l.utilizador} <span className="font-normal text-slate-500">anulou</span></span>
                                                 <span className="text-slate-700 dark:text-slate-300">{l.quantidade} factura(s) · {formatMoney(l.valor)}</span>
                                             </div>
                                         ))}
                                         {controlo.estornos.map((l) => (
                                             <div key={`e-${l.utilizador}`} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
-                                                <span className="font-medium text-slate-900 dark:text-white">{l.utilizador} <span className="font-normal text-slate-500">estornou</span></span>
+                                                <span className="font-medium text-ink dark:text-white">{l.utilizador} <span className="font-normal text-slate-500">estornou</span></span>
                                                 <span className="text-slate-700 dark:text-slate-300">{l.quantidade} pagamento(s) · {formatMoney(l.valor)}</span>
                                             </div>
                                         ))}
@@ -910,7 +1003,10 @@ export default function Kpis({
                         </div>
                     </Seccao>
                     )}
-
+                        </>
+                    )}
+                    {aba === "din" && (
+                        <>
                     <Seccao titulo="Maiores devedores">
                         <DevedoresChart
                             largo
@@ -919,6 +1015,9 @@ export default function Kpis({
                             descricao={`Dívida em atraso total: ${formatCurrency(clientes.dividaTotal)} — os 10 maiores concentram ${pct(clientes.concentracaoTop10)}`}
                         />
                     </Seccao>
+                        </>
+                    )}
+                    </div>
                 </div>
             </div>
         </AdminLayout>

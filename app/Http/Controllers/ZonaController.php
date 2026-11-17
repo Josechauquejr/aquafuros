@@ -14,7 +14,8 @@ class ZonaController extends Controller
     public function index()
     {
         return Inertia::render('Zonas/Index', [
-            'zonas' => Zona::withCount('clientes')->orderBy('nome')->get(),
+            'zonas' => $this->zonasComResumo(),
+            'mesCiclo' => \App\Support\MesReferencia::actual()->month,
             'semZona' => Cliente::whereNull('zona_id')->count(),
         ]);
     }
@@ -49,5 +50,31 @@ class ZonaController extends Controller
         $zona->delete();
 
         return back()->with('status', 'Zona apagada com sucesso.');
+    }
+
+    /**
+     * Cada zona com o que importa para a ronda: clientes activos, lidos no
+     * mês do ciclo, clientes em atraso e ocorrências abertas.
+     */
+    private function zonasComResumo()
+    {
+        $mes = \App\Support\MesReferencia::actual();
+        $doMes = fn ($q) => $q->where('mes', $mes->month)->where('ano', $mes->year);
+        $emAtraso = \App\Models\Factura::whereIn('facturas.estado', ['pendente', 'parcial'])
+            ->where('facturas.data_vencimento', '<', now()->toDateString())
+            ->join('clientes', 'clientes.id', '=', 'facturas.cliente_id')
+            ->selectRaw('clientes.zona_id, COUNT(DISTINCT facturas.cliente_id) as total')
+            ->groupBy('clientes.zona_id')->pluck('total', 'zona_id');
+        $ocorrencias = \App\Models\Ocorrencia::where('estado', '!=', 'resolvida')
+            ->selectRaw('zona_id, COUNT(*) as total')->groupBy('zona_id')->pluck('total', 'zona_id');
+
+        return Zona::withCount([
+            'clientes',
+            'clientes as activos' => fn ($q) => $q->where('estado', 'ativo'),
+            'clientes as lidos' => fn ($q) => $q->where('estado', 'ativo')->whereHas('leituras', $doMes),
+        ])->orderBy('nome')->get()->each(function (Zona $zona) use ($emAtraso, $ocorrencias) {
+            $zona->em_atraso = (int) ($emAtraso[$zona->id] ?? 0);
+            $zona->ocorrencias_abertas = (int) ($ocorrencias[$zona->id] ?? 0);
+        });
     }
 }

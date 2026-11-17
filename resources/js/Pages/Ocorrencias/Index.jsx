@@ -20,7 +20,7 @@ import { PainelFiltros } from "@/Components/DataTable/Toolbar";
 const tipos = { sem_agua: "Sem água", fuga: "Fuga", avaria: "Avaria", contador: "Contador", reclamacao: "Reclamação", outro: "Outro" };
 const estados = { aberta: ["Aberta", "rose"], em_curso: ["Em curso", "amber"], resolvida: ["Resolvida", "emerald"] };
 const selectClasses =
-    "mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+    "mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
 const filtrosConfig = [
     {
@@ -89,8 +89,7 @@ export default function Index({ ocorrencias, zonas, clientes, totais, filtros })
             header={
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Operação</p>
-                        <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Avarias e reclamações</h2>
+                        <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Avarias e reclamações</h2>
                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                             Do aviso à resolução — para saber quanto tempo demora a resposta e onde há mais problemas.
                         </p>
@@ -136,7 +135,7 @@ export default function Index({ ocorrencias, zonas, clientes, totais, filtros })
                                     return (
                                         <li key={o.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
                                             <div className="min-w-0">
-                                                <p className="flex flex-wrap items-center gap-2 font-medium text-slate-900 dark:text-white">
+                                                <p className="flex flex-wrap items-center gap-2 font-medium text-ink dark:text-white">
                                                     {tipos[o.tipo]}
                                                     <StatusBadge tone={tom}>{rotulo}</StatusBadge>
                                                     {o.horas_aberta !== null && o.horas_aberta >= 48 && <StatusBadge tone="rose">há {Math.floor(o.horas_aberta / 24)} dias</StatusBadge>}

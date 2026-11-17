@@ -64,7 +64,7 @@ export default function SeletorMesGrelha({ id, valor, onChange, mesActual, bloqu
                     <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <div className="text-center">
-                    <p className="text-base font-bold tabular-nums text-slate-950 dark:text-white" aria-live="polite">{ano}</p>
+                    <p className="text-base font-bold tabular-nums text-ink dark:text-white" aria-live="polite">{ano}</p>
                     {valor !== mesActual && (
                         <button
                             type="button"
@@ -112,7 +112,7 @@ export default function SeletorMesGrelha({ id, valor, onChange, mesActual, bloqu
                             {escolhido && (
                                 <motion.span
                                     layoutId={layoutId}
-                                    className="absolute inset-0 rounded-md bg-cyan-700 shadow-sm dark:bg-cyan-500"
+                                    className="absolute inset-0 rounded-md bg-brand shadow-sm dark:bg-cyan-500"
                                     transition={{ type: "spring", stiffness: 500, damping: 35 }}
                                 />
                             )}
@@ -127,7 +127,7 @@ export default function SeletorMesGrelha({ id, valor, onChange, mesActual, bloqu
 
             <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
                 <span>
-                    Escolhido: <span className="font-semibold text-slate-900 dark:text-white">{valor ? `${MESES[partes(valor)[1] - 1]} ${partes(valor)[0]}` : "—"}</span>
+                    Escolhido: <span className="font-semibold text-ink dark:text-white">{valor ? `${MESES[partes(valor)[1] - 1]} ${partes(valor)[0]}` : "—"}</span>
                 </span>
                 <span className="flex items-center gap-3">
                     <span className="inline-flex items-center gap-1.5">

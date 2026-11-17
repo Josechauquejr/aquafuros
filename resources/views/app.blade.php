@@ -7,7 +7,7 @@
 
         {{-- Instalável como aplicação (Chrome/Edge/Android) e no ecrã principal do iPhone. --}}
         <link rel="manifest" href="/manifest.webmanifest">
-        <meta name="theme-color" content="#0e7490">
+        <meta name="theme-color" content="#041A53">
         <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
         <meta name="mobile-web-app-capable" content="yes">

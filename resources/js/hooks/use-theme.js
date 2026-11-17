@@ -11,9 +11,9 @@ const ouvintes = new Set();
 
 function ler() {
     try {
-        return localStorage.getItem(CHAVE) || "system";
+        return localStorage.getItem(CHAVE) || "light";
     } catch {
-        return "system";
+        return "light";
     }
 }
 

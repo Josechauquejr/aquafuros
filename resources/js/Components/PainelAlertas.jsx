@@ -35,7 +35,7 @@ export default function PainelAlertas({ alertas = [] }) {
                         <AlertTriangle className={cn("h-5 w-5 shrink-0", urgentes > 0 ? "text-rose-600 dark:text-rose-400" : "text-amber-600 dark:text-amber-400")} aria-hidden="true" />
                     )}
                     <span className="min-w-0">
-                        <span className="block font-semibold text-slate-950 dark:text-white">A precisar de atenção</span>
+                        <span className="block font-semibold text-ink dark:text-white">A precisar de atenção</span>
                         <span className="block text-sm text-slate-500 dark:text-slate-400">
                             {vazio
                                 ? "Nada por tratar — está tudo em ordem."
@@ -86,7 +86,7 @@ export default function PainelAlertas({ alertas = [] }) {
                                             {alerta.quantidade}
                                         </span>
                                         <span className="min-w-0 flex-1">
-                                            <span className="block font-medium text-slate-900 dark:text-white">{alerta.titulo}</span>
+                                            <span className="block font-medium text-ink dark:text-white">{alerta.titulo}</span>
                                             <span className="block text-sm text-slate-500 dark:text-slate-400">{alerta.detalhe}</span>
                                         </span>
                                         {alerta.href && <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />}

@@ -1,11 +1,15 @@
 import { forwardRef } from "react";
+import { cn } from "@/lib/utils";
 
 export default forwardRef(function Textarea({ className = "", ...props }, ref) {
     return (
         <textarea
             {...props}
             ref={ref}
-            className={`rounded-md border-slate-300 bg-white text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 ${className}`}
+            className={cn(
+                "rounded-md border-[#DDE2EE] bg-white text-[15px] text-ink placeholder:text-slate-400 dark:border-slate-800 dark:bg-[#1E232D] dark:text-slate-100 dark:placeholder:text-slate-400",
+                className,
+            )}
         />
     );
 });

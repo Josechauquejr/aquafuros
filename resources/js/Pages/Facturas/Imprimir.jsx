@@ -33,7 +33,7 @@ export default function Imprimir({ factura, primeiraLeitura, consumoAnterior, qr
             <div className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 print:hidden">
                 <Link
                     href="/facturas"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-ink"
                 >
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                     Voltar

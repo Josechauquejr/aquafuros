@@ -16,8 +16,7 @@ export default function Index({ emailAtivo, configurado, ligado, conta, ligadoEm
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Serviço de email</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Serviço de email</h2>
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Gestão do envio de mensagens de autenticação.</p>
                 </div>
             }
@@ -34,7 +33,7 @@ export default function Index({ emailAtivo, configurado, ligado, conta, ligadoEm
                     <SeccaoRecolhivel title="Ligação do Gmail" description="Conta usada para enviar mensagens" icon={Mail}>
                         <AnimatedPanel className="rounded-none border-0 p-6 shadow-none">
                             <div className="flex flex-wrap items-center justify-between gap-3">
-                                <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white"><Mail className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />Gmail</h3>
+                                <h3 className="flex items-center gap-2 font-semibold text-ink dark:text-white"><Mail className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />Gmail</h3>
                                 <StatusBadge tone={!emailAtivo ? "amber" : ligado ? "emerald" : "amber"}>{!emailAtivo ? "Em manutenção" : ligado ? "Ligado" : "Por ligar"}</StatusBadge>
                             </div>
 
@@ -65,7 +64,7 @@ export default function Index({ emailAtivo, configurado, ligado, conta, ligadoEm
                             <form onSubmit={(event) => { event.preventDefault(); emissao.put("/dev/email/automatico", { preserveScroll: true }); }} className="space-y-4">
                                 <label className="flex items-start gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-800">
                                     <input type="checkbox" checked={emissao.data.facturar_ao_confirmar} onChange={(event) => emissao.setData("facturar_ao_confirmar", event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
-                                    <span><span className="block text-sm font-medium text-slate-900 dark:text-white">Emitir factura quando a leitura é confirmada</span><span className="block text-xs text-slate-600 dark:text-slate-300">Controla apenas a criação da factura; não envia email ao cliente.</span></span>
+                                    <span><span className="block text-sm font-medium text-ink dark:text-white">Emitir factura quando a leitura é confirmada</span><span className="block text-xs text-slate-600 dark:text-slate-300">Controla apenas a criação da factura; não envia email ao cliente.</span></span>
                                 </label>
                                 <div className="flex justify-end"><AnimatedButton variant="primary" type="submit" disabled={emissao.processing || !emissao.isDirty}>Guardar</AnimatedButton></div>
                             </form>

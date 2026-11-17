@@ -11,7 +11,7 @@ export default function SeccaoRecolhivel({ title, description, icon: Icon, child
                 <span className="flex min-w-0 items-center gap-3">
                     {Icon && <Icon className="h-4 w-4 shrink-0 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />}
                     <span className="min-w-0">
-                        <span className="block font-semibold text-slate-950 dark:text-white">{title}</span>
+                        <span className="block font-semibold text-ink dark:text-white">{title}</span>
                         {description && <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">{description}</span>}
                     </span>
                 </span>

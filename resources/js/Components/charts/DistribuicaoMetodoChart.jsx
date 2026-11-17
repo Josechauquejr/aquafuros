@@ -5,10 +5,10 @@ import { formatMoney } from "@/lib/utils";
 // Paleta categórica validada (skill de dataviz) — 4 slots aprovados para uso
 // lado-a-lado, distinta da paleta de badges/estado do resto da app.
 export const metodoConfig = {
-    dinheiro: { label: "Dinheiro", hex: "#2a78d6" },
-    banco: { label: "Transferência bancária", hex: "#eb6834" },
-    mpesa: { label: "M-Pesa", hex: "#1baf7a" },
-    "e-mola": { label: "e-Mola", hex: "#eda100" },
+    dinheiro: { label: "Dinheiro", hex: "#0059FF" },
+    banco: { label: "Transferência bancária", hex: "#6EA2FF" },
+    mpesa: { label: "M-Pesa", hex: "#1E7148" },
+    "e-mola": { label: "e-Mola", hex: "#B86A00" },
 };
 
 /**
@@ -21,7 +21,7 @@ export default function DistribuicaoMetodoChart({
     descricao,
     largo = false,
 }) {
-    const config = (metodo) => metodoConfig[metodo] ?? { label: metodo, hex: "#94a3b8" };
+    const config = (metodo) => metodoConfig[metodo] ?? { label: metodo, hex: "#8C97B0" };
 
     return (
         <DonutAnimado

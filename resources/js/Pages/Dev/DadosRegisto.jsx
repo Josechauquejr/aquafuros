@@ -13,7 +13,7 @@ export default function DadosRegisto({ tabela, id, campos, paraOnde, quemAponta 
                     <Link href={`/dev/dados/${tabela}`} className="inline-flex items-center gap-1 text-sm font-semibold text-cyan-700 hover:underline dark:text-cyan-300">
                         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {tabela}
                     </Link>
-                    <h2 className="mt-1 text-2xl font-bold leading-tight text-slate-950 dark:text-white">
+                    <h2 className="mt-1 text-2xl font-bold leading-tight text-ink dark:text-white">
                         {tabela} #{id}
                     </h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Registo completo. Esta consulta ficou na auditoria.</p>
@@ -32,7 +32,7 @@ export default function DadosRegisto({ tabela, id, campos, paraOnde, quemAponta 
                                         <span className="font-mono text-slate-700 dark:text-slate-300">{c.nome}</span>
                                         <span className="ml-1 text-xs">{c.tipo}</span>
                                     </dt>
-                                    <dd className="break-words text-sm text-slate-900 dark:text-white sm:col-span-2">
+                                    <dd className="break-words text-sm text-ink dark:text-white sm:col-span-2">
                                         {c.sensivel ? (
                                             <span className="inline-flex items-center gap-1 text-slate-500"><Lock className="h-3 w-3" aria-hidden="true" /> {c.valor ?? "null"}</span>
                                         ) : (
@@ -46,7 +46,7 @@ export default function DadosRegisto({ tabela, id, campos, paraOnde, quemAponta 
 
                     <div className="space-y-6">
                         <AnimatedPanel className="p-5">
-                            <h3 className="font-semibold text-slate-950 dark:text-white">Depende de</h3>
+                            <h3 className="font-semibold text-ink dark:text-white">Depende de</h3>
                             {paraOnde.length === 0 ? (
                                 <p className="mt-2 text-sm text-slate-500">Nenhuma ligação.</p>
                             ) : (
@@ -64,7 +64,7 @@ export default function DadosRegisto({ tabela, id, campos, paraOnde, quemAponta 
                         </AnimatedPanel>
 
                         <AnimatedPanel className="p-5">
-                            <h3 className="font-semibold text-slate-950 dark:text-white">Registos que dependem deste</h3>
+                            <h3 className="font-semibold text-ink dark:text-white">Registos que dependem deste</h3>
                             {quemAponta.length === 0 ? (
                                 <p className="mt-2 text-sm text-slate-500">Nenhum.</p>
                             ) : (

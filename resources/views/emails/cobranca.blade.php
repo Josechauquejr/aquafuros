@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="pt">
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
-    @php $mzn = fn ($v) => 'MZN '.number_format((float) $v, 2, ',', ' '); @endphp
+    @php $mzn = fn ($v) => number_format((float) $v, 2, ',', ' ').' MT'; @endphp
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 0;">
         <tr>
             <td align="center">
                 <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;">
                     <tr>
-                        <td style="background:{{ $grave ? '#be123c' : '#0e7490' }};color:#ffffff;padding:18px 24px;border-radius:8px 8px 0 0;">
+                        <td style="background:{{ $grave ? '#B42318' : '#041A53' }};color:#ffffff;padding:18px 24px;border-radius:8px 8px 0 0;">
                             <div style="font-size:18px;font-weight:bold;">{{ $empresa->nome }}</div>
                             <div style="font-size:13px;opacity:.9;">{{ $titulo }}</div>
                         </td>

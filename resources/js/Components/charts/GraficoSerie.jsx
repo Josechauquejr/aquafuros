@@ -91,13 +91,13 @@ export default function GraficoSerie({
         <AnimatedPanel className={cn("flex flex-col", className)}>
             <div className="flex items-start justify-between gap-4 p-6 pb-0">
                 <div className="min-w-0">
-                    <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
+                    <h3 className="flex items-center gap-2 font-semibold text-ink dark:text-white">
                         {Icone && <Icone className="h-4 w-4 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />}
                         {titulo}
                     </h3>
                     {descricao && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{descricao}</p>}
                     {destaque !== undefined && (
-                        <p className="mt-3 text-2xl font-bold text-slate-950 dark:text-white">{destaque}</p>
+                        <p className="mt-3 text-2xl font-bold text-ink dark:text-white">{destaque}</p>
                     )}
                 </div>
                 {temVariacao && (
@@ -135,7 +135,7 @@ export default function GraficoSerie({
                             onClick={() => setFiltroAberto((aberto) => !aberto)}
                             aria-haspopup="listbox"
                             aria-expanded={filtroAberto}
-                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:text-slate-400 dark:hover:text-white"
+                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-slate-500 transition hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:text-slate-400 dark:hover:text-white"
                         >
                             {filtroActual?.rotulo}
                             <ChevronDown className="h-4 w-4" aria-hidden="true" />
@@ -198,7 +198,7 @@ export default function GraficoSerie({
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {[...visiveis].reverse().map((d) => (
                                 <tr key={obterRotulo(d)}>
-                                    <td className="px-6 py-2.5 font-medium text-slate-900 dark:text-white">{obterRotulo(d)}</td>
+                                    <td className="px-6 py-2.5 font-medium text-ink dark:text-white">{obterRotulo(d)}</td>
                                     {series.map((s) => (
                                         <td key={s.chave} className="px-6 py-2.5 text-right text-slate-700 dark:text-slate-300">
                                             {formatar(Number(d[s.chave]) || 0)}

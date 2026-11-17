@@ -18,11 +18,11 @@ const toneClasses = {
 
 // Cor do mini-gráfico por tom.
 const coresGrafico = {
-    cyan: "#06b6d4",
-    emerald: "#10b981",
-    amber: "#f59e0b",
-    rose: "#f43f5e",
-    slate: "#71717a",
+    cyan: "#0059FF",
+    emerald: "#1E7148",
+    amber: "#B86A00",
+    rose: "#B42318",
+    slate: "#5B6478",
 };
 
 /**
@@ -106,7 +106,7 @@ export default function KpiCard({ label, value, detail, icon: Icon, tone = "cyan
             <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 sm:mt-3">
-                    <p className="text-xl font-bold text-slate-950 dark:text-white sm:text-2xl">{value}</p>
+                    <p className="text-xl font-bold text-ink dark:text-white sm:text-2xl">{value}</p>
                     {temVariacao && (
                         <span
                             className={cn(

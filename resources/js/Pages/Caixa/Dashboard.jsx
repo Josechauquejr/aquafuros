@@ -1,166 +1,79 @@
 import { Head, Link } from "@inertiajs/react";
-import { Banknote, Lock, Plus, Receipt, Wallet } from "lucide-react";
-import { motion } from "motion/react";
+import { ClipboardCheck } from "lucide-react";
 import AdminLayout from "@/Layouts/AdminLayout";
-import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
-import KpiCard from "@/Components/KpiCard";
+import { ListaTrabalho, SaudacaoPainel } from "@/Components/PainelPapel";
 import StatusBadge from "@/Components/StatusBadge";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { itemVariants, listVariants } from "@/lib/motion";
+import { formatDateTime, formatMoney } from "@/lib/utils";
 
-const meses = [
-    "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-    "Jul", "Ago", "Set", "Out", "Nov", "Dez",
-];
+const METODOS = { dinheiro: "Dinheiro", mpesa: "M-Pesa", "e-mola": "E-Mola", banco: "Banco" };
+const ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-const metodoLabels = {
-    dinheiro: "Dinheiro",
-    banco: "Transferência bancária",
-    mpesa: "M-Pesa",
-    "e-mola": "e-Mola",
-};
-
-const estadoFacturaConfig = {
-    pendente: { label: "Pendente", tone: "amber" },
-    parcial: { label: "Parcial", tone: "cyan" },
-};
-
-export default function Dashboard({ resumoHoje, ultimosPagamentos, facturasEmAberto, contadorFacturasEmAberto }) {
-    const metrics = [
-        { label: "Recebido hoje", value: formatCurrency(resumoHoje.totalRecebido), icon: Wallet, tone: "cyan" },
-        { label: "Pagamentos hoje", value: resumoHoje.quantidade, icon: Receipt, tone: "emerald" },
-        { label: "Facturas em aberto", value: contadorFacturasEmAberto, icon: Receipt, tone: "rose" },
-    ];
+/** Painel do caixa: quanto entrou hoje, quem tem facturas em aberto e os últimos recibos. */
+export default function Dashboard({ resumoHoje, ultimosPagamentos = [], facturasEmAberto = [], contadorFacturasEmAberto = 0 }) {
+    const emFalta = (f) => Math.max(0, Number(f.total_pagar) - Number(f.total_pago ?? f.pagamentos_sum_valor_pago ?? 0));
 
     return (
-        <AdminLayout
-            header={
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
-                            Tesouraria
-                        </p>
-                        <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">
-                            Painel da Caixa
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            O que recebeu hoje e as facturas ainda por cobrar.
-                        </p>
+        <AdminLayout>
+            <Head title="Painel" />
+            <div className="mx-auto flex max-w-7xl flex-col gap-7 px-4 sm:px-6 lg:px-8">
+                <SaudacaoPainel
+                    ilustracao="pagamento"
+                    frase={
+                        contadorFacturasEmAberto > 0 ? (
+                            <>
+                                Há <strong className="text-ink dark:text-[#F2F5FB]">{contadorFacturasEmAberto} facturas em aberto</strong> para receber.
+                            </>
+                        ) : (
+                            "Não há facturas em aberto."
+                        )
+                    }
+                    accao={{ rotulo: "Receber pagamento", href: "/pagamentos?novo=1" }}
+                />
+
+                <AnimatedPanel className="flex flex-wrap items-center justify-between gap-4 p-6">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-sm text-slate-500 dark:text-slate-400">Caixa de hoje</span>
+                        <strong className="text-[30px] font-bold tabular-nums text-ink dark:text-[#F2F5FB]">{formatMoney(resumoHoje.totalRecebido)}</strong>
+                        <span className="text-sm text-slate-500 dark:text-slate-400">
+                            {resumoHoje.quantidade} {resumoHoje.quantidade === 1 ? "recibo emitido" : "recibos emitidos"} hoje
+                        </span>
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                        <AnimatedButton as={Link} href="/pagamentos/fecho-caixa" variant="secondary">
-                            <Lock className="h-4 w-4" aria-hidden="true" />
-                            Fecho de caixa
-                        </AnimatedButton>
-                        <AnimatedButton as={Link} href="/pagamentos" variant="primary">
-                            <Plus className="h-4 w-4" aria-hidden="true" />
-                            Registar pagamento
-                        </AnimatedButton>
-                    </div>
-                </div>
-            }
-        >
-            <Head title="Painel da Caixa" />
+                    <Link
+                        href="/pagamentos/fecho-caixa"
+                        className="inline-flex min-h-[48px] items-center gap-2 rounded-md border border-[#DDE2EE] bg-white px-5 text-[15px] font-bold text-ink hover:bg-slate-50 dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB]"
+                    >
+                        <ClipboardCheck className="h-[18px] w-[18px]" aria-hidden="true" />
+                        Fazer fecho do dia
+                    </Link>
+                </AnimatedPanel>
 
-            <div className="py-8 sm:py-10">
-                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        {metrics.map((metric, index) => (
-                            <KpiCard key={metric.label} {...metric} delay={index * 0.06} />
-                        ))}
-                    </section>
-
-                    <section className="grid gap-6 lg:grid-cols-2">
-                        <AnimatedPanel delay={0.24} className="overflow-hidden">
-                            <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                                <h3 className="font-semibold text-slate-950 dark:text-white">
-                                    Os seus últimos recibos
-                                </h3>
-                            </div>
-                            <motion.div
-                                variants={listVariants}
-                                initial="hidden"
-                                animate="show"
-                                className="divide-y divide-slate-100 dark:divide-slate-800"
-                            >
-                                {ultimosPagamentos.length === 0 ? (
-                                    <p className="px-6 py-6 text-sm text-slate-500 dark:text-slate-400">
-                                        Ainda não registou pagamentos hoje.
-                                    </p>
-                                ) : (
-                                    ultimosPagamentos.map((pagamento) => (
-                                        <motion.div
-                                            key={pagamento.id}
-                                            variants={itemVariants}
-                                            className="flex items-center justify-between gap-3 px-6 py-3"
-                                        >
-                                            <div>
-                                                <p className="font-medium text-slate-900 dark:text-white">
-                                                    {pagamento.cliente?.nome ?? "Cliente removido"}
-                                                </p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                    {pagamento.numero_recibo} &middot; {metodoLabels[pagamento.metodo_pagamento]} &middot;{" "}
-                                                    {formatDateTime(pagamento.created_at)}
-                                                </p>
-                                            </div>
-                                            <span className="font-semibold text-slate-900 dark:text-white">
-                                                {formatCurrency(pagamento.valor_pago)}
-                                            </span>
-                                        </motion.div>
-                                    ))
-                                )}
-                            </motion.div>
-                        </AnimatedPanel>
-
-                        <AnimatedPanel delay={0.3} className="overflow-hidden">
-                            <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                                <h3 className="font-semibold text-slate-950 dark:text-white">Facturas em aberto</h3>
-                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                    As mais antigas primeiro — prioridade de cobrança.
-                                </p>
-                            </div>
-                            <motion.div
-                                variants={listVariants}
-                                initial="hidden"
-                                animate="show"
-                                className="divide-y divide-slate-100 dark:divide-slate-800"
-                            >
-                                {facturasEmAberto.length === 0 ? (
-                                    <p className="px-6 py-6 text-sm text-slate-500 dark:text-slate-400">
-                                        Não há facturas pendentes ou parciais no momento.
-                                    </p>
-                                ) : (
-                                    facturasEmAberto.map((factura) => {
-                                        const estado = estadoFacturaConfig[factura.estado];
-                                        return (
-                                            <motion.div key={factura.id} variants={itemVariants}>
-                                                <Link
-                                                    href={`/pagamentos?factura_id=${factura.id}`}
-                                                    className="flex items-center justify-between gap-3 px-6 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                                                >
-                                                    <div>
-                                                        <p className="font-medium text-slate-900 dark:text-white">
-                                                            {factura.cliente?.nome ?? "Cliente removido"}
-                                                        </p>
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                            {factura.numero_factura} &middot; {meses[factura.mes - 1]}/{factura.ano}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-semibold text-slate-900 dark:text-white">
-                                                            {formatCurrency(factura.total_pagar)}
-                                                        </span>
-                                                        <StatusBadge tone={estado.tone}>{estado.label}</StatusBadge>
-                                                    </div>
-                                                </Link>
-                                            </motion.div>
-                                        );
-                                    })
-                                )}
-                            </motion.div>
-                        </AnimatedPanel>
-                    </section>
+                <div className="grid items-start gap-6 lg:grid-cols-2">
+                    <ListaTrabalho
+                        titulo="Facturas em aberto"
+                        contagem={contadorFacturasEmAberto}
+                        verTodos="/pagamentos"
+                        vazio="Ninguém tem nada para pagar."
+                        itens={facturasEmAberto.map((f) => ({
+                            chave: f.id,
+                            href: `/pagamentos?factura_id=${f.id}`,
+                            titulo: f.cliente?.nome ?? "Cliente removido",
+                            detalhe: `${f.numero_factura} · ${ABREV[f.mes - 1]}/${f.ano}`,
+                            direita: <strong className="text-[15px] tabular-nums text-ink dark:text-[#F2F5FB]">{formatMoney(emFalta(f))}</strong>,
+                        }))}
+                    />
+                    <ListaTrabalho
+                        titulo="Últimos recibos"
+                        verTodos="/pagamentos?aba=recibos"
+                        vazio="Ainda não emitiu recibos."
+                        itens={ultimosPagamentos.map((p) => ({
+                            chave: p.id,
+                            href: `/pagamentos/${p.numero_recibo}/imprimir`,
+                            titulo: p.cliente?.nome ?? "Cliente removido",
+                            detalhe: `${p.numero_recibo} · ${formatDateTime(p.created_at)} · ${METODOS[p.metodo_pagamento] ?? p.metodo_pagamento}`,
+                            direita: <StatusBadge tone="emerald">{formatMoney(p.valor_pago)}</StatusBadge>,
+                        }))}
+                    />
                 </div>
             </div>
         </AdminLayout>

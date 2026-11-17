@@ -31,7 +31,7 @@ class Alertas
         };
 
         $adicionar('risco-corte', 'alto', 'Clientes em risco de corte',
-            'Dívida em atraso igual ou acima do limiar de corte da tarifa — '.number_format($risco['emRiscoCorte']['valor'], 2, ',', ' ').' MZN',
+            'Dívida em atraso igual ou acima do limiar de corte da tarifa — '.number_format($risco['emRiscoCorte']['valor'], 2, ',', ' ').' MT',
             $risco['emRiscoCorte']['total'], '/clientes?so_divida=1');
         $adicionar('tres-vencidas', 'alto', 'Clientes com 3 ou mais facturas vencidas',
             'Mais de dois meses sem pagar', $risco['com3Vencidas'], '/facturas?estado=vencida');
@@ -64,13 +64,13 @@ class Alertas
             $controlo = AnaliseRisco::controlo($mes);
 
             $adicionar('anulada-com-pagamentos', 'alto', 'Facturas anuladas com pagamentos registados',
-                'Dinheiro recebido sem factura válida — '.number_format($controlo['anuladasComPagamentos']['valor'], 2, ',', ' ').' MZN',
+                'Dinheiro recebido sem factura válida — '.number_format($controlo['anuladasComPagamentos']['valor'], 2, ',', ' ').' MT',
                 $controlo['anuladasComPagamentos']['total'], '/admin/kpis');
             $adicionar('sem-referencia', 'medio', 'Pagamentos electrónicos sem referência este mês',
                 'M-Pesa, e-Mola ou transferência sem número de referência para verificar',
                 $controlo['electronicosSemReferencia']['quantidade'], '/pagamentos');
             $adicionar('diferenca-caixa', 'alto', 'Fechos de caixa com diferença este mês',
-                'O dinheiro contado não bate com o registado — diferença total '.number_format($controlo['diferencasCaixa']['soma'], 2, ',', ' ').' MZN',
+                'O dinheiro contado não bate com o registado — diferença total '.number_format($controlo['diferencasCaixa']['soma'], 2, ',', ' ').' MT',
                 $controlo['diferencasCaixa']['total'], '/admin/kpis');
             $adicionar('sem-fecho', 'medio', 'Dias com pagamentos e a caixa por fechar',
                 'Caixas que receberam dinheiro e não foram fechadas', $controlo['caixasSemFecho']['total'], '/pagamentos/fecho-caixa');

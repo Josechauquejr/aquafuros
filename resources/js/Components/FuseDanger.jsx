@@ -13,9 +13,9 @@ export default function FuseDanger({ label, doneLabel = "A processar…", icon, 
             undoLabel="Desfazer"
             doneLabel={doneLabel}
             icon={icon ?? <Trash2 size={15} aria-hidden="true" />}
-            background="#be123c"
-            color="#fff1f2"
-            fuseColor="#fbbf24"
+            background="#B42318"
+            color="#FDF1F0"
+            fuseColor="#F3C77A"
             commitOn="fuseEnd"
             undoWindow={undoWindow}
             disabled={disabled}

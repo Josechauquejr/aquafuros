@@ -33,12 +33,30 @@ class GestorDashboardController extends Controller
                 'clientesActivos' => Cliente::where('estado', 'ativo')->count(),
                 'clientesCortados' => Cliente::where('estado', 'cortado')->count(),
                 'clientesCortadosSemDivida' => Cliente::clientesCortadosSemDividaCount(),
-                'leiturasPendentes' => Leitura::where('confirmado', false)->count(),
+                'clientesTotal' => Cliente::count(),
+                // do mês do ciclo — o mesmo que o passo "Confirmar" do Painel
+                'leiturasPendentes' => Leitura::where('mes', $hoje->month)->where('ano', $hoje->year)->where('confirmado', false)->count(),
                 'leiturasSemFactura' => Leitura::where('confirmado', true)->whereDoesntHave('factura')->count(),
             ],
             'alertas' => Alertas::para(false),
             'dividaTotal' => Cliente::dividaTotalEmAtraso(),
-            'maioresDevedores' => Cliente::maioresDevedores(5),
+            'facturasVencidas' => $this->facturasVencidas(),
         ]);
+    }
+
+    /** Facturas em aberto já vencidas e quanto falta receber delas. */
+    private function facturasVencidas(): array
+    {
+        $facturas = Factura::whereIn('estado', ['pendente', 'parcial'])
+            ->where('data_vencimento', '<', now()->toDateString())
+            ->withSum('pagamentos', 'valor_pago')
+            ->get(['id', 'total_pagar']);
+
+        return [
+            'quantidade' => $facturas->count(),
+            'valor' => round((float) $facturas->sum(
+                fn ($f) => max(0, (float) $f->total_pagar - (float) ($f->pagamentos_sum_valor_pago ?? 0)),
+            ), 2),
+        ];
     }
 }

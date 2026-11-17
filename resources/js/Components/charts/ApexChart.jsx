@@ -35,7 +35,7 @@ export default function ApexChart({ opcoes, altura = 280, rotulo }) {
         chart: {
             height: altura,
             fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif",
-            foreColor: escuro ? "#94a3b8" : "#64748b",
+            foreColor: escuro ? "#8C97B0" : "#5B6478",
             background: "transparent",
             toolbar: { show: false },
             zoom: { enabled: false },
@@ -43,7 +43,7 @@ export default function ApexChart({ opcoes, altura = 280, rotulo }) {
         },
         theme: { mode: escuro ? "dark" : "light" },
         grid: {
-            borderColor: escuro ? "#1e293b" : "#e2e8f0",
+            borderColor: escuro ? "#2A3140" : "#E1E7F3",
             strokeDashArray: 4,
             padding: { left: 8, right: 8 },
         },

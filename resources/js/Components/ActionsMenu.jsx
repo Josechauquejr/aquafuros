@@ -70,7 +70,7 @@ export default function ActionsMenu({ children, label = "Mais acções", align =
             <button
                 type="button"
                 onClick={() => setOpen((valor) => !valor)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-ink dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
                 aria-label={label}
                 title={label}
                 aria-haspopup="true"
@@ -89,7 +89,7 @@ export default function ActionsMenu({ children, label = "Mais acções", align =
                         transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
                         onClick={() => setOpen(false)}
                         style={{ top: posicao.top, bottom: posicao.bottom, left: posicao.left, right: posicao.right, transformOrigin: posicao.origem }}
-                        className="fixed z-[70] max-h-[calc(100vh-1.5rem)] w-52 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 text-left shadow-lg shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900"
+                        className="fixed z-[70] max-h-[calc(100vh-1.5rem)] w-52 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 text-left shadow-lg dark:border-slate-700 dark:bg-slate-900"
                     >
                         {children}
                     </motion.div>

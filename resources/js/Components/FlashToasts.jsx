@@ -1,6 +1,5 @@
 import { usePage } from "@inertiajs/react";
-import { Alert02Icon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import SwipeToast from "@/Components/SwipeToast";
 
@@ -36,8 +35,10 @@ export default function FlashToasts() {
             key={toast.id}
             role={toast.erro ? "alert" : "status"}
             title={toast.titulo}
-            icon={<HugeiconsIcon icon={toast.erro ? Alert02Icon : CheckmarkCircle02Icon} size={18} strokeWidth={1.8} />}
-            fuseColor={toast.erro ? "#f43f5e" : "#10b981"}
+            icon={toast.erro ? <AlertTriangle size={18} strokeWidth={1.8} /> : <CheckCircle2 size={18} strokeWidth={1.8} />}
+            background={toast.erro ? "#B42318" : "#041A53"}
+            color="#FFFFFF"
+            fuseColor={toast.erro ? "#F4A39A" : "#7DD3A3"}
             duration={toast.erro ? 7000 : 4500}
             width={380}
             closeButton

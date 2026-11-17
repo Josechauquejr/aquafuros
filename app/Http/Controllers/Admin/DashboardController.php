@@ -85,8 +85,8 @@ class DashboardController extends Controller
 
             $m = $d['mes'];
             $secao('RESUMO DO MÊS', ['Indicador', 'Mês', 'Mês anterior', 'Mesmo mês, ano passado'], [
-                ['Facturado (MZN)', $m['totalFacturado'], $d['anterior']['totalFacturado'], $d['homologo']['totalFacturado']],
-                ['Recebido (MZN)', $m['totalRecebido'], $d['anterior']['totalRecebido'], $d['homologo']['totalRecebido']],
+                ['Facturado (MT)', $m['totalFacturado'], $d['anterior']['totalFacturado'], $d['homologo']['totalFacturado']],
+                ['Recebido (MT)', $m['totalRecebido'], $d['anterior']['totalRecebido'], $d['homologo']['totalRecebido']],
                 ['Taxa de cobrança (%)', $m['taxaCobranca'], $d['anterior']['taxaCobranca'], $d['homologo']['taxaCobranca']],
                 ['Consumo (m³)', $m['consumoM3'], $d['anterior']['consumoM3'], $d['homologo']['consumoM3']],
                 ['Clientes novos', $m['clientesNovos'], $d['anterior']['clientesNovos'], $d['homologo']['clientesNovos']],
@@ -97,11 +97,11 @@ class DashboardController extends Controller
                 ['Taxa de cobrança do mês (%)', $c['taxaMes']],
                 ['Taxa de cobrança acumulada (%)', $c['taxaAcumulada']],
                 ['Tempo médio até ao pagamento (dias)', $c['tempoMedioPagamentoDias']],
-                ['Recuperação de dívida de meses anteriores (MZN)', $c['recuperacaoDividaAntiga']],
+                ['Recuperação de dívida de meses anteriores (MT)', $c['recuperacaoDividaAntiga']],
             ]);
-            $secao('RECEBIDO POR MÉTODO', ['Método', 'Total (MZN)', 'Quantidade', 'Ticket médio (MZN)', '% do total'],
+            $secao('RECEBIDO POR MÉTODO', ['Método', 'Total (MT)', 'Quantidade', 'Ticket médio (MT)', '% do total'],
                 array_map(fn ($l) => [$l['metodo'], $l['total'], $l['quantidade'], $l['ticketMedio'], $l['percentagem']], $c['porMetodo']));
-            $secao('ANTIGUIDADE DA DÍVIDA (situação de agora)', ['Idade', 'Facturas', 'Em falta (MZN)'],
+            $secao('ANTIGUIDADE DA DÍVIDA (situação de agora)', ['Idade', 'Facturas', 'Em falta (MT)'],
                 array_map(fn ($l) => [$l['rotulo'], $l['quantidade'], $l['valor']], $d['antiguidadeDivida']));
 
             $k = $d['consumo'];
@@ -120,16 +120,16 @@ class DashboardController extends Controller
             $secao('CLIENTES', ['Indicador', 'Valor'], [
                 ['Novos no mês', $cl['novos']], ['Activos', $cl['activos']], ['Total', $cl['total']],
                 ['Cortados', $cl['cortados']], ['Taxa de corte (%)', $cl['taxaCorte']],
-                ['Dívida total em atraso (MZN)', $cl['dividaTotal']],
+                ['Dívida total em atraso (MT)', $cl['dividaTotal']],
                 ['% da dívida nos 10 maiores devedores', $cl['concentracaoTop10']],
             ]);
 
             $f = $d['facturacao'];
             $secao('FACTURAÇÃO', ['Indicador', 'Valor'], [
-                ['Ticket médio por factura (MZN)', $f['ticketMedio']],
-                ['Multas (MZN)', $f['multas']], ['Peso da multa (%)', $f['pesoMulta']],
-                ['Taxa de ligação (MZN)', $f['taxaLigacao']], ['Peso da taxa de ligação (%)', $f['pesoLigacao']],
-                ['Facturas anuladas', $f['anuladas']['quantidade']], ['Valor anulado (MZN)', $f['anuladas']['valor']],
+                ['Ticket médio por factura (MT)', $f['ticketMedio']],
+                ['Multas (MT)', $f['multas']], ['Peso da multa (%)', $f['pesoMulta']],
+                ['Taxa de ligação (MT)', $f['taxaLigacao']], ['Peso da taxa de ligação (%)', $f['pesoLigacao']],
+                ['Facturas anuladas', $f['anuladas']['quantidade']], ['Valor anulado (MT)', $f['anuladas']['valor']],
             ]);
 
             $r = $d['risco'];
@@ -142,14 +142,14 @@ class DashboardController extends Controller
                 ['Clientes com 2 ou mais facturas vencidas', $r['com2Vencidas']],
                 ['Clientes com 3 ou mais facturas vencidas', $r['com3Vencidas']],
                 ['Clientes em risco de corte', $r['emRiscoCorte']['total']],
-                ['Dívida dos clientes em risco de corte (MZN)', $r['emRiscoCorte']['valor']],
+                ['Dívida dos clientes em risco de corte (MT)', $r['emRiscoCorte']['valor']],
                 ['Clientes sem pagar há 3 meses', $r['semPagar3Meses']['total']],
                 ['Cobertura de leituras (%)', $mn['cobertura']['percentagemLeituras']],
                 ['Leituras confirmadas já facturadas (%)', $mn['cobertura']['percentagemFacturadas']],
-                ['Facturado no ano (MZN)', $d['acumuladoAno']['actual']['facturado']],
-                ['Facturado no mesmo período do ano passado (MZN)', $d['acumuladoAno']['anoPassado']['facturado']],
-                ['Recebido no ano (MZN)', $d['acumuladoAno']['actual']['recebido']],
-                ['Recebido no mesmo período do ano passado (MZN)', $d['acumuladoAno']['anoPassado']['recebido']],
+                ['Facturado no ano (MT)', $d['acumuladoAno']['actual']['facturado']],
+                ['Facturado no mesmo período do ano passado (MT)', $d['acumuladoAno']['anoPassado']['facturado']],
+                ['Recebido no ano (MT)', $d['acumuladoAno']['actual']['recebido']],
+                ['Recebido no mesmo período do ano passado (MT)', $d['acumuladoAno']['anoPassado']['recebido']],
             ]);
 
             $ct = $d['controlo'];
@@ -159,9 +159,9 @@ class DashboardController extends Controller
                     ['Pagamentos electrónicos sem referência', $ct['electronicosSemReferencia']['quantidade']],
                     ['Dias com pagamentos e caixa por fechar', $ct['caixasSemFecho']['total']],
                 ]);
-                $secao('ANULAÇÕES POR UTILIZADOR', ['Utilizador', 'Facturas', 'Valor (MZN)'],
+                $secao('ANULAÇÕES POR UTILIZADOR', ['Utilizador', 'Facturas', 'Valor (MT)'],
                     array_map(fn ($l) => [$l['utilizador'], $l['quantidade'], $l['valor']], $ct['anulacoes']));
-                $secao('ESTORNOS POR UTILIZADOR', ['Utilizador', 'Pagamentos', 'Valor (MZN)'],
+                $secao('ESTORNOS POR UTILIZADOR', ['Utilizador', 'Pagamentos', 'Valor (MT)'],
                     array_map(fn ($l) => [$l['utilizador'], $l['quantidade'], $l['valor']], $ct['estornos']));
             }
 
@@ -170,7 +170,7 @@ class DashboardController extends Controller
                 ['Água produzida (m³)', $pe['produzidoM3']], ['Água facturada (m³)', $pe['facturadoM3']],
                 ['Perdas (m³)', $pe['perdasM3']], ['Perdas (%)', $pe['perdasPct']],
             ]);
-            $secao('RESULTADO POR ZONA', ['Zona', 'Clientes activos', 'Facturado (MZN)', 'Recebido (MZN)', 'Consumo (m³)', 'Em atraso (MZN)', 'Ocorrências abertas'],
+            $secao('RESULTADO POR ZONA', ['Zona', 'Clientes activos', 'Facturado (MT)', 'Recebido (MT)', 'Consumo (m³)', 'Em atraso (MT)', 'Ocorrências abertas'],
                 array_map(fn ($l) => [$l['zona'], $l['clientes'], $l['facturado'], $l['recebido'], $l['consumoM3'], $l['emAtraso'], $l['ocorrenciasAbertas']], $d['porZona']));
             $co = $d['cobrancaOp'];
             $oc = $d['ocorrencias'];
@@ -180,14 +180,14 @@ class DashboardController extends Controller
                 ['Taxa de cumprimento (%)', $co['taxaCumprimento']], ['Clientes em atraso sem contacto há 15 dias', $co['semContacto15d']],
                 ['Ocorrências reportadas', $oc['reportadas']], ['Ocorrências resolvidas', $oc['resolvidas']],
                 ['Abertas há mais de 48 h', $oc['maisDe48h']], ['Horas médias até resolver', $oc['horasAteResolver']],
-                ['Crédito de clientes em carteira (MZN)', $d['credito']['saldoTotal']],
+                ['Crédito de clientes em carteira (MT)', $d['credito']['saldoTotal']],
             ]);
 
-            $secao('DESEMPENHO POR COLABORADOR', ['Colaborador', 'Pagamentos', 'Valor recebido (MZN)', 'Facturas geradas', 'Leituras registadas', 'Total de acções'],
+            $secao('DESEMPENHO POR COLABORADOR', ['Colaborador', 'Pagamentos', 'Valor recebido (MT)', 'Facturas geradas', 'Leituras registadas', 'Total de acções'],
                 array_map(fn ($l) => [$l['utilizador'], $l['pagamentosQuantidade'], $l['pagamentosTotal'], $l['facturasQuantidade'], $l['leiturasQuantidade'], $l['totalAcoes']], $d['desempenhoFuncionarios']));
-            $secao('EVOLUÇÃO (12 meses)', ['Mês', 'Ano', 'Facturado (MZN)', 'Recebido (MZN)', 'Média móvel facturado', 'Média móvel recebido'],
+            $secao('EVOLUÇÃO (12 meses)', ['Mês', 'Ano', 'Facturado (MT)', 'Recebido (MT)', 'Média móvel facturado', 'Média móvel recebido'],
                 array_map(fn ($l) => [$this->nomeMes($l['mes']), $l['ano'], $l['facturado'], $l['recebido'], $l['facturadoMedia'], $l['recebidoMedia']], $d['evolucaoMensal']));
-            $secao('MAIORES DEVEDORES', ['Cliente', 'Dívida (MZN)'],
+            $secao('MAIORES DEVEDORES', ['Cliente', 'Dívida (MT)'],
                 $d['maioresDevedores']->map(fn ($x) => [$x->cliente->nome ?? 'Cliente removido', $x->valor_divida])->all());
 
             fclose($saida);
@@ -298,8 +298,6 @@ class DashboardController extends Controller
      */
     private function dadosPainel(Carbon $hoje): array
     {
-        $resumos = ResumoMensal::serie($hoje, 6);
-
         return [
             'contadores' => [
                 'clientesActivos' => Cliente::where('estado', 'ativo')->count(),
@@ -307,23 +305,13 @@ class DashboardController extends Controller
                 'clientesCortados' => Cliente::where('estado', 'cortado')->count(),
                 'clientesCortadosSemDivida' => Cliente::clientesCortadosSemDividaCount(),
                 // do mês escolhido — o mesmo que o cartão da página de Leituras
-                'leiturasConfirmadas' => Leitura::where('mes', $hoje->month)->where('ano', $hoje->year)->where('confirmado', true)->count(),
                 'leiturasPendentes' => Leitura::where('mes', $hoje->month)->where('ano', $hoje->year)->where('confirmado', false)->count(),
                 'leiturasSemFactura' => Leitura::whereDoesntHave('factura')->where('confirmado', true)->count(),
             ],
             'alertas' => Alertas::para(true),
             'mesReferencia' => MesReferencia::paraSeletor($hoje),
-            'mesActual' => $resumos[$hoje->format('Y-m')] ?? $this->resumoPeriodo($hoje->month, $hoje->year),
-            // 6 meses: só para o mini-gráfico dos cartões — a análise completa está nos KPIs.
-            'evolucaoMensal' => $this->evolucaoMensal($hoje, 6, $resumos),
+            'mesActual' => $this->resumoPeriodo($hoje->month, $hoje->year),
             'dividaTotal' => Cliente::dividaTotalEmAtraso(),
-            'clientesNovosMes' => Cliente::whereMonth('data_adesao', $hoje->month)
-                ->whereYear('data_adesao', $hoje->year)
-                ->count(),
-            'consumoTotalMes' => (float) Leitura::where('mes', $hoje->month)
-                ->where('ano', $hoje->year)
-                ->get()
-                ->sum(fn ($l) => $l->consumo()),
             'facturasVencidas' => $this->facturasVencidas(),
         ];
     }

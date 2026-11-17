@@ -95,10 +95,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
             header={
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
-                            Auditoria
-                        </p>
-                        <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">
+                        <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">
                             Registo de Actividade
                         </h2>
                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -135,7 +132,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                             <select
                                 value={filtros.tipo}
                                 onChange={(event) => aplicarFiltros({ tipo: event.target.value })}
-                                className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="todos">Todos os tipos</option>
                                 {Object.entries(tipos).map(([valor, label]) => (
@@ -147,7 +144,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                             <select
                                 value={filtros.evento}
                                 onChange={(event) => aplicarFiltros({ evento: event.target.value })}
-                                className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="todos">Todas as acções</option>
                                 <option value="created">Criado</option>
@@ -157,7 +154,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                             <select
                                 value={filtros.utilizador_id}
                                 onChange={(event) => aplicarFiltros({ utilizador_id: event.target.value })}
-                                className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 <option value="todos">Todos os utilizadores</option>
                                 {utilizadores.map((u) => (
@@ -200,7 +197,7 @@ export default function Logs({ registos, tipos, utilizadores, filtros }) {
                                                             <Icon className="h-4 w-4" aria-hidden="true" />
                                                         </div>
                                                         <div>
-                                                            <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                                            <p className="text-sm font-medium text-ink dark:text-white">
                                                                 {registo.description}
                                                             </p>
                                                             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">

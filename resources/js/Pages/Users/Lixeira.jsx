@@ -44,7 +44,7 @@ export default function Lixeira({ utilizadores, diasRetencao, filtros }) {
             ordenavel: true,
             render: (u) => (
                 <>
-                    <p className="font-semibold text-slate-900 dark:text-white">{u.name}</p>
+                    <p className="font-semibold text-ink dark:text-white">{u.name}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{u.email}</p>
                 </>
             ),
@@ -56,7 +56,7 @@ export default function Lixeira({ utilizadores, diasRetencao, filtros }) {
 
     const cartao = (u) => (
         <div className="space-y-1.5">
-            <p className="font-semibold text-slate-900 dark:text-white">{u.name}</p>
+            <p className="font-semibold text-ink dark:text-white">{u.name}</p>
             <p className="text-sm text-slate-600 dark:text-slate-300">
                 {u.username} · {u.papel ?? "—"}
             </p>
@@ -92,12 +92,12 @@ export default function Lixeira({ utilizadores, diasRetencao, filtros }) {
                 <div>
                     <Link
                         href="/dev/users"
-                        className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white"
+                        className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-ink dark:text-slate-400 dark:hover:text-white"
                     >
                         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                         Voltar a Utilizadores
                     </Link>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Lixeira de utilizadores</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Lixeira de utilizadores</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Utilizadores eliminados ficam aqui {diasRetencao} dias — podem ser recuperados ou apagados
                         definitivamente antes disso.

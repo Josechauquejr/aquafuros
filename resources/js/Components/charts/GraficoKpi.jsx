@@ -10,7 +10,7 @@ import ApexChart from "./ApexChart";
  *
  * `cor` é a cor principal; `formatar` formata os valores da dica.
  */
-export default function GraficoKpi({ grafico, cor = "#06b6d4", altura = 120, formatar = (v) => v, rotulo }) {
+export default function GraficoKpi({ grafico, cor = "#0059FF", altura = 120, formatar = (v) => v, rotulo }) {
     if (grafico.tipo === "radial") {
         const valor = Math.max(0, Math.min(100, Number(grafico.valor) || 0));
 
@@ -52,7 +52,7 @@ export default function GraficoKpi({ grafico, cor = "#06b6d4", altura = 120, for
                     chart: { type: "donut", sparkline: { enabled: true } },
                     series: grafico.series.map(Number),
                     labels: grafico.labels,
-                    colors: grafico.cores ?? [cor, "#71717a"],
+                    colors: grafico.cores ?? [cor, "#5B6478"],
                     stroke: { width: 0 },
                     legend: { show: false },
                     tooltip: { y: { formatter: (v) => formatar(v) } },

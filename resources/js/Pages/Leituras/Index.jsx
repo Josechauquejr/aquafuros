@@ -8,17 +8,23 @@ import {
     Undo2,
     Plus,
     Trash2,
+    Search,
+    MapPin,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
-import AnimatedButton from "@/Components/AnimatedButton";
+import AbasEstado from "@/Components/AbasEstado";
+import AnimatedPanel from "@/Components/AnimatedPanel";
+import CabecalhoLista, { AvisoMesFechado } from "@/Components/CabecalhoLista";
+import EstadoVazio from "@/Components/EstadoVazio";
+import Ilustracao from "@/Components/Ilustracao";
+import SeletorMes from "@/Components/SeletorMes";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import DataTable from "@/Components/DataTable/DataTable";
 import { Campo, Campos, Destaque, Destaques, MaisDetalhes } from "@/Components/DataTable/Detalhe";
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
-import ResumoMes from "@/Components/ResumoMes";
 import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -30,7 +36,9 @@ import TextInput from "@/Components/TextInput";
 import { formatDate, formatDateTime, formatMoney, formatNumero, formatVolume } from "@/lib/utils";
 import { consumoLeitura } from "@/lib/consumoLeitura";
 import { previewPost } from "@/lib/previewPost";
+import useAbrirNovo from "@/hooks/useAbrirNovo";
 import { mesReferenciaActual } from "@/lib/mesReferencia";
+import BarraProgresso from "@/Components/BarraProgresso";
 
 const meses = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -47,25 +55,13 @@ const formVazio = {
 };
 
 // Consumo acima de N × a média do cliente dispara o aviso ao registar/confirmar.
-const FACTOR_ACIMA_DA_MEDIA = 3;
+// Como no design: acima de 150% da média do cliente é anormal.
+const FACTOR_ACIMA_DA_MEDIA = 1.5;
 
 // Valores que o servidor assume quando o parâmetro não vem no URL.
 const padroes = { periodo: "todos", estado: "todos", sort: "periodo", dir: "desc" };
 
-const filtrosConfig = [
-    {
-        chave: "estado",
-        rotulo: "Estado",
-        tipo: "select",
-        padrao: "todos",
-        opcoes: [
-            { valor: "todos", rotulo: "Todos" },
-            { valor: "pendente", rotulo: "Pendente" },
-            { valor: "confirmada", rotulo: "Confirmada" },
-            { valor: "facturada", rotulo: "Facturada" },
-        ],
-    },
-];
+const filtrosConfig = [];
 
 const consumoDe = consumoLeitura;
 
@@ -100,7 +96,7 @@ const colunas = [
         ordenavel: true,
         render: (leitura) => leitura.__linhaAgrupada ? null : (
             <>
-                <p className="font-semibold text-slate-900 dark:text-white">{leitura.cliente?.nome ?? "Cliente removido"}</p>
+                <p className="font-semibold text-ink dark:text-white">{leitura.cliente?.nome ?? "Cliente removido"}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{leitura.abertura ? "Valor inicial do contador" : formatDate(leitura.created_at)}</p>
             </>
         ),
@@ -145,7 +141,7 @@ const colunas = [
 const cartaoLeitura = (leitura) => (
     <div className="space-y-2">
         <div>
-            {!leitura.__linhaAgrupada && <p className="font-semibold text-slate-900 dark:text-white">{leitura.cliente?.nome ?? "Cliente removido"}</p>}
+            {!leitura.__linhaAgrupada && <p className="font-semibold text-ink dark:text-white">{leitura.cliente?.nome ?? "Cliente removido"}</p>}
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                     {leitura.abertura ? "Valor inicial do contador" : `${formatDate(leitura.created_at)} · ${meses[leitura.mes - 1]}/${leitura.ano} · ${leitura.numero_leitura}`}
                 </p>
@@ -193,8 +189,182 @@ const detalheLeitura = {
     ),
 };
 
-export default function Index({ leituras, clientes, totais, mesReferencia, pendentesTotal = 0, facturarAoConfirmar = false, filtros }) {
-    const { flash, auth } = usePage().props;
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+
+/** "0 de 264 clientes lidos": barra geral e uma meta pequena por zona. */
+function ProgressoLeituras({ contagens, zonas, ciclo, zonaActiva, onZona }) {
+    const lidos = contagens.clientes - contagens.porLer;
+    const pct = contagens.clientes > 0 ? Math.round((lidos / contagens.clientes) * 100) : 0;
+    const dias = ciclo?.diasParaLimite ?? 0;
+    const ritmo = contagens.porLer > 0 ? Math.ceil(contagens.porLer / Math.max(dias, 1)) : 0;
+
+    return (
+        <AnimatedPanel className="flex flex-col gap-3.5 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-3.5 text-lg text-ink dark:text-[#F2F5FB]">
+                    <Ilustracao nome="contador" largura={88} className="hidden sm:block" />
+                    <span>
+                        <strong className="text-[28px] tabular-nums">{lidos}</strong> de {plural(contagens.clientes, "cliente lido", "clientes lidos")}
+                    </span>
+                </span>
+                {contagens.porLer > 0 ? (
+                    <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                        {dias >= 0 ? `Faltam ${plural(dias, "dia", "dias")} · ${ritmo} por dia` : `Limite (${ciclo?.leiturasAte}) ultrapassado`}
+                    </span>
+                ) : (
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Todos lidos</span>
+                )}
+            </div>
+            <BarraProgresso pct={Math.max(pct, lidos > 0 ? 2 : 1)} className="h-2.5" />
+            {zonas.length > 1 && (
+                <div className="mt-1.5 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+                    {zonas.map((zona) => {
+                        const on = zonaActiva === zona.nome;
+                        return (
+                            <button
+                                key={zona.nome}
+                                type="button"
+                                onClick={() => onZona(on ? "" : zona.nome)}
+                                aria-pressed={on}
+                                className={`flex flex-col gap-1.5 rounded-md border px-3.5 py-3 text-left transition-colors ${on ? "border-[#B9CCFF] bg-[#F7F9FF] dark:border-[rgba(110,162,255,0.32)] dark:bg-[rgba(0,89,255,0.10)]" : "border-[#E3E8F2] hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-white/[0.03]"}`}
+                            >
+                                <span className="flex justify-between gap-2 text-sm">
+                                    <strong className="truncate text-ink dark:text-[#F2F5FB]">{zona.nome}</strong>
+                                    <span className="tabular-nums text-slate-600 dark:text-slate-300">{zona.lidos}/{zona.total}</span>
+                                </span>
+                                <BarraProgresso pct={zona.total ? (zona.lidos / zona.total) * 100 : 0} className="h-[5px]" />
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </AnimatedPanel>
+    );
+}
+
+/** Resumo de um mês já fechado. */
+function ResumoMesFechado({ totais, contagens }) {
+    const item = (rotulo, valor) => (
+        <div className="flex flex-col gap-1">
+            <span className="text-[13px] text-slate-500 dark:text-slate-400">{rotulo}</span>
+            <span className="text-2xl font-bold tabular-nums text-ink dark:text-[#F2F5FB]">{valor}</span>
+        </div>
+    );
+    const fechado = totais.pendentes === 0 && totais.semFactura === 0 && totais.total > 0;
+
+    return (
+        <AnimatedPanel className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 p-6">
+            {item("Lidos", <>{totais.total} <span className="text-sm font-medium text-slate-500">de {contagens.clientes}</span></>)}
+            {item("Estimados", contagens.estimadas)}
+            {item("Consumo total", formatVolume(totais.consumoM3))}
+            <div className="flex flex-col gap-1">
+                <span className="text-[13px] text-slate-500 dark:text-slate-400">Estado do ciclo</span>
+                {fechado ? (
+                    <StatusBadge tone="emerald" className="self-start text-[13px]">Fechado e facturado</StatusBadge>
+                ) : (
+                    <StatusBadge tone="amber" className="self-start text-[13px]">
+                        {totais.pendentes > 0 ? plural(totais.pendentes, "leitura por confirmar", "leituras por confirmar") : `${totais.semFactura} por facturar`}
+                    </StatusBadge>
+                )}
+            </div>
+        </AnimatedPanel>
+    );
+}
+
+/** Separador "Por ler": quem falta ler este mês, com Registar em cada linha. */
+function ListaPorLer({ porLer, abas, zona, onZona, onRegistar }) {
+    const [texto, setTexto] = useState("");
+    const [quantos, setQuantos] = useState(15);
+    const zonasLista = [...new Set(porLer.map((c) => c.zona).filter(Boolean))].sort();
+    const termo = texto.trim().toLowerCase();
+    const filtrados = porLer.filter(
+        (c) => (!zona || c.zona === zona) && (!termo || `${c.nome} ${c.numero_cliente}`.toLowerCase().includes(termo)),
+    );
+
+    return (
+        <AnimatedPanel className="overflow-hidden">
+            {abas}
+            {porLer.length === 0 ? (
+                <EstadoVazio ilustracao="sucesso" titulo="Todos os contadores lidos">
+                    Não falta ninguém este mês. As leituras seguem para "Por confirmar".
+                </EstadoVazio>
+            ) : (
+                <>
+                    <div className="flex flex-wrap gap-2.5 border-b border-[#E8ECF4] px-[18px] py-3.5 dark:border-slate-800">
+                        <label className="flex min-h-[44px] flex-[1_1_260px] items-center gap-2.5 rounded-[10px] border border-[#DDE2EE] px-3 focus-within:border-cyan-500 focus-within:shadow-[0_0_0_4px_rgba(0,89,255,0.18)] dark:border-slate-800 dark:bg-[#1E232D]">
+                            <Search className="h-[18px] w-[18px] text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                            <input
+                                type="search"
+                                value={texto}
+                                onChange={(e) => setTexto(e.target.value)}
+                                placeholder="Procurar cliente"
+                                aria-label="Procurar cliente"
+                                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] focus:!border-0 focus:!shadow-none focus:ring-0 dark:text-[#F2F5FB]"
+                            />
+                        </label>
+                        {zonasLista.length > 1 && (
+                            <span className="relative inline-flex items-center text-slate-500">
+                                <MapPin className="pointer-events-none absolute left-3.5 h-4 w-4" aria-hidden="true" />
+                                <select
+                                    aria-label="Zona"
+                                    value={zona}
+                                    onChange={(e) => onZona(e.target.value)}
+                                    className="min-h-[44px] rounded-[10px] border-[#DDE2EE] bg-white pl-10 text-sm text-ink dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB]"
+                                >
+                                    <option value="">Todas as zonas</option>
+                                    {zonasLista.map((z) => (
+                                        <option key={z}>{z}</option>
+                                    ))}
+                                </select>
+                            </span>
+                        )}
+                    </div>
+                    {filtrados.length === 0 ? (
+                        <EstadoVazio ilustracao="pesquisa" titulo="Nada encontrado">Ninguém por ler com esta pesquisa.</EstadoVazio>
+                    ) : (
+                        <ul className="divide-y divide-[#EEF1F7] dark:divide-slate-800">
+                            {filtrados.slice(0, quantos).map((cliente) => (
+                                <li key={cliente.id} className="flex flex-wrap items-center gap-4 px-[18px] py-3">
+                                    <div className="flex min-w-[180px] flex-1 flex-col">
+                                        <strong className="text-[15px] text-ink dark:text-[#F2F5FB]">{cliente.nome}</strong>
+                                        <span className="text-[13px] text-slate-500 dark:text-slate-400">
+                                            {cliente.numero_cliente}
+                                            {cliente.zona ? ` · ${cliente.zona}` : ""}
+                                        </span>
+                                    </div>
+                                    <StatusBadge tone="amber">Por ler</StatusBadge>
+                                    <button
+                                        type="button"
+                                        onClick={() => onRegistar(cliente)}
+                                        className="inline-flex min-h-[40px] items-center gap-2 rounded-[10px] border border-[#DDE2EE] px-3.5 text-sm font-semibold text-cyan-700 hover:bg-slate-50 dark:border-slate-800 dark:text-cyan-400 dark:hover:bg-[#1E232D]"
+                                    >
+                                        <Plus className="h-4 w-4" aria-hidden="true" />
+                                        Registar
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <div className="border-t border-[#E8ECF4] px-[18px] py-3.5 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                        A mostrar {Math.min(quantos, filtrados.length)} de {filtrados.length}
+                        {quantos < filtrados.length && (
+                            <>
+                                {" · "}
+                                <button type="button" onClick={() => setQuantos((n) => n + 30)} className="font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400">
+                                    ver mais
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
+        </AnimatedPanel>
+    );
+}
+
+export default function Index({ leituras, clientes, totais, mesReferencia, pendentesTotal = 0, facturarAoConfirmar = false, filtros, porLer = [], zonas = [], contagens }) {
+    const { flash, auth, ciclo } = usePage().props;
+    const [zona, setZona] = useState("");
     const ehAdministrador = auth.roles?.includes("administrador");
     const [showModal, setShowModal] = useState(false);
     const [editando, setEditando] = useState(null);
@@ -230,6 +400,15 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
         setEditando(null);
         form.reset();
         form.setData({ ...formVazio, cliente_id: "" });
+        form.clearErrors();
+        setShowModal(true);
+    };
+    useAbrirNovo(abrirNova);
+
+    const registarPara = (cliente) => {
+        setEditando(null);
+        form.reset();
+        form.setData({ ...formVazio, cliente_id: cliente.id });
         form.clearErrors();
         setShowModal(true);
     };
@@ -316,7 +495,7 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
         }
         if (media > 0 && consumo > media * FACTOR_ACIMA_DA_MEDIA) {
             avisos.push(
-                `O consumo (${formatVolume(consumo)}) é mais de ${FACTOR_ACIMA_DA_MEDIA} vezes a média deste cliente (${formatVolume(media)}).`,
+                `O consumo (${formatVolume(consumo)}) está acima de 150% da média deste cliente (${formatVolume(media)}).`,
             );
         }
 
@@ -484,7 +663,7 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
                 ? undefined
                 : { icone: CheckCircle2, rotulo: `Confirmar leitura de ${nome}`, curto: "Confirmar", destaque: true, onClick: () => confirmarLeitura(leitura) },
             menu: [
-                { icone: Eye, rotulo: "Ver detalhe", expandir: true },
+                { icone: Eye, rotulo: "Ver leitura explicada", href: `/leituras/${leitura.id}` },
                 leitura.confirmado
                     ? {
                           icone: Pencil,
@@ -519,49 +698,83 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
         ],
     };
 
+    const eActual = mesReferencia.eActual;
+    const nomeMes = mesReferencia.rotulo;
+    const mesCiclo = ciclo?.mes ?? "";
+    const comMes = (extra) => ({ ...(filtros.mes ? { mes: filtros.mes } : {}), ...extra });
+    const separador =
+        filtros.estado === "pendente"
+            ? "pendente"
+            : ["confirmadas", "confirmada", "facturada"].includes(filtros.estado)
+              ? "confirmadas"
+              : eActual
+                ? "porler"
+                : "todos";
+    const abasLista = eActual
+        ? [
+              { chave: "porler", rotulo: "Por ler", contagem: contagens.porLer },
+              { chave: "pendente", rotulo: "Por confirmar", contagem: contagens.porConfirmar },
+              { chave: "confirmadas", rotulo: "Confirmadas", contagem: contagens.confirmadas },
+              { chave: "estimadas", rotulo: "Estimadas", contagem: contagens.estimadas },
+          ]
+        : [
+              { chave: "todos", rotulo: "Leituras do mês", contagem: totais.total },
+              { chave: "estimadas", rotulo: "Estimadas", contagem: contagens.estimadas },
+          ];
+    const escolherSeparador = (aba) => {
+        if (aba.chave === "estimadas") return router.visit("/leituras-estimadas");
+        router.get("/leituras", comMes(aba.chave === "porler" || aba.chave === "todos" ? {} : { estado: aba.chave }), { preserveScroll: true, preserveState: false });
+    };
+    const abas = <AbasEstado abas={abasLista} activa={separador} onEscolher={escolherSeparador} rotulo="Estado das leituras" />;
+
+    const vazios = {
+        pendente: { ilustracao: "confirmar", titulo: "Nada por confirmar", mensagem: "As leituras aparecem aqui assim que forem registadas. Pode confirmá-las uma a uma ou todas de uma vez." },
+        confirmadas: { ilustracao: "contador", titulo: "Ainda sem leituras confirmadas", mensagem: "Depois de confirmadas, ficam prontas para facturar no fim do mês." },
+        todos: { ilustracao: "contador", titulo: `Sem leituras em ${nomeMes}`, mensagem: "Não há leituras registadas neste mês." },
+    };
+
     return (
-        <AdminLayout
-            header={
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
-                            Leituras de consumo
-                        </p>
-                        <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">
-                            Leituras
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Registo de leituras do contador — base para gerar facturas.
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        {pendentesTotal > 0 && (
-                            <AnimatedButton variant="secondary" onClick={() => setConfirmarTodasAberto(true)}>
-                                <CheckCheck className="h-4 w-4" aria-hidden="true" />
-                                Confirmar todas
-                            </AnimatedButton>
-                        )}
-                        {ehAdministrador && (
-                            <AnimatedButton as={Link} href="/lixeira?tipo=leituras" variant="secondary">
-                                <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                Lixeira
-                            </AnimatedButton>
-                        )}
-                        <AnimatedButton variant="primary" onClick={abrirNova} disabled={clientes.length === 0}>
-                            <Plus className="h-4 w-4" aria-hidden="true" />
-                            Nova leitura
-                        </AnimatedButton>
-                    </div>
-                </div>
-            }
-        >
+        <AdminLayout>
             <Head title="Leituras" />
 
-            <div className="py-8 sm:py-10">
-                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+                <CabecalhoLista
+                    contexto={eActual ? `Ciclo de ${mesCiclo} · dia ${ciclo?.dia ?? ""} de ${ciclo?.dias ?? ""}` : `Ciclo de ${nomeMes} · fechado`}
+                    titulo="Leituras"
+                >
+                    <SeletorMes rota="/leituras" mesReferencia={mesReferencia} semVoltar />
+                    {eActual && (
+                        <PrimaryButton type="button" onClick={abrirNova} disabled={clientes.length === 0} className="min-h-[48px] px-[22px]">
+                            <Plus className="h-[18px] w-[18px]" aria-hidden="true" />
+                            Registar leitura
+                        </PrimaryButton>
+                    )}
+                </CabecalhoLista>
 
-                    <ResumoMes rota="/leituras" tipo="leituras" mesReferencia={mesReferencia} dados={totais} filtros={filtros} />
+                {!eActual && (
+                    <AvisoMesFechado href="/leituras" rotuloVoltar={`Voltar a ${mesCiclo}`}>
+                        A ver <strong>{nomeMes}</strong>, um mês já fechado. Pode consultar, mas não registar leituras novas.
+                    </AvisoMesFechado>
+                )}
 
+                {eActual ? (
+                    <ProgressoLeituras
+                        contagens={contagens}
+                        zonas={zonas}
+                        ciclo={ciclo}
+                        zonaActiva={zona}
+                        onZona={(nome) => {
+                            setZona(nome);
+                            if (separador !== "porler") router.get("/leituras", {}, { preserveScroll: true });
+                        }}
+                    />
+                ) : (
+                    <ResumoMesFechado totais={totais} contagens={contagens} />
+                )}
+
+                {separador === "porler" ? (
+                    <ListaPorLer porLer={porLer} abas={abas} zona={zona} onZona={setZona} onRegistar={registarPara} />
+                ) : (
                     <DataTable
                         rota="/leituras"
                         filtros={filtros}
@@ -571,25 +784,46 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
                         colunas={colunas}
                         cartao={cartaoLeitura}
                         detalhe={detalheLeitura}
-                        placeholder="Pesquisar cliente"
-                        periodo
+                        placeholder="Procurar cliente"
                         filtrosConfig={filtrosConfig}
                         accoes={accoesLeitura}
                         rotuloAccoes={(leitura) => `Mais acções sobre a leitura de ${leitura.cliente?.nome ?? "cliente removido"}`}
                         selecao={selecao}
-                        vazio={{
-                            mensagem: "Ainda não há leituras registadas.",
-                            mensagemFiltrada: "Nenhuma leitura encontrada para os filtros seleccionados.",
-                            accao: { rotulo: "Nova leitura", icone: Plus, onClick: abrirNova, disabled: clientes.length === 0 },
-                        }}
+                        abas={
+                            <>
+                                {abas}
+                                {separador === "pendente" && pendentesTotal > 0 && (
+                                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8ECF4] bg-[#F7F9FF] px-[18px] py-3 dark:border-slate-800 dark:bg-[rgba(0,89,255,0.08)]">
+                                        <span className="text-sm text-slate-600 dark:text-slate-300">
+                                            {plural(pendentesTotal, "leitura espera", "leituras esperam")} confirmação.
+                                        </span>
+                                        <SecondaryButton type="button" onClick={() => setConfirmarTodasAberto(true)} className="min-h-[40px]">
+                                            <CheckCheck className="h-4 w-4" aria-hidden="true" />
+                                            Confirmar todas
+                                        </SecondaryButton>
+                                    </div>
+                                )}
+                            </>
+                        }
+                        rodape={
+                            ehAdministrador && (
+                                <Link href="/lixeira?tipo=leituras" className="inline-flex items-center gap-1.5 font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400">
+                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                    Leituras anuladas
+                                </Link>
+                            )
+                        }
+                        vazio={vazios[separador]}
                     />
-                </div>
+                )}
             </div>
 
             <Modal
                 show={showModal}
                 onClose={() => setShowModal(false)}
-                title={editando ? "Editar leitura" : "Nova leitura"}
+                title={editando ? "Corrigir leitura" : "Registar leitura"}
+                description={editando ? `${editando.cliente?.nome ?? ""} · ainda por confirmar` : "Escolha o cliente e escreva o que o contador marca."}
+                variante={editando ? "painel" : "centro"}
                 maxWidth="lg"
             >
                 <form onSubmit={submit} className="space-y-4">
@@ -607,7 +841,7 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
                                     placeholder="Pesquisar cliente..."
                                     vazioTexto="Nenhum cliente encontrado."
                                     renderItem={(cliente) => (
-                                        <span className="font-medium text-slate-900 dark:text-white">{cliente.nome}</span>
+                                        <span className="font-medium text-ink dark:text-white">{cliente.nome}</span>
                                     )}
                                 />
                             </div>
@@ -629,7 +863,7 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
                                     id="mes"
                                     value={form.data.mes}
                                     onChange={(event) => form.setData("mes", event.target.value)}
-                                    className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                    className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                                 >
                                     {meses.map((nome, index) => (
                                         <option key={nome} value={index + 1}>
@@ -687,7 +921,7 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
                 </form>
             </Modal>
 
-            <Modal show={Boolean(corrigindo)} onClose={() => setCorrigindo(null)} title="Corrigir leitura confirmada" maxWidth="md">
+            <Modal show={Boolean(corrigindo)} onClose={() => setCorrigindo(null)} title="Corrigir leitura" description={corrigindo ? `${corrigindo.cliente?.nome ?? ""} · motivo obrigatório, fica no histórico` : undefined} etiqueta="SÓ ADMINISTRADOR" variante="painel">
                 {corrigindo && (
                     <form onSubmit={submeterCorreccao} className="space-y-4">
                         <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -700,7 +934,7 @@ export default function Index({ leituras, clientes, totais, mesReferencia, pende
                             </div>
                         )}
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <div><InputLabel htmlFor="correccao_mes" value="Mês" /><select id="correccao_mes" value={corrigirForm.data.mes} onChange={(event) => corrigirForm.setData("mes", event.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">{meses.map((nome, index) => <option key={nome} value={index + 1}>{nome}</option>)}</select><InputError message={corrigirForm.errors.mes} className="mt-1" /></div>
+                            <div><InputLabel htmlFor="correccao_mes" value="Mês" /><select id="correccao_mes" value={corrigirForm.data.mes} onChange={(event) => corrigirForm.setData("mes", event.target.value)} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">{meses.map((nome, index) => <option key={nome} value={index + 1}>{nome}</option>)}</select><InputError message={corrigirForm.errors.mes} className="mt-1" /></div>
                             <div><InputLabel htmlFor="correccao_ano" value="Ano" /><TextInput id="correccao_ano" type="number" min="2000" max="2100" value={corrigirForm.data.ano} onChange={(event) => corrigirForm.setData("ano", event.target.value)} className="mt-1 block w-full" /><InputError message={corrigirForm.errors.ano} className="mt-1" /></div>
                         </div>
                         <div>

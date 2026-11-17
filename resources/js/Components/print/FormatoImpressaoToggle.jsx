@@ -14,8 +14,8 @@ export default function FormatoImpressaoToggle({ formato, onChange }) {
                 className={cn(
                     "inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold transition",
                     formato === "a4"
-                        ? "bg-cyan-700 text-white dark:bg-cyan-500 dark:text-slate-950"
-                        : "text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white",
+                        ? "bg-brand text-white dark:bg-cyan-500 dark:text-slate-950"
+                        : "text-slate-600 hover:text-ink dark:text-slate-300 dark:hover:text-white",
                 )}
                 title="Folha A4 — padrão do sistema"
             >
@@ -28,8 +28,8 @@ export default function FormatoImpressaoToggle({ formato, onChange }) {
                 className={cn(
                     "inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold transition",
                     formato === "58mm"
-                        ? "bg-cyan-700 text-white dark:bg-cyan-500 dark:text-slate-950"
-                        : "text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white",
+                        ? "bg-brand text-white dark:bg-cyan-500 dark:text-slate-950"
+                        : "text-slate-600 hover:text-ink dark:text-slate-300 dark:hover:text-white",
                 )}
                 title="Impressora térmica portátil de 58mm (preto e branco)"
             >

@@ -21,7 +21,7 @@ function Entrada({ entrada, propsLinha }) {
             <div className="flex items-start gap-3">
                 <StatusBadge tone={tomNivel[entrada.nivel] ?? "slate"}>{entrada.nivel}</StatusBadge>
                 <div className="min-w-0 flex-1">
-                    <p className="break-words text-sm text-slate-900 dark:text-white">{entrada.mensagem}</p>
+                    <p className="break-words text-sm text-ink dark:text-white">{entrada.mensagem}</p>
                     <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{entrada.data} · {entrada.ambiente}</p>
                 </div>
                 {entrada.detalhe !== "" && <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />}
@@ -30,7 +30,7 @@ function Entrada({ entrada, propsLinha }) {
     );
 }
 
-const seleccao = "rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+const seleccao = "rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
 export default function LogsAplicacao({ ficheiros, entradas, truncado, canalLog, niveis, filtros }) {
     const [search, setSearch] = useState(filtros.search ?? "");
@@ -53,8 +53,7 @@ export default function LogsAplicacao({ ficheiros, entradas, truncado, canalLog,
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Logs Técnicos</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Logs Técnicos</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Registo da aplicação (storage/logs). Senhas e tokens aparecem mascarados.</p>
                 </div>
             }
@@ -67,7 +66,7 @@ export default function LogsAplicacao({ ficheiros, entradas, truncado, canalLog,
 
                     {ficheiros.length === 0 ? (
                         <AnimatedPanel className="p-8 text-center text-sm text-slate-600 dark:text-slate-300">
-                            <p className="font-semibold text-slate-900 dark:text-white">Não há ficheiros de log legíveis.</p>
+                            <p className="font-semibold text-ink dark:text-white">Não há ficheiros de log legíveis.</p>
                             <p className="mt-2">
                                 O canal de log em uso é <strong>{canalLog}</strong>. Se for <code>stderr</code> (recomendado em Railway), os logs vão para a consola do
                                 serviço no Railway e não ficam em ficheiro, por isso não aparecem aqui.

@@ -35,11 +35,11 @@ function CartaoCabecalho({ user, papel, delay }) {
     return (
         <AnimatedPanel delay={delay} className="p-6">
             <div className="flex flex-wrap items-center gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-cyan-700 text-xl font-bold text-white">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand text-xl font-bold text-white">
                     {iniciais(user.name)}
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="truncate text-lg font-bold text-slate-950 dark:text-white">{user.name}</p>
+                    <p className="truncate text-lg font-bold text-ink dark:text-white">{user.name}</p>
                     <p className="truncate text-sm text-slate-500 dark:text-slate-400">{user.email}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusBadge tone={role.tone}>{role.label}</StatusBadge>
@@ -76,7 +76,7 @@ function Seccao({ id, numero, icone: Icone, titulo, descricao, tom = "cyan", del
                         {numero}
                     </span>
                     <div>
-                        <h3 id={`${id}-titulo`} className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
+                        <h3 id={`${id}-titulo`} className="flex items-center gap-2 font-semibold text-ink dark:text-white">
                             <Icone
                                 className={cn("h-4 w-4", perigo ? "text-rose-600 dark:text-rose-400" : "text-cyan-700 dark:text-cyan-300")}
                                 aria-hidden="true"
@@ -340,10 +340,7 @@ export default function Edit({ user, mustVerifyEmail }) {
         <Layout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
-                        Conta
-                    </p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Perfil</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Perfil</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Dados pessoais, segurança e preferências da sua conta.
                     </p>
@@ -363,7 +360,7 @@ export default function Edit({ user, mustVerifyEmail }) {
                             <a
                                 key={href}
                                 href={href}
-                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-white"
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600 transition hover:bg-slate-50 hover:text-ink dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-white"
                             >
                                 {rotulo}
                             </a>

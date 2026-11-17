@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\AjusteLeitura;
 use App\Models\Cliente;
+use Illuminate\Support\Carbon;
+use App\Models\PromessaPagamento;
+use App\Models\Credito;
+use App\Models\ContactoCobranca;
 use App\Models\Configuracao;
 use App\Models\Factura;
 use App\Models\Tarifa;
@@ -11,6 +15,7 @@ use App\Models\Zona;
 use App\Rules\TelefoneMocambicano;
 use App\Services\SequenciaLeituras;
 use App\Support\BuscaDifusa;
+use App\Support\AnaliseRisco;
 use App\Support\ListaQuery;
 use App\Support\MesReferencia;
 use App\Support\NumeracaoDocumentos;
@@ -35,10 +40,13 @@ class ClienteController extends Controller
         $bairro = $request->query('bairro');
         $tarifaId = $request->query('tarifa');
         $soDivida = $request->boolean('so_divida');
+        $soRisco = $request->boolean('risco');
+        $mesCiclo = MesReferencia::actual();
 
         $query = Cliente::with([
             'tarifa',
-            'facturas' => fn ($q) => $q->orderByDesc('ano')->orderByDesc('mes'),
+            'zona:id,nome',
+            'facturas' => fn ($q) => $q->orderByDesc('ano')->orderByDesc('mes')->with('pagamentos'),
             'pagamentos' => fn ($q) => $q->orderByDesc('created_at'),
         ]);
 
@@ -70,6 +78,14 @@ class ClienteController extends Controller
             $query->whereRaw("({$divida}) > 0");
         }
 
+        $idsRisco = AnaliseRisco::idsEmRiscoCorte();
+        if ($soRisco) {
+            $query->whereIn('clientes.id', $idsRisco);
+        }
+
+        // Coluna "Leitura de <mês>": já tem leitura no mês do ciclo?
+        $query->withExists(['leituras as lido_no_mes' => fn ($q) => $q->where('mes', $mesCiclo->month)->where('ano', $mesCiclo->year)]);
+
         [$sort, $dir] = ListaQuery::ordenar($query, $request, [
             'nome' => fn ($q, $d) => $q->orderBy('clientes.nome', $d),
             'divida' => fn ($q, $d) => $q->orderByRaw("({$divida}) {$d}")->orderBy('clientes.nome'),
@@ -86,7 +102,7 @@ class ClienteController extends Controller
         // guardado à parte, que só actualizava quando havia um pagamento e
         // por isso ficava preso em 0,00 para clientes que nunca pagaram
         // nada mas tinham facturas por liquidar.
-        $clientes->getCollection()->transform(function (Cliente $cliente) {
+        $clientes->getCollection()->transform(function (Cliente $cliente) use ($idsRisco) {
             $cliente->loadMissing('facturas.pagamentos');
             $pagoPorFactura = $cliente->facturas->mapWithKeys(fn ($f) => [$f->id => $f->totalPago()]);
             $emAberto = $cliente->facturas->whereIn('estado', ['pendente', 'parcial']);
@@ -96,6 +112,7 @@ class ClienteController extends Controller
             $cliente->facturas->each(fn ($f) => $f->em_falta = in_array($f->estado, ['pendente', 'parcial'], true) ? round($saldoDe($f), 2) : 0);
 
             $cliente->saldo_em_aberto = round($emAberto->sum($saldoDe), 2);
+            $cliente->em_risco_corte = in_array($cliente->id, $idsRisco, true);
             $cliente->divida_em_atraso = round(
                 $emAberto->filter(fn ($f) => $f->esta_vencida)->sum($saldoDe),
                 2,
@@ -117,13 +134,17 @@ class ClienteController extends Controller
                 'activos' => Cliente::where('estado', 'ativo')->count(),
                 'cortados' => Cliente::where('estado', 'cortado')->count(),
                 'dividaAcumulada' => $this->dividaEmAbertoTotal(),
+                'comDivida' => Cliente::whereRaw("({$divida}) > 0")->count(),
+                'emRisco' => count($idsRisco),
             ],
+            'mesCiclo' => ['mes' => $mesCiclo->month, 'ano' => $mesCiclo->year],
             'filtros' => [
                 'search' => $search ?? '',
                 'estado' => $estado ?: 'todos',
                 'bairro' => $bairro ?: 'todos',
                 'tarifa' => $tarifaId ?: 'todos',
                 'so_divida' => $soDivida,
+                'risco' => $soRisco,
                 'sort' => $sort,
                 'dir' => $dir,
             ],
@@ -135,9 +156,9 @@ class ClienteController extends Controller
     {
         $cliente->load([
             'tarifa', 'zona',
-            'leituras' => fn ($q) => $q->withTrashed()->orderByDesc('ano')->orderByDesc('mes'),
-            'facturas' => fn ($q) => $q->withTrashed()->with(['pagamentos' => fn ($p) => $p->withTrashed()])->orderByDesc('ano')->orderByDesc('mes'),
-            'pagamentos' => fn ($q) => $q->withTrashed()->with(['factura' => fn ($f) => $f->withTrashed()])->orderByDesc('pago_em')->orderByDesc('created_at'),
+            'leituras' => fn ($q) => $q->withTrashed()->with('registadoPor:id,name')->orderByDesc('ano')->orderByDesc('mes'),
+            'facturas' => fn ($q) => $q->withTrashed()->with(['pagamentos' => fn ($p) => $p->withTrashed(), 'geradaPor:id,name', 'anuladaPor:id,name'])->orderByDesc('ano')->orderByDesc('mes'),
+            'pagamentos' => fn ($q) => $q->withTrashed()->with(['factura' => fn ($f) => $f->withTrashed(), 'recebidoPor:id,name'])->orderByDesc('pago_em')->orderByDesc('created_at'),
         ]);
         $cliente->saldo_em_aberto = $cliente->saldoEmAberto();
         $atraso = $cliente->dividaEmAtraso();
@@ -190,7 +211,122 @@ class ClienteController extends Controller
                 ])->values(),
             'zonas' => Zona::orderBy('nome')->get(['id', 'nome']),
             'tarifas' => Tarifa::orderBy('nome')->get(['id', 'nome']),
+            'situacao' => $this->situacaoDoCliente($cliente),
+            'historico' => $this->historicoDoCliente($cliente),
         ]);
+    }
+
+    /**
+     * "Situação" da ficha: quanto deve, o que está vencido, crédito, a promessa
+     * em curso e o limite de corte da tarifa.
+     */
+    private function situacaoDoCliente(Cliente $cliente): array
+    {
+        $vencidas = $cliente->facturas->whereNull('deleted_at')
+            ->whereIn('estado', ['pendente', 'parcial'])
+            ->filter(fn ($f) => $f->esta_vencida);
+        $maisAntiga = $vencidas->min('data_vencimento');
+        $promessa = PromessaPagamento::where('cliente_id', $cliente->id)->where('estado', 'pendente')->latest()->first();
+
+        return [
+            'vencidas' => $vencidas->count(),
+            'diasAtraso' => $maisAntiga ? (int) Carbon::parse($maisAntiga)->startOfDay()->diffInDays(now()->startOfDay()) : 0,
+            'credito' => Credito::saldoDe($cliente->id),
+            'limiteCorte' => $cliente->tarifa ? (float) $cliente->tarifa->limiar_corte : null,
+            'promessa' => $promessa ? ['valor' => (float) $promessa->valor, 'data' => $promessa->data_prometida->toDateString()] : null,
+        ];
+    }
+
+    /**
+     * Linha do tempo da ficha: tudo o que aconteceu ao cliente, quem fez e
+     * quando — alterações de dados (com reverter), dinheiro, leituras e cobrança.
+     *
+     * @return list<array{chave: string, tipo: string, icone: string, titulo: string, quando: string, texto: string, quem: ?string, reverter: ?int}>
+     */
+    private function historicoDoCliente(Cliente $cliente): array
+    {
+        $meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        $mt = fn ($v) => number_format((float) $v, 2, ',', ' ').' MT';
+        $m3 = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, ',', ' '), '0'), ',').' m³';
+        $metodos = ['dinheiro' => 'Dinheiro', 'mpesa' => 'M-Pesa', 'e-mola' => 'E-Mola', 'banco' => 'Banco'];
+        $eventos = collect();
+
+        $campos = ['nome' => 'Nome', 'endereco' => 'Morada', 'telefone' => 'Telefone', 'email' => 'Email', 'bairro' => 'Bairro', 'zona_id' => 'Zona', 'tarifa_id' => 'Tarifa', 'estado' => 'Estado', 'leitura_inicial' => 'Leitura inicial'];
+        $zonas = Zona::pluck('nome', 'id');
+        $tarifas = Tarifa::pluck('nome', 'id');
+        $estados = ['ativo' => 'Activo', 'inativo' => 'Inactivo', 'cortado' => 'Cortado'];
+        $legivel = fn ($campo, $valor) => match ($campo) {
+            'zona_id' => $zonas[$valor] ?? '—',
+            'tarifa_id' => $tarifas[$valor] ?? '—',
+            'estado' => $estados[$valor] ?? $valor,
+            default => filled($valor) ? (string) $valor : '—',
+        };
+
+        Activity::where('log_name', 'cliente')->where('subject_type', Cliente::class)->where('subject_id', $cliente->id)
+            ->with('causer')->latest()->limit(100)->get()
+            ->each(function (Activity $a) use ($eventos, $campos, $legivel) {
+                $novos = $a->properties?->get('attributes', []) ?? [];
+                $antigos = $a->properties?->get('old', []) ?? [];
+                $quem = $a->causer?->name;
+                if ($a->event === 'motivo') {
+                    $eventos->push(['chave' => "act-{$a->id}", 'tipo' => 'alt', 'icone' => 'alerta', 'titulo' => $a->description, 'quando' => $a->created_at->toDateTimeString(),
+                        'texto' => 'Motivo: '.($a->properties['motivo'] ?? '—').'.', 'quem' => $quem, 'reverter' => null]);
+
+                    return;
+                }
+                if ($a->event === 'created') {
+                    $eventos->push(['chave' => "act-{$a->id}", 'tipo' => 'alt', 'icone' => 'novo', 'titulo' => 'Cliente criado', 'quando' => $a->created_at->toDateTimeString(), 'texto' => 'Registado no sistema.', 'quem' => $quem, 'reverter' => null]);
+
+                    return;
+                }
+                $mudou = array_keys(array_intersect_key($novos, $campos));
+                if ($a->event !== 'updated' || empty($mudou)) {
+                    return;
+                }
+                $titulo = count($mudou) === 1 ? $campos[$mudou[0]].' alterado' : 'Dados alterados';
+                $texto = collect($mudou)->map(fn ($c) => (count($mudou) > 1 ? $campos[$c].': ' : '').'de '.$legivel($c, $antigos[$c] ?? null).' para '.$legivel($c, $novos[$c]))->implode(' · ');
+                $eventos->push(['chave' => "act-{$a->id}", 'tipo' => 'alt', 'icone' => 'editar', 'titulo' => $titulo, 'quando' => $a->created_at->toDateTimeString(), 'texto' => ucfirst($texto).'.', 'quem' => $quem, 'reverter' => empty($antigos) ? null : $a->id]);
+            });
+
+        foreach ($cliente->facturas as $f) {
+            $mes = $meses[$f->mes - 1] ?? '';
+            $eventos->push(['chave' => "fac-{$f->id}", 'tipo' => 'din', 'icone' => 'factura', 'titulo' => "Factura de {$mes} emitida", 'quando' => $f->created_at->toDateTimeString(),
+                'texto' => "{$f->numero_factura} · ".$mt($f->total_pagar).($f->data_vencimento ? ' · vence a '.$f->data_vencimento->format('d/m/Y') : '').'.',
+                'quem' => $f->geradaPor?->name, 'reverter' => null]);
+            if ($f->estado === 'anulada' && $f->anulada_em) {
+                $eventos->push(['chave' => "fac-anul-{$f->id}", 'tipo' => 'din', 'icone' => 'alerta', 'titulo' => "Factura de {$mes} anulada", 'quando' => Carbon::parse($f->anulada_em)->toDateTimeString(),
+                    'texto' => "{$f->numero_factura}".($f->motivo_anulacao ? " · {$f->motivo_anulacao}" : '').'.', 'quem' => $f->anuladaPor?->name, 'reverter' => null]);
+            }
+        }
+
+        foreach ($cliente->pagamentos as $p) {
+            $mes = $p->factura ? ($meses[$p->factura->mes - 1] ?? '') : '';
+            $eventos->push(['chave' => "pag-{$p->id}", 'tipo' => 'din', 'icone' => 'dinheiro', 'titulo' => $p->deleted_at ? 'Pagamento estornado' : 'Pagamento recebido', 'quando' => ($p->pago_em ?? $p->created_at)->toDateTimeString(),
+                'texto' => "{$p->numero_recibo} · ".$mt($p->valor_pago).' · '.($metodos[$p->metodo_pagamento] ?? $p->metodo_pagamento).($mes ? " · factura de {$mes}" : '').'.',
+                'quem' => $p->recebidoPor?->name, 'reverter' => null]);
+        }
+
+        foreach ($cliente->leituras->whereNull('deleted_at') as $l) {
+            $mes = $meses[$l->mes - 1] ?? '';
+            $eventos->push(['chave' => "lei-{$l->id}", 'tipo' => 'lei', 'icone' => 'gota', 'titulo' => "Leitura de {$mes} ".($l->confirmado ? 'confirmada' : 'registada'), 'quando' => ($l->confirmado_em ?? $l->created_at)->toDateTimeString(),
+                'texto' => $m3($l->leitura_actual).' (anterior '.$m3($l->leitura_anterior).') · consumo de '.$m3($l->consumo()).'.',
+                'quem' => $l->registadoPor?->name ? 'registada por '.$l->registadoPor->name : null, 'reverter' => null]);
+        }
+
+        $canais = ['email' => 'Email', 'telefone' => 'Chamada', 'presencial' => 'Visita', 'whatsapp' => 'WhatsApp', 'sms' => 'SMS', 'outro' => 'Contacto'];
+        $resultados = ['sem_resposta' => 'Sem resposta', 'prometeu_pagar' => 'Prometeu pagar', 'recusou' => 'Recusou pagar', 'pagou' => 'Disse que já pagou', 'outro' => 'Outro'];
+        $promessas = PromessaPagamento::where('cliente_id', $cliente->id)->get()->keyBy('contacto_id');
+        ContactoCobranca::where('cliente_id', $cliente->id)->with('utilizador')->latest()->limit(50)->get()
+            ->each(function ($c) use ($eventos, $canais, $resultados, $promessas, $mt) {
+                $promessa = $promessas->get($c->id);
+                $texto = ($resultados[$c->resultado] ?? $c->resultado)
+                    .($promessa ? ': '.$mt($promessa->valor).' até '.$promessa->data_prometida->format('d/m/Y') : '')
+                    .($c->nota ? " — {$c->nota}" : '').'.';
+                $eventos->push(['chave' => "cob-{$c->id}", 'tipo' => 'cob', 'icone' => 'telefone', 'titulo' => ($canais[$c->canal] ?? 'Contacto').' de cobrança', 'quando' => $c->created_at->toDateTimeString(),
+                    'texto' => $texto, 'quem' => $c->utilizador?->name, 'reverter' => null]);
+            });
+
+        return $eventos->sortByDesc('quando')->values()->all();
     }
 
     /**
@@ -343,7 +479,17 @@ class ClienteController extends Controller
             $data['bairro'] = Zona::find($data['zona_id'])->nome;
         }
 
+        $estadoAntes = $cliente->estado;
+        $motivoEstado = trim((string) $request->input('motivo_estado', ''));
         $cliente->update($data);
+
+        // Suspender / reactivar com motivo: fica na linha do tempo da ficha.
+        if ($motivoEstado !== '' && $cliente->estado !== $estadoAntes) {
+            activity('cliente')->performedOn($cliente)->causedBy($request->user())
+                ->event('motivo')
+                ->withProperties(['motivo' => mb_substr($motivoEstado, 0, 500), 'de' => $estadoAntes, 'para' => $cliente->estado])
+                ->log($cliente->estado === 'cortado' ? 'Água fechada' : 'Água reaberta');
+        }
 
         return back()->with('status', 'Cliente actualizado com sucesso.');
     }

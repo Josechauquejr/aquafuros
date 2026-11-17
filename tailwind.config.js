@@ -18,24 +18,54 @@ export default {
             fontFamily: {
                 sans: ['"Plus Jakarta Sans"', ...defaultTheme.fontFamily.sans],
             },
-            // Tokens do shadcn (badtzUI / Animate UI), ligados à paleta
-            // slate + cyan da app — ver as variáveis em resources/css/app.css.
+            // Paleta do redesenho (canvas "Aquafuros — Refactorização UI/UX").
+            // Os nomes Tailwind ficam (slate/cyan/emerald/amber/rose) para não
+            // reescrever 23k linhas, mas os valores são os do design:
+            //  · slate  → neutros azulados (claro: #F4F6FB…#464F66; escuro:
+            //    campos #2A3140, cartões #161A22, página #0B0D12)
+            //  · cyan   → azul secundário #0059FF (links, progresso, foco);
+            //    o azul-marinho primário #041A53 é `brand`
+            //  · emerald/amber/rose → os 3 estados: em dia, atenção, risco
             colors: {
-                // Do cinzento 300 para cima, o "slate" passa a zinc (neutro): no
-                // modo escuro deixa de haver azul — fica o preto #000000 dos
-                // Animated Cards (bg-black), com painéis em zinc-950 e bordas zinc-900.
+                ink: '#030923',
+                brand: { DEFAULT: '#041A53', hover: '#0A2A78', soft: '#E6EEFF' },
                 slate: {
-                    50: '#f8fafc',
-                    100: '#f1f5f9',
-                    200: '#e2e8f0',
-                    300: '#d4d4d8',
-                    400: '#a1a1aa',
-                    500: '#71717a',
-                    600: '#52525b',
-                    700: '#27272a',
-                    800: '#18181b',
-                    900: '#09090b',
-                    950: '#000000',
+                    50: '#F4F6FB',
+                    100: '#EDF1F8',
+                    200: '#E1E7F3',
+                    300: '#C9D2E3',
+                    400: '#8C97B0',
+                    500: '#5B6478',
+                    600: '#464F66',
+                    700: '#363E51',
+                    800: '#2A3140',
+                    900: '#161A22',
+                    950: '#0B0D12',
+                },
+                cyan: {
+                    50: '#F0F4FF',
+                    100: '#E6EEFF',
+                    200: '#D6E2FF',
+                    300: '#9DBBFF',
+                    400: '#6EA2FF',
+                    500: '#0059FF',
+                    600: '#0050E6',
+                    700: '#0059FF',
+                    800: '#0047CC',
+                    900: '#0A2A78',
+                    950: '#0E1C3F',
+                },
+                emerald: {
+                    50: '#E3F2E9', 100: '#D3EBDD', 200: '#B5DCC4', 300: '#7DD3A3', 400: '#7DD3A3',
+                    500: '#2EA063', 600: '#1E7148', 700: '#1E7148', 800: '#175C3A', 900: '#12462D', 950: '#11281D',
+                },
+                amber: {
+                    50: '#FCEFD9', 100: '#FAE5C2', 200: '#F3D29E', 300: '#F3C77A', 400: '#F3C77A',
+                    500: '#D98A00', 600: '#B86A00', 700: '#8A4F00', 800: '#6E3F00', 900: '#4F2D00', 950: '#2A2212',
+                },
+                rose: {
+                    50: '#FDF1F0', 100: '#FCE7E5', 200: '#F3C6C1', 300: '#F4A39A', 400: '#F4A39A',
+                    500: '#D92D20', 600: '#B42318', 700: '#B42318', 800: '#912018', 900: '#6B1A13', 950: '#2D1714',
                 },
                 background: 'hsl(var(--background) / <alpha-value>)',
                 foreground: 'hsl(var(--foreground) / <alpha-value>)',
@@ -67,10 +97,19 @@ export default {
                     ring: 'hsl(var(--sidebar-ring) / <alpha-value>)',
                 },
             },
+            // Raios do design: cartões 18px, botões/campos 12px, chips 9px.
             borderRadius: {
-                lg: 'var(--radius)',
-                md: 'calc(var(--radius) - 2px)',
-                sm: 'calc(var(--radius) - 4px)',
+                sm: '6px',
+                DEFAULT: '9px',
+                md: '12px',
+                lg: '18px',
+                xl: '18px',
+                '2xl': '24px',
+            },
+            boxShadow: {
+                sm: '0 1px 2px rgba(4, 26, 83, 0.05), 0 8px 24px rgba(4, 26, 83, 0.07)',
+                lg: '0 18px 44px rgba(4, 26, 83, 0.18)',
+                xl: '0 24px 60px rgba(4, 26, 83, 0.22)',
             },
         },
     },

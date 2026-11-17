@@ -2,7 +2,7 @@ import { UserX } from "lucide-react";
 import DonutAnimado from "@/Components/charts/DonutAnimado";
 import { formatMoney } from "@/lib/utils";
 
-const CORES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#8b5cf6", "#ec4899", "#14b8a6", "#f43f5e"];
+const CORES = ["#0059FF", "#6EA2FF", "#1E7148", "#B86A00", "#0A2A78", "#C9D2E3", "#9DBBFF", "#B42318"];
 
 /**
  * Maiores devedores — donut animado (Animated Card 2) com a parte de cada

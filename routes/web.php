@@ -83,6 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('tarifas/multas-mensais', [TarifaController::class, 'actualizarMultaMensal'])->name('tarifas.multas-mensais');
         // Correcção de leituras já confirmadas (e desfazer) — só o administrador.
         Route::put('leituras/{leitura}/corrigir', [LeituraController::class, 'corrigir'])->name('leituras.corrigir');
+        Route::put('leituras/{leitura}/desfazer-confirmacao', [LeituraController::class, 'desfazerConfirmacao'])->name('leituras.desfazer-confirmacao');
         Route::post('leituras/correccoes/{correccao}/desfazer', [LeituraController::class, 'desfazerCorreccao'])->name('leituras.correccoes.desfazer');
         Route::post('ajustes-leitura/{ajuste}/reverter', [AjusteLeituraController::class, 'reverter'])->name('ajustes-leitura.reverter');
         Route::put('tarifas/regras', [TarifaController::class, 'actualizarRegras'])->name('tarifas.regras');
@@ -119,7 +120,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('clientes', ClienteController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
         Route::post('clientes/zonas', [ZonaController::class, 'store'])->name('clientes.zonas.store');
         Route::post('clientes/historico/{activity}/reverter', [ClienteController::class, 'reverter'])->name('clientes.historico.reverter');
-        Route::resource('facturas', FacturaController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('facturas', FacturaController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
         Route::get('facturas/{factura}/imprimir', [FacturaController::class, 'imprimir'])->name('facturas.imprimir');
         Route::get('facturas/{factura}/pdf', [FacturaController::class, 'pdf'])->name('facturas.pdf');
 
@@ -157,7 +158,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('leituras/previsualizar', [LeituraController::class, 'previsualizar'])->name('leituras.preview');
         Route::post('leituras/{leitura}/previsualizar', [LeituraController::class, 'previsualizarActualizacao'])->name('leituras.update.preview');
         Route::put('leituras/confirmar-todas', [LeituraController::class, 'confirmarTodas'])->name('leituras.confirmar-todas');
-        Route::resource('leituras', LeituraController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('leituras', LeituraController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
 
         // Avarias e reclamações; produção de água (para as perdas).
         Route::resource('ocorrencias', OcorrenciaController::class)->only(['index', 'store', 'update', 'destroy']);
@@ -226,6 +227,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Marcar erros como resolvidos: sem risco, sem repetir a senha.
         Route::put('logs/erros/{erro}/resolver', [DevLogController::class, 'marcarResolvido'])->name('logs.erros.resolver');
+        // Explicação do erro pela IA (Gemini): só lê o erro e o código, não altera nada.
+        Route::post('logs/erros/{erro}/explicar', [DevLogController::class, 'explicar'])->middleware('throttle:10,1')->name('logs.erros.explicar');
 
         // Tudo o que altera dados ou contas: volta a pedir a senha (válida 15 min) e fica na auditoria.
         Route::middleware(['password.confirm:password.confirm,900'])->group(function () {

@@ -1,7 +1,7 @@
 import { Head, Link, usePage } from "@inertiajs/react";
 import { ArrowLeft, Printer } from "lucide-react";
-import CabecalhoDocumento from "@/Components/print/CabecalhoDocumento";
-import RodapeDocumento from "@/Components/print/RodapeDocumento";
+import { QRCodeSVG } from "qrcode.react";
+import { LinhaCorte } from "@/Components/print/FacturaCompacta";
 import { useRef } from "react";
 import AnimatedButton from "@/Components/AnimatedButton";
 import BotaoDescarregarPdfLote from "@/Components/print/BotaoDescarregarPdfLote";
@@ -18,9 +18,9 @@ const meses = [
 
 const metodoLabels = {
     dinheiro: "Dinheiro",
-    banco: "Transferência bancária",
+    banco: "Banco",
     mpesa: "M-Pesa",
-    "e-mola": "e-Mola",
+    "e-mola": "E-Mola",
 };
 
 const estadoFacturaConfig = {
@@ -47,79 +47,87 @@ function chunk(array, size) {
     return result;
 }
 
-// Recibo compacto — três por página A4, para poupar papel.
-function ReciboCompacto({ pagamento, primeiraLeitura, qrUrl, empresa }) {
+// Recibo em tira — três por página A4. Três colunas: quem emite · o que pagou
+// e para onde foi o dinheiro · valor recebido (borda verde grossa: "pago").
+function ReciboCompacto({ pagamento, qrUrl, empresa }) {
     const factura = pagamento.factura;
-    const leitura = factura?.leitura;
-    const consumo = leitura ? consumoLeitura(leitura) : null;
-    const estadoFactura = factura ? estadoFacturaConfig[factura.estado] : null;
+    const parcelas = pagamento.imputacoes ?? [];
+    const linhas = parcelas.length
+        ? parcelas.flatMap((p) => [
+              [`Consumo · ${p.factura?.numero_factura ?? "factura"}`, Number(p.valor_principal)],
+              ...(Number(p.valor_multa) > 0 ? [[`Multa · ${p.factura?.numero_factura ?? ""}`, Number(p.valor_multa)]] : []),
+          ])
+        : [[factura ? `Factura ${factura.numero_factura} · ${meses[factura.mes - 1]}/${factura.ano}` : "Pagamento", Number(pagamento.valor_pago)]];
 
     return (
-        <div className="flex min-h-[90mm] flex-col justify-between p-4 text-slate-900" style={{ breakInside: "avoid" }}>
-            <div>
-                <CabecalhoDocumento empresa={empresa} compacto titulo="Recibo de pagamento" numero={pagamento.numero_recibo} />
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                        <p className="font-semibold">{pagamento.cliente?.nome ?? "Cliente removido"}</p>
-                        <p className="text-slate-500">{pagamento.cliente?.numero_cliente}</p>
-                        <p className="text-slate-500">Tel: {pagamento.cliente?.telefone || "—"}</p>
-                    </div>
-                    <div className="text-right">
-                        <p>{formatDateTime(pagamento.pago_em ?? pagamento.created_at)}</p>
-                        <p className="text-slate-500">Recebido por {pagamento.recebido_por?.name ?? "—"}</p>
-                        <p className="text-slate-500">
-                            {pagamento.cliente?.bairro || pagamento.cliente?.endereco || "—"}
-                        </p>
-                    </div>
+        <article
+            className="grid h-[85mm] grid-cols-[48mm_1fr_47mm] overflow-hidden rounded-[2.5mm] border border-[#C9D2E3] text-[7.5pt] leading-tight text-black"
+            style={{ breakInside: "avoid", printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}
+        >
+            <section className="flex flex-col gap-[2mm] border-r border-[#C9D2E3] bg-[#F2F8F4] px-[3.5mm] py-[3mm]">
+                <div className="min-w-0 leading-tight">
+                    <p className="truncate text-[9pt] font-bold">{empresa?.nome ?? "Aquafuros"}</p>
+                    {empresa?.localizacao && <p className="truncate text-[7pt] text-slate-600">{empresa.localizacao}</p>}
                 </div>
+                <div>
+                    <p className="text-[7pt] font-extrabold tracking-[1.5px] text-emerald-700">RECIBO</p>
+                    <p className="text-[10pt] font-bold">{pagamento.numero_recibo}</p>
+                </div>
+                <dl className="flex flex-col gap-[0.8mm]">
+                    <div className="flex justify-between gap-2"><dt className="text-slate-600">Data</dt><dd className="font-bold">{formatDateTime(pagamento.pago_em ?? pagamento.created_at).split(" às ")[0]}</dd></div>
+                    <div className="flex justify-between gap-2"><dt className="text-slate-600">Caixa</dt><dd className="truncate font-bold">{pagamento.recebido_por?.name ?? "—"}</dd></div>
+                </dl>
+                <div className="mt-auto flex flex-col gap-[0.3mm] text-[6.5pt] leading-snug text-slate-600">
+                    <p className="font-bold text-black">{empresa?.nome ?? "Aquafuros"}</p>
+                    {empresa?.nuit && <p>NUIT {empresa.nuit}</p>}
+                </div>
+            </section>
 
-                {factura && (
-                    <div className="mt-2 rounded bg-slate-50 px-3 py-1.5 text-xs">
-                        <div className="flex items-center justify-between">
-                            <span>
-                                Factura {factura.numero_factura} — {meses[factura.mes - 1]}/{factura.ano}
-                            </span>
-                            {leitura && (
-                                <span className="font-semibold">
-                                    {consumo !== null ? `${consumo.toFixed(2)} m³` : "—"}
-                                </span>
-                            )}
-                        </div>
-                        {estadoFactura && (
-                            <p className="mt-1 text-[10px] text-slate-500">
-                                Estado da factura: <span className="font-semibold text-slate-700">{estadoFactura.label}</span>
-                            </p>
-                        )}
-                        {leitura && (
-                            <p className="mt-0.5 text-slate-500">
-                                Leitura: {Number(leitura.leitura_anterior).toFixed(1)} →{" "}
-                                {Number(leitura.leitura_actual).toFixed(1)}
-                                {primeiraLeitura && <span> (inicial)</span>}
-                            </p>
-                        )}
+            <section className="flex min-w-0 flex-col gap-[2mm] px-[4mm] py-[3mm]">
+                <div>
+                    <p className="text-[7pt] text-slate-600">Recebido de</p>
+                    <p className="truncate text-[11pt] font-bold">{pagamento.cliente?.nome ?? "Cliente removido"}</p>
+                    <p className="text-[7pt] text-slate-600">{pagamento.cliente?.numero_cliente}</p>
+                </div>
+                <table className="w-full border-collapse tabular-nums">
+                    <thead>
+                        <tr className="border-b border-[#E8ECF4] text-[7pt] font-bold text-slate-600">
+                            <th className="py-[0.8mm] text-left">PAGOU</th>
+                            <th className="py-[0.8mm] text-right">MT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {linhas.slice(0, 4).map(([texto, valor]) => (
+                            <tr key={texto} className="border-b border-[#E8ECF4]">
+                                <td className="py-[0.8mm] pr-2">{texto}</td>
+                                <td className="whitespace-nowrap py-[0.8mm] text-right">{formatCurrency(valor).replace(" MT", "")}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                <p className="flex gap-[3mm] text-[7pt] text-slate-600">
+                    <span>Método: <strong className="text-black">{metodoLabels[pagamento.metodo_pagamento] ?? pagamento.metodo_pagamento}</strong></span>
+                    {pagamento.referencia_pagamento && <span>Ref.: <strong className="text-black">{pagamento.referencia_pagamento}</strong></span>}
+                </p>
+                <p className="mt-auto border-t border-[#DDE2EE] pt-[1.5mm] text-[6.8pt] leading-snug text-slate-600">
+                    <strong className="text-black">Obrigado.</strong> Guarde este recibo. A próxima factura vence no dia 10; depois aplica-se multa e o fornecimento pode ser cortado.
+                </p>
+            </section>
+
+            <section className="flex flex-col gap-[2mm] border-l border-[#C9D2E3] px-[3.5mm] py-[3mm]">
+                <div className="rounded-[2.5mm] border-[0.6mm] border-emerald-700 px-[3mm] py-[2mm]">
+                    <p className="text-[7pt] font-bold text-emerald-700">VALOR RECEBIDO</p>
+                    <p className="text-[15pt] font-extrabold leading-tight tabular-nums">{formatCurrency(pagamento.valor_pago)}</p>
+                    {factura && <p className="text-[7pt] text-slate-600">Factura {factura.estado === "paga" ? "paga" : "com saldo em aberto"}</p>}
+                </div>
+                {qrUrl && (
+                    <div className="mt-auto flex items-center gap-[2mm]">
+                        <QRCodeSVG value={qrUrl} size={46} level="M" marginSize={1} />
+                        <p className="text-[6.5pt] leading-tight text-slate-600">Verificar autenticidade</p>
                     </div>
                 )}
-
-                <p className="mt-2 text-xs text-slate-600">
-                    Método:{" "}
-                    <span className="font-medium text-slate-800">
-                        {metodoLabels[pagamento.metodo_pagamento] ?? pagamento.metodo_pagamento}
-                    </span>
-                    {pagamento.referencia_pagamento ? ` — ${pagamento.referencia_pagamento}` : ""}
-                </p>
-                <div className="mt-2 flex items-center justify-between border-t border-slate-300 pt-1.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Valor pago</span>
-                    <span className="text-base font-bold text-slate-900">{formatCurrency(pagamento.valor_pago)}</span>
-                </div>
-                {(pagamento.imputacoes ?? []).map(parcela => <p key={parcela.id} className="mt-1 text-[10px] text-slate-600">
-                    {parcela.factura?.numero_factura} · Principal: {formatCurrency(parcela.valor_principal)} · Multa: {formatCurrency(parcela.valor_multa)}
-                </p>)}
-            </div>
-
-            <div>
-                <RodapeDocumento compacto qrUrl={qrUrl} />
-            </div>
-        </div>
+            </section>
+        </article>
     );
 }
 
@@ -143,7 +151,7 @@ export default function ImprimirLote({ pagamentos, primeirasLeituras, qrUrls = {
             <div className="mx-auto mb-4 flex max-w-[210mm] flex-wrap items-center justify-between gap-3 px-4 print:hidden">
                 <Link
                     href="/pagamentos"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-ink"
                 >
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                     Voltar
@@ -195,14 +203,12 @@ export default function ImprimirLote({ pagamentos, primeirasLeituras, qrUrls = {
                         <div
                             key={pageIndex}
                             ref={registarPagina(pageIndex)}
-                            className="border border-slate-200 bg-white shadow-sm print:border-0 print:shadow-none"
+                            className="bg-white p-[12mm] shadow-sm ring-1 ring-slate-200 print:p-0 print:shadow-none print:ring-0"
                             style={pageIndex < paginas.length - 1 ? { breakAfter: "page" } : undefined}
                         >
                             {grupo.map((pagamento, i) => (
-                                <div
-                                    key={pagamento.id}
-                                    className={i < grupo.length - 1 ? "border-b border-dashed border-slate-300" : ""}
-                                >
+                                <div key={pagamento.id}>
+                                    {i > 0 && <LinhaCorte />}
                                     <ReciboCompacto
                                         pagamento={pagamento}
                                         primeiraLeitura={primeirasLeituras[pagamento.id]}

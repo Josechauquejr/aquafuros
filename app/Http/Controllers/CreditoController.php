@@ -29,9 +29,9 @@ class CreditoController extends Controller
             'cliente_id' => 'required|exists:clientes,id',
             'valor' => 'required|numeric|min:0.01|max:9999999',
             'metodo_pagamento' => 'required|in:dinheiro,banco,mpesa,e-mola',
-            'referencia_pagamento' => 'nullable|string|max:255',
+            'referencia_pagamento' => ['nullable', 'string', 'max:255', \Illuminate\Validation\Rule::requiredIf(fn () => $request->input('metodo_pagamento') !== 'dinheiro')],
             'nota' => 'nullable|string|max:255',
-        ]);
+        ], ['referencia_pagamento.required' => 'Escreva a referência da transacção (M-Pesa, E-Mola ou banco).']);
 
         $credito = DB::transaction(function () use ($data, $request) {
             User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
@@ -57,7 +57,7 @@ class CreditoController extends Controller
         });
 
         return redirect()->route('creditos.recibo', $credito)
-            ->with('status', 'Adiantamento de MZN '.number_format((float) $data['valor'], 2, ',', ' ').' registado como crédito do cliente.');
+            ->with('status', 'Adiantamento de '.number_format((float) $data['valor'], 2, ',', ' ').' MT registado como crédito do cliente.');
     }
 
     public function recibo(Credito $credito)

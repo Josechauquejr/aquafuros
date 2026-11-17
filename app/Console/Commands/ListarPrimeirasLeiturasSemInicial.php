@@ -31,7 +31,7 @@ class ListarPrimeirasLeiturasSemInicial extends Command
                     sprintf('%02d/%d', $primeira->mes, $primeira->ano),
                     number_format((float) $primeira->leitura_actual, 2, ',', ' '),
                     $primeira->factura
-                        ? $primeira->factura->numero_factura.' — MZN '.number_format((float) $primeira->factura->total_pagar, 2, ',', ' ')
+                        ? $primeira->factura->numero_factura.' — MT '.number_format((float) $primeira->factura->total_pagar, 2, ',', ' ')
                         : '—',
                 ];
             }

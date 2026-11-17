@@ -31,8 +31,7 @@ export default function Dados({ tabelas, relacoes }) {
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Explorador de dados</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Explorador de dados</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Só leitura. Segredos (senhas, tokens, payloads) ficam sempre mascarados e fora da pesquisa e da exportação.
                     </p>
@@ -82,7 +81,7 @@ export default function Dados({ tabelas, relacoes }) {
                     </AnimatedPanel>
 
                     <AnimatedPanel className="p-5">
-                        <h3 className="font-semibold text-slate-950 dark:text-white">Mapa de relações</h3>
+                        <h3 className="font-semibold text-ink dark:text-white">Mapa de relações</h3>
                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                             Chaves estrangeiras da base de dados: cada linha aponta para a tabela de que depende.
                         </p>
@@ -92,7 +91,7 @@ export default function Dados({ tabelas, relacoes }) {
                             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                                 {porOrigem.map(([origem, lista]) => (
                                     <div key={origem} className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
-                                        <Link href={`/dev/dados/${origem}`} className="text-sm font-semibold text-slate-900 hover:underline dark:text-white">
+                                        <Link href={`/dev/dados/${origem}`} className="text-sm font-semibold text-ink hover:underline dark:text-white">
                                             {origem}
                                         </Link>
                                         <ul className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-400">

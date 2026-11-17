@@ -8,7 +8,7 @@ const botaoBase =
 const botaoEstilos = {
     // Acção mais provável da linha (Receber, Confirmar): preenchida.
     destaque:
-        "border-transparent bg-cyan-700 text-white hover:bg-cyan-800 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400",
+        "border-transparent bg-brand text-white hover:bg-brand-hover dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400",
     normal:
         "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800",
 };

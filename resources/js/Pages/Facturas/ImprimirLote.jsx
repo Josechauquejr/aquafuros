@@ -1,10 +1,10 @@
 import { Head, Link } from "@inertiajs/react";
 import { ArrowLeft, Printer } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import AnimatedButton from "@/Components/AnimatedButton";
 import BotaoDescarregarPdfLote from "@/Components/print/BotaoDescarregarPdfLote";
 import FacturaTermica58mm from "@/Components/print/FacturaTermica58mm";
-import FacturaCompacta from "@/Components/print/FacturaCompacta";
+import FacturaCompacta, { LinhaCorte } from "@/Components/print/FacturaCompacta";
 import FacturaA4 from "@/Components/print/FacturaA4";
 import AnexoOrigensFactura from "@/Components/print/AnexoOrigensFactura";
 import { resumoDocumento } from "@/lib/facturaDocumento";
@@ -31,7 +31,7 @@ export default function ImprimirLote({ facturas, empresa, primeirasLeituras = {}
             let grupo = [];
             let altura = 0;
             [...container.children].forEach((elemento, index) => {
-                const alturaModulo = elemento.getBoundingClientRect().height;
+                const alturaModulo = elemento.getBoundingClientRect().height + (largura * 6 / 186);
                 if (grupo.length && (grupo.length === 3 || altura + alturaModulo > alturaPagina - 2)) {
                     novasPaginas.push({ facturas: grupo, individual: false }); grupo = []; altura = 0;
                 }
@@ -63,7 +63,7 @@ export default function ImprimirLote({ facturas, empresa, primeirasLeituras = {}
             <Head title={`Impressão em lote — ${facturas.length} factura(s)`} />
             <EstiloPagina formato={formato} />
             <div className="mx-auto mb-4 flex max-w-[210mm] flex-wrap items-center justify-between gap-3 px-4 print:hidden">
-                <Link href="/facturas" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"><ArrowLeft className="h-4 w-4" />Voltar</Link>
+                <Link href="/facturas" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-ink"><ArrowLeft className="h-4 w-4" />Voltar</Link>
                 <div className="flex flex-wrap items-center gap-3">
                     <span className="text-sm text-slate-500">{facturas.length} factura(s){formato === "a4" ? ` · ${paginas.length + anexos.length} página(s) · até 3 facturas por folha A4` : ""}</span>
                     <FormatoImpressaoToggle formato={formato} onChange={setFormato} />
@@ -81,7 +81,7 @@ export default function ImprimirLote({ facturas, empresa, primeirasLeituras = {}
                 <div className="overflow-x-auto print:overflow-visible">
                     <div className="mx-auto w-[210mm] space-y-6 print:w-full print:space-y-0">
                         {paginas.map((pagina, index) => <div key={index} ref={registarPagina(index)} className={pagina.individual ? "bg-white" : "min-h-[297mm] bg-white p-[12mm] shadow-sm ring-1 ring-slate-200 print:min-h-[273mm] print:p-0 print:shadow-none print:ring-0"} style={index < paginas.length + anexos.length - 1 ? { breakAfter: "page" } : undefined}>
-                            {pagina.facturas.map(factura => pagina.individual ? <FacturaA4 key={factura.id} {...propsFactura(factura)} /> : <FacturaCompacta key={factura.id} {...propsFactura(factura)} empresa={empresa} />)}
+                            {pagina.facturas.map((factura, i) => pagina.individual ? <FacturaA4 key={factura.id} {...propsFactura(factura)} /> : <Fragment key={factura.id}>{i > 0 && <LinhaCorte />}<FacturaCompacta {...propsFactura(factura)} empresa={empresa} /></Fragment>)}
                         </div>)}
                         {anexos.map((anexo, index) => <div key={`anexo-${anexo.factura.id}-${anexo.numero}`} ref={registarPagina(paginas.length + index)} className="min-h-[297mm] bg-white p-[12mm] shadow-sm ring-1 ring-slate-200 print:min-h-[273mm] print:p-0 print:shadow-none print:ring-0" style={index < anexos.length - 1 ? {breakAfter: "page"} : undefined}>
                             <AnexoOrigensFactura {...anexo} empresa={empresa} qrUrl={qrUrls[anexo.factura.id]} />

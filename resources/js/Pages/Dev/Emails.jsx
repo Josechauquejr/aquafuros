@@ -13,7 +13,7 @@ import TextInput from "@/Components/TextInput";
 import { ExpandableCard } from "@/Components/ui/expandable-card";
 import { cn, formatDateTime } from "@/lib/utils";
 
-const seleccao = "rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+const seleccao = "rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 
 export default function Emails({ envios, tipos, totais, filtros }) {
     const [search, setSearch] = useState(filtros.search ?? "");
@@ -38,8 +38,7 @@ export default function Emails({ envios, tipos, totais, filtros }) {
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Emails (técnico)</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Emails (técnico)</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         {totais.enviados} enviados · {totais.falhados} falhados · {totais.suspensos} suspensos ({totais.falhados_24h} falhados nas últimas 24 h). Histórico de códigos e links de acesso.
                     </p>
@@ -79,7 +78,7 @@ export default function Emails({ envios, tipos, totais, filtros }) {
                                     {envios.data.map((envio) => (
                                         <tr key={envio.id} {...cartao.propsLinha(envio)} className={cn("align-top", linhaClicavel)}>
                                             <td className="whitespace-nowrap px-4 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(envio.created_at)}</td>
-                                            <td className="px-4 py-3"><p className="text-slate-900 dark:text-white">{envio.cliente?.nome ?? "—"}</p><p className="text-xs text-slate-500">{envio.email}</p></td>
+                                            <td className="px-4 py-3"><p className="text-ink dark:text-white">{envio.cliente?.nome ?? "—"}</p><p className="text-xs text-slate-500">{envio.email}</p></td>
                                             <td className="max-w-xs truncate px-4 py-3 text-slate-700 dark:text-slate-300">{envio.assunto}</td>
                                             <td className="px-4 py-3"><StatusBadge tone={envio.estado === "enviado" ? "emerald" : envio.estado === "suspenso" ? "amber" : "rose"}>{envio.estado === "enviado" ? "Enviado" : envio.estado === "suspenso" ? "Suspenso" : "Falhou"}</StatusBadge></td>
                                             <td className="px-4 py-3">

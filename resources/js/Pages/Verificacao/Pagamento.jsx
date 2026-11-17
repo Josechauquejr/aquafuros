@@ -33,7 +33,7 @@ export default function Pagamento({ documento }) {
                 <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
                     <ApplicationLogo className="h-10 w-10" />
                     <div>
-                        <p className="font-bold text-slate-950 dark:text-white">{empresa?.nome ?? "Aquafuros"}</p>
+                        <p className="font-bold text-ink dark:text-white">{empresa?.nome ?? "Aquafuros"}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
                             {[empresa?.nuit && `NUIT: ${empresa.nuit}`, empresa?.localizacao].filter(Boolean).join(" · ") ||
                                 "Gestão de Furos de Água"}
@@ -55,7 +55,7 @@ export default function Pagamento({ documento }) {
                     <dl className="mt-6 space-y-4 text-sm">
                         <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
                             <dt className="text-slate-500 dark:text-slate-400">Número do recibo</dt>
-                            <dd className="font-semibold text-slate-950 dark:text-white">{documento.numero}</dd>
+                            <dd className="font-semibold text-ink dark:text-white">{documento.numero}</dd>
                         </div>
                         <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
                             <dt className="text-slate-500 dark:text-slate-400">Cliente</dt>
@@ -81,7 +81,7 @@ export default function Pagamento({ documento }) {
                         </div>
                         <div className="flex items-center justify-between pt-1">
                             <dt className="font-semibold text-slate-700 dark:text-slate-300">Valor pago</dt>
-                            <dd className="text-lg font-bold text-slate-950 dark:text-white">
+                            <dd className="text-lg font-bold text-ink dark:text-white">
                                 {formatCurrency(documento.valor)}
                             </dd>
                         </div>

@@ -72,7 +72,7 @@ export default function VerifyResetCode({ email }) {
 
                 <Link
                     href="/login"
-                    className="rounded-md text-sm text-slate-500 underline hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                    className="rounded-md text-sm text-slate-500 underline hover:text-ink dark:text-slate-400 dark:hover:text-white"
                 >
                     Voltar ao início de sessão
                 </Link>

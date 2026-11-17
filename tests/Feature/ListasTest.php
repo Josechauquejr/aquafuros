@@ -246,7 +246,7 @@ class ListasTest extends TestCase
 
         // ...mas aceita pagar o resto, em mais uma prestação.
         $this->actingAs($this->admin)->post('/pagamentos', [
-            'factura_id' => $factura->id, 'valor_pago' => 600, 'metodo_pagamento' => 'mpesa',
+            'factura_id' => $factura->id, 'valor_pago' => 600, 'metodo_pagamento' => 'mpesa', 'referencia_pagamento' => 'MP-1',
         ])->assertSessionHasNoErrors();
         $this->assertSame('paga', $factura->fresh()->estado);
     }

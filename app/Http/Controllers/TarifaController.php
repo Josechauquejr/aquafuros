@@ -21,7 +21,7 @@ class TarifaController extends Controller
     public function index(Request $request)
     {
         return Inertia::render('Tarifas/Index', [
-            'tarifas' => Tarifa::orderBy('nome')->get(),
+            'tarifas' => Tarifa::orderBy('nome')->withCount(['clientes' => fn ($q) => $q->where('estado', 'ativo')])->get(),
             'taxaLigacao' => Configuracao::valor('taxa_ligacao_nova', 3250.00),
             'regrasConfig' => Configuracao::regrasDeCobranca(),
             'mesesMulta' => $this->mesesComAlteracaoDeMulta(),

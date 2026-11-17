@@ -25,7 +25,7 @@ export default function Imprimir({ cliente, resumo }) {
             <div className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 print:hidden">
                 <Link
                     href="/clientes"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-ink"
                 >
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                     Voltar
@@ -36,10 +36,10 @@ export default function Imprimir({ cliente, resumo }) {
                 </AnimatedButton>
             </div>
 
-            <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm print:border-0 print:shadow-none">
+            <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-ink shadow-sm print:border-0 print:shadow-none">
                 <div className="flex items-start justify-between border-b border-slate-300 pb-6">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-cyan-700 text-white">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-brand text-white">
                             {empresa?.logotipoUrl ? (
                                 <img
                                     src={empresa.logotipoUrl}
@@ -117,19 +117,19 @@ export default function Imprimir({ cliente, resumo }) {
                     </p>
                     <div className="mt-2 grid grid-cols-2 gap-4 sm:grid-cols-4">
                         <div className="rounded-md border border-slate-200 p-3 text-center">
-                            <p className="text-lg font-bold text-slate-900">{resumo.numeroFacturas}</p>
+                            <p className="text-lg font-bold text-ink">{resumo.numeroFacturas}</p>
                             <p className="text-xs text-slate-500">Facturas emitidas</p>
                         </div>
                         <div className="rounded-md border border-slate-200 p-3 text-center">
-                            <p className="text-lg font-bold text-slate-900">{formatCurrency(resumo.totalFacturado)}</p>
+                            <p className="text-lg font-bold text-ink">{formatCurrency(resumo.totalFacturado)}</p>
                             <p className="text-xs text-slate-500">Total facturado</p>
                         </div>
                         <div className="rounded-md border border-slate-200 p-3 text-center">
-                            <p className="text-lg font-bold text-slate-900">{resumo.numeroPagamentos}</p>
+                            <p className="text-lg font-bold text-ink">{resumo.numeroPagamentos}</p>
                             <p className="text-xs text-slate-500">Pagamentos recebidos</p>
                         </div>
                         <div className="rounded-md border border-slate-200 p-3 text-center">
-                            <p className="text-lg font-bold text-slate-900">{formatCurrency(resumo.totalPago)}</p>
+                            <p className="text-lg font-bold text-ink">{formatCurrency(resumo.totalPago)}</p>
                             <p className="text-xs text-slate-500">Total pago</p>
                         </div>
                     </div>

@@ -86,7 +86,7 @@ export default function Breadcrumbs({ casa = "/dashboard", className = "" }) {
                                     <span
                                         className={
                                             ultima
-                                                ? "truncate text-slate-900 dark:text-white"
+                                                ? "truncate text-ink dark:text-white"
                                                 : "hidden truncate sm:inline"
                                         }
                                         aria-current={ultima ? "page" : undefined}

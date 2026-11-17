@@ -51,7 +51,7 @@ export default function Index({ linhas, diasRetencao, filtros }) {
             ordenavel: true,
             render: (linha) => (
                 <>
-                    <p className="font-semibold text-slate-900 dark:text-white">{linha.titulo}</p>
+                    <p className="font-semibold text-ink dark:text-white">{linha.titulo}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{linha.subtitulo}</p>
                 </>
             ),
@@ -68,7 +68,7 @@ export default function Index({ linhas, diasRetencao, filtros }) {
 
     const cartao = (linha) => (
         <div className="space-y-1.5">
-            <p className="font-semibold text-slate-900 dark:text-white">{linha.titulo}</p>
+            <p className="font-semibold text-ink dark:text-white">{linha.titulo}</p>
             <p className="text-sm text-slate-600 dark:text-slate-300">{linha.subtitulo}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">Eliminado em {formatDateTime(linha.eliminado_em)}</p>
             <Expira linha={linha} />
@@ -131,8 +131,7 @@ export default function Index({ linhas, diasRetencao, filtros }) {
         <AdminLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Administração</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Lixeira</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Lixeira</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Clientes e leituras sem histórico ficam aqui {diasRetencao} dias. Pagamentos anulados e
                         registos financeiros de clientes são preservados para auditoria.

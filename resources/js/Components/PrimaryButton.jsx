@@ -1,14 +1,15 @@
-export default function PrimaryButton({
-    className = "",
-    disabled = false,
-    children,
-    ...props
-}) {
+import { cn } from "@/lib/utils";
+
+/** Acção principal — uma por página (#041A53 no claro, #0059FF no escuro). */
+export default function PrimaryButton({ className = "", disabled = false, children, ...props }) {
     return (
         <button
             {...props}
             disabled={disabled}
-            className={`inline-flex items-center rounded-md border border-transparent bg-cyan-700 px-4 py-2 text-xs font-semibold uppercase tracking-normal text-white transition hover:bg-cyan-800 focus:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-white active:bg-cyan-900 disabled:opacity-50 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400 dark:focus:ring-offset-slate-950 ${className}`}
+            className={cn(
+                "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border border-transparent bg-brand px-5 text-[15px] font-bold text-white transition hover:bg-brand-hover active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cyan-500 dark:text-white dark:hover:bg-cyan-600",
+                className,
+            )}
         >
             {children}
         </button>

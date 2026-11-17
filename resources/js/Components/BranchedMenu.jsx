@@ -46,7 +46,7 @@ export default function BranchedMenu({
   onToggle,
   color = '#f5f5f5',
   accentColor = '#f5f5f5',
-  lineColor = '#3f3f46',
+  lineColor = '#2A3140',
   width = 240,
   rowHeight = 36,
   indent = 40,

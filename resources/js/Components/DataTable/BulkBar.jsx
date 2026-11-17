@@ -43,15 +43,15 @@ export default function BulkBar({ total, acoes, ids, onCancelar }) {
                     role="region"
                     aria-label="Acções em massa"
                 >
-                    <div className="flex w-full max-w-xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-background p-2 shadow-lg shadow-slate-950/15 sm:w-fit sm:flex-nowrap sm:gap-3">
+                    <div className="flex w-full max-w-xl flex-wrap items-center justify-between gap-2 rounded-2xl bg-brand p-2 text-white shadow-lg dark:bg-[#262C38] dark:ring-1 dark:ring-slate-700 sm:w-fit sm:flex-nowrap sm:gap-3">
                         <div className="flex h-10 items-center gap-1.5 pl-3 pr-1 text-sm tabular-nums" aria-live="polite">
-                            <SlidingNumber className="font-semibold text-foreground" number={total} />
-                            <span className="text-muted-foreground">
+                            <SlidingNumber className="font-bold text-white" number={total} />
+                            <span className="text-[#C9D6EA]">
                                 {total === 1 ? "seleccionada" : "seleccionadas"}
                             </span>
                         </div>
 
-                        <div className="hidden h-6 w-px rounded-full bg-border sm:block" />
+                        <div className="hidden h-6 w-px rounded-full bg-white/20 sm:block" />
 
                         <div className="flex items-center gap-2">
                             {acoes.map((accao) => {
@@ -65,7 +65,7 @@ export default function BulkBar({ total, acoes, ids, onCancelar }) {
                                     <Componente
                                         key={accao.rotulo}
                                         whileTap={{ scale: 0.975 }}
-                                        className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                                        className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-white px-3.5 text-sm font-bold text-brand transition-colors hover:bg-cyan-50"
                                         {...props}
                                     >
                                         {Icone && <Icone className="h-4 w-4" aria-hidden="true" />}
@@ -80,7 +80,7 @@ export default function BulkBar({ total, acoes, ids, onCancelar }) {
                                 aria-label="Cancelar selecção"
                                 title="Cancelar selecção"
                                 {...EXPANDIR}
-                                className="flex h-10 items-center gap-2 overflow-hidden whitespace-nowrap rounded-lg bg-muted px-2.5 text-muted-foreground transition-colors hover:text-foreground"
+                                className="flex h-10 items-center gap-2 overflow-hidden whitespace-nowrap rounded-[10px] px-2.5 text-[#C9D6EA] transition-colors hover:text-white"
                             >
                                 <X size={20} className="shrink-0" aria-hidden="true" />
                                 <motion.span variants={ROTULO} transition={{ type: "spring", stiffness: 200, damping: 25 }} className="invisible text-sm">

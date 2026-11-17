@@ -24,8 +24,7 @@ export default function Integridade({ verificacoes }) {
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Integridade dos dados</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Integridade dos dados</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Verificações só de leitura. Nada é corrigido aqui: mostram o que parece errado e onde, para decidir com calma. Clique numa verificação para ver o detalhe.
                     </p>
@@ -43,7 +42,7 @@ export default function Integridade({ verificacoes }) {
                         ) : (
                             <ShieldAlert className="h-6 w-6 text-amber-600" aria-hidden="true" />
                         )}
-                        <p className="font-semibold text-slate-950 dark:text-white">
+                        <p className="font-semibold text-ink dark:text-white">
                             {comProblemas.length === 0 && comErro.length === 0
                                 ? `As ${verificacoes.length} verificações passaram sem problemas.`
                                 : `${comProblemas.length} de ${verificacoes.length} verificações com registos suspeitos${comErro.length ? `, ${comErro.length} não conseguiram correr` : ""}.`}
@@ -54,7 +53,7 @@ export default function Integridade({ verificacoes }) {
                         {ordenadas.map((item) => (
                             <div key={item.chave} {...cartao.propsLinha(item)} className={cn("flex flex-wrap items-center gap-3 px-5 py-4", linhaClicavel)}>
                                 <div className="min-w-0 flex-1">
-                                    <p className="font-semibold text-slate-950 dark:text-white">{item.titulo}</p>
+                                    <p className="font-semibold text-ink dark:text-white">{item.titulo}</p>
                                     <p className="text-sm text-slate-500 dark:text-slate-400">{item.descricao}</p>
                                     {item.erro && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">{item.erro}</p>}
                                 </div>

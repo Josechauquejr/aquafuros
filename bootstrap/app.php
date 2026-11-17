@@ -46,6 +46,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+
         // Complementa o canal de log por omissão (não o substitui) com uma
         // linha consultável na interface pelo Desenvolvedor — nunca deixa
         // uma falha ao gravar esconder a excepção original.
@@ -74,8 +75,21 @@ $app = Application::configure(basePath: dirname(__DIR__))
         // token CSRF da página já não vale. Em vez do erro 419, volta à página
         // — o cookie de "manter sessão" volta a autenticar no GET seguinte.
         $exceptions->respond(function ($response, Throwable $e, Request $request) {
-            if ($response->getStatusCode() === 419 && ! $request->expectsJson()) {
+            $estado = $response->getStatusCode();
+            if ($estado === 419 && ! $request->expectsJson()) {
                 return back()->with('error', 'A página tinha expirado. Foi actualizada — repita a operação.');
+            }
+
+            // Erros como ecrãs da app (ilustração + o que fazer), em vez da página
+            // genérica. Em depuração, os erros 5xx mantêm o detalhe para o desenvolvedor.
+            $ecra = in_array($estado, [403, 404, 500, 503], true)
+                && ! (config('app.debug') && $estado >= 500)
+                && (! $request->expectsJson() || $request->header('X-Inertia'));
+            if ($ecra) {
+                return \Inertia\Inertia::render('Erro', [
+                    'estado' => $estado,
+                    'codigo' => $estado >= 500 ? strtoupper(substr(md5($e::class.$e->getMessage().now()->format('YmdHi')), 0, 8)) : null,
+                ])->toResponse($request)->setStatusCode($estado);
             }
 
             return $response;

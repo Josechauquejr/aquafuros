@@ -18,7 +18,7 @@ export default function IntegridadeDetalhe({ verificacao, total, registos, amost
                     <Link href="/dev/integridade" className="inline-flex items-center gap-1 text-sm font-semibold text-cyan-700 hover:underline dark:text-cyan-300">
                         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Integridade dos dados
                     </Link>
-                    <h2 className="mt-1 text-2xl font-bold leading-tight text-slate-950 dark:text-white">{verificacao.titulo}</h2>
+                    <h2 className="mt-1 text-2xl font-bold leading-tight text-ink dark:text-white">{verificacao.titulo}</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{verificacao.descricao}</p>
                 </div>
             }

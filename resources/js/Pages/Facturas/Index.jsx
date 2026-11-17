@@ -22,7 +22,6 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
-import AnimatedButton from "@/Components/AnimatedButton";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 import FuseDanger from "@/Components/FuseDanger";
@@ -31,7 +30,10 @@ import { Campo, Campos, Destaque, Destaques, Explicacao, MaisDetalhes, SeccaoDet
 import InlineNotice from "@/Components/InlineNotice";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
-import ResumoMes from "@/Components/ResumoMes";
+import AbasEstado from "@/Components/AbasEstado";
+import CabecalhoLista, { AvisoMesFechado } from "@/Components/CabecalhoLista";
+import SeletorMes from "@/Components/SeletorMes";
+import { mesReferenciaActual } from "@/lib/mesReferencia";
 import ListaPesquisavel from "@/Components/ListaPesquisavel";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -42,6 +44,7 @@ import TextInput from "@/Components/TextInput";
 import FacturaA4 from "@/Components/print/FacturaA4";
 import { cn, formatDate, formatDateTime, formatMoney, formatNumero, formatVolume } from "@/lib/utils";
 import { consumoLeitura } from "@/lib/consumoLeitura";
+import useAbrirNovo from "@/hooks/useAbrirNovo";
 import { baixarElementoComoPdf } from "@/lib/pdf";
 
 const meses = [
@@ -51,7 +54,7 @@ const meses = [
 
 const estadoFacturaConfig = {
     paga: { label: "Paga", tone: "emerald" },
-    pendente: { label: "Por pagar", tone: "amber" },
+    pendente: { label: "Por pagar", tone: "slate" },
     parcial: { label: "Parcial", tone: "cyan" },
     anulada: { label: "Anulada", tone: "slate" },
     transferida: { label: "Transferida", tone: "slate" },
@@ -87,7 +90,7 @@ const estaVencida = (factura) =>
 function FacturaLink({ factura }) {
     return (
         <Link
-            href={`/facturas/${factura.numero_factura}/imprimir`}
+            href={`/facturas/${factura.numero_factura}`}
             prefetch="hover"
             cacheFor="5m"
             cacheTags="factura"
@@ -152,20 +155,30 @@ function explicarEstado(factura) {
     }
 }
 
+function diasDesde(data) {
+    if (!data) return 0;
+    const inicio = new Date(String(data).slice(0, 10) + "T00:00:00");
+    return Math.max(0, Math.floor((Date.now() - inicio.getTime()) / 86400000));
+}
+
 function EstadoFactura({ factura }) {
     const estado = estadoFacturaConfig[factura.estado];
+    const vencida = estaVencida(factura);
+    const dias = vencida ? diasDesde(factura.data_vencimento) : 0;
 
     return (
         <>
             <div className="flex flex-wrap items-center gap-1.5">
-                <StatusBadge tone={estado.tone} title={explicarEstado(factura).texto}>
-                    {estado.label}
-                </StatusBadge>
-                {estaVencida(factura) && (
-                    <StatusBadge tone="rose" title="O prazo de pagamento já terminou e a factura continua por pagar.">
-                        Vencida
+                {vencida ? (
+                    <StatusBadge tone={dias > 30 ? "rose" : "amber"} title={explicarEstado(factura).texto}>
+                        {dias === 0 ? "Vence hoje" : `Vencida há ${dias} ${dias === 1 ? "dia" : "dias"}`}
+                    </StatusBadge>
+                ) : (
+                    <StatusBadge tone={estado.tone} title={explicarEstado(factura).texto}>
+                        {estado.label}
                     </StatusBadge>
                 )}
+                {vencida && factura.estado === "parcial" && <StatusBadge tone="cyan">Parcial</StatusBadge>}
             </div>
             {factura.estado === "anulada" && (
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -178,41 +191,39 @@ function EstadoFactura({ factura }) {
 
 const colunas = [
     {
-        chave: "factura",
-        titulo: "Factura / Data",
+        chave: "cliente",
+        titulo: "Cliente · Factura",
         ordenavel: true,
         render: (factura) => (
-            <>
-                <p className="flex items-center gap-1.5">
+            <div className="flex flex-col">
+                <strong className="text-[15px] text-ink dark:text-[#F2F5FB]">{factura.cliente?.nome ?? "Cliente removido"}</strong>
+                <span className="flex flex-wrap items-center gap-1.5 text-[13px] text-slate-500 dark:text-slate-400">
                     <FacturaLink factura={factura} />
                     {factura.tipo === "ligacao" && <StatusBadge tone={tipoConfig.ligacao.tone}>{tipoConfig.ligacao.label}</StatusBadge>}
                     {factura.tipo === "consumo_estimado" && <StatusBadge tone={tipoConfig.consumo_estimado.tone}>{tipoConfig.consumo_estimado.label}</StatusBadge>}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(factura.created_at)}</p>
-            </>
+                </span>
+            </div>
         ),
     },
     {
-        chave: "cliente",
-        titulo: "Cliente",
-        ordenavel: true,
-        render: (factura) => factura.cliente?.nome ?? "Cliente removido",
-    },
-    {
         chave: "periodo",
-        titulo: "Período",
+        titulo: "Mês",
         ordenavel: true,
         render: (factura) => `${meses[factura.mes - 1]}/${factura.ano}`,
     },
     {
         chave: "total",
-        titulo: "Total",
+        titulo: "Por pagar",
         ordenavel: true,
         direita: true,
         render: (factura) => (
             <>
-                <span className="font-semibold text-slate-900 dark:text-white">{formatMoney(factura.total_pagar)}</span>
-                <EmFalta factura={factura} />
+                <span className="text-[15px] font-bold tabular-nums text-ink dark:text-[#F2F5FB]">
+                    {formatMoney(["pendente", "parcial"].includes(factura.estado) ? (factura.em_falta ?? factura.total_pagar) : 0)}
+                </span>
+                {factura.estado === "parcial" && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">de {formatMoney(factura.total_pagar)}</p>
+                )}
             </>
         ),
     },
@@ -234,7 +245,7 @@ const cartaoFactura = (factura) => (
                 {meses[factura.mes - 1]}/{factura.ano}
             </p>
         </div>
-        <p className="font-semibold text-slate-900 dark:text-white">
+        <p className="font-semibold text-ink dark:text-white">
             {formatMoney(factura.total_pagar)}
             <EmFalta factura={factura} />
         </p>
@@ -373,20 +384,6 @@ export default function Index({
     const filtrosConfig = useMemo(
         () => [
             {
-                chave: "estado",
-                rotulo: "Estado",
-                tipo: "select",
-                padrao: "todos",
-                opcoes: [
-                    { valor: "todos", rotulo: "Todos" },
-                    { valor: "pendente", rotulo: "Por pagar" },
-                    { valor: "parcial", rotulo: "Parcial" },
-                    { valor: "paga", rotulo: "Paga" },
-                    { valor: "vencida", rotulo: "Vencida" },
-                    ...(ehAdministrador ? [{ valor: "anulada", rotulo: "Anulada" }] : []),
-                ],
-            },
-            {
                 chave: "com_multa",
                 rotulo: "Multas",
                 tipo: "select",
@@ -479,6 +476,7 @@ export default function Index({
         setLeituraSelecionada(leiturasDisponiveis[0]?.id ?? "");
         setShowModal(true);
     };
+    useAbrirNovo(abrirNova);
 
     const abrirEdicao = (factura) => {
         setEditando(factura);
@@ -610,7 +608,7 @@ export default function Index({
                   ? { ...imprimir, curto: "Imprimir", rotulo: `Imprimir factura ${numero}` }
                   : undefined,
             menu: [
-                { icone: Eye, rotulo: "Ver detalhe", expandir: true },
+                { icone: Eye, rotulo: "Ver factura explicada", href: `/facturas/${factura.numero_factura}` },
                 ...(factura.estado === "paga" ? [] : [imprimir]),
                 {
                     icone: aDescarregar ? Loader2 : Download,
@@ -656,65 +654,136 @@ export default function Index({
             },
         ],
     };
+    const { ciclo } = usePage().props;
+    const eActual = mesReferencia.eActual;
+    const mesCiclo = ciclo?.mes ?? "";
+    const prontasCiclo = periodosParaLote.find(([, p]) => p.mes === mesReferenciaActual().mes && p.ano === mesReferenciaActual().ano)?.[1]?.quantidade ?? 0;
+    const mostrarFacturarMes = eActual && (totais.numeroFacturas === 0 || prontasCiclo > 0);
+    const separador = filtros.estado === "aberto" ? "aberto" : ["vencida", "paga"].includes(filtros.estado) ? filtros.estado : filtros.estado === "anulada" ? "anulada" : "todos";
+    const abasLista = [
+        { chave: "aberto", rotulo: "Por pagar" },
+        { chave: "vencida", rotulo: "Vencidas" },
+        { chave: "paga", rotulo: "Pagas" },
+        { chave: "todos", rotulo: "Todas" },
+        ...(ehAdministrador ? [{ chave: "anulada", rotulo: "Anuladas" }] : []),
+    ];
+    const escolherSeparador = (aba) => {
+        const params = { ...(filtros.mes ? { mes: filtros.mes } : {}), ...(filtros.search ? { search: filtros.search } : {}) };
+        if (aba.chave !== "todos") params.estado = aba.chave;
+        router.get("/facturas", params, { preserveScroll: true, preserveState: true, replace: true });
+    };
+
     return (
-        <AdminLayout
-            header={
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">
-                            Facturação
-                        </p>
-                        <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">
-                            Facturas
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Ciclo de facturação do consumo registado nos furos.
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                        {filtros.estado !== "todos" && (
-                            <AnimatedButton
-                                as={semResultados ? "button" : "a"}
-                                href={semResultados ? undefined : urlImprimirFiltradas()}
-                                target={semResultados ? undefined : "_blank"}
-                                variant="secondary"
-                                disabled={semResultados}
-                                title={semResultados ? "Os filtros actuais não têm resultados — nada para imprimir" : "Imprimir todas as facturas dos filtros actuais"}
-                            >
-                                <Printer className="h-4 w-4" aria-hidden="true" />
-                                Imprimir filtradas
-                            </AnimatedButton>
-                        )}
-                        <AnimatedButton
-                            variant="secondary"
-                            onClick={abrirLote}
-                            disabled={periodosParaLote.length === 0}
-                            title={periodosParaLote.length === 0 ? "Sem leituras confirmadas por facturar" : undefined}
-                        >
-                            <FileStack className="h-4 w-4" aria-hidden="true" />
-                            Facturar mês
-                        </AnimatedButton>
-                        <AnimatedButton
-                            variant="primary"
-                            onClick={abrirNova}
-                            disabled={leiturasDisponiveis.length === 0}
-                            title={leiturasDisponiveis.length === 0 ? "Sem leituras confirmadas por facturar" : undefined}
-                        >
-                            <Plus className="h-4 w-4" aria-hidden="true" />
-                            Emitir factura
-                        </AnimatedButton>
-                    </div>
-                </div>
-            }
-        >
+        <AdminLayout>
             <Head title="Facturas" />
 
-            <div className="py-8 sm:py-10">
-                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+                <CabecalhoLista
+                    contexto={eActual ? `Ciclo de ${mesCiclo} · dia ${ciclo?.dia ?? ""} de ${ciclo?.dias ?? ""}` : `Facturas de ${mesReferencia.rotulo} · ciclo fechado`}
+                    titulo="Facturas"
+                >
+                    <SeletorMes rota="/facturas" mesReferencia={mesReferencia} extra={filtros} semVoltar />
+                    <SecondaryButton
+                        type="button"
+                        onClick={abrirNova}
+                        disabled={leiturasDisponiveis.length === 0}
+                        title={leiturasDisponiveis.length === 0 ? "Sem leituras confirmadas por facturar" : undefined}
+                        className="min-h-[48px]"
+                    >
+                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        Factura avulsa
+                    </SecondaryButton>
+                </CabecalhoLista>
 
-                    <ResumoMes rota="/facturas" tipo="facturas" mesReferencia={mesReferencia} dados={totais} filtros={filtros} />
+                {!eActual && (
+                    <AvisoMesFechado href="/facturas" rotuloVoltar={`Voltar a ${mesCiclo}`}>
+                        A ver as facturas emitidas em <strong>{mesReferencia.rotulo}</strong>. Pagamentos posteriores já estão incluídos.
+                    </AvisoMesFechado>
+                )}
 
-                    <AnimatedPanel delay={0.16} className="overflow-hidden">
+                {mostrarFacturarMes && (
+                    <AnimatedPanel className="flex flex-wrap items-center gap-[18px] px-6 py-[22px]">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-cyan-100 text-brand dark:bg-[rgba(0,89,255,0.18)] dark:text-cyan-300">
+                            <FileStack className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-1">
+                            <strong className="text-[17px] text-ink dark:text-[#F2F5FB]">Facturar {mesCiclo}</strong>
+                            <span className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                                {prontasCiclo > 0 ? (
+                                    <>
+                                        <strong className="text-ink dark:text-[#F2F5FB]">{prontasCiclo}</strong> {prontasCiclo === 1 ? "leitura confirmada pronta" : "leituras confirmadas prontas"} a facturar.
+                                    </>
+                                ) : (
+                                    <>
+                                        Abre quando as leituras estiverem confirmadas. Agora:{" "}
+                                        <strong className="text-ink dark:text-[#F2F5FB]">
+                                            {prontasCiclo} de {ciclo?.clientes ?? 0}
+                                        </strong>{" "}
+                                        prontas a facturar.
+                                    </>
+                                )}
+                            </span>
+                        </div>
+                        <PrimaryButton type="button" onClick={abrirLote} disabled={prontasCiclo === 0} className="min-h-[48px] px-[22px]">
+                            <FileStack className="h-[18px] w-[18px]" aria-hidden="true" />
+                            Facturar {prontasCiclo} {prontasCiclo === 1 ? "leitura" : "leituras"}
+                        </PrimaryButton>
+                    </AnimatedPanel>
+                )}
+
+                <DataTable
+                    rota="/facturas"
+                    filtros={filtros}
+                    padroes={padroes}
+                    paginador={facturas}
+                    colunas={colunas}
+                    cartao={cartaoFactura}
+                    detalhe={detalheFactura}
+                    aoClicar={(factura) => router.visit(`/facturas/${factura.numero_factura}`)}
+                    placeholder="Cliente ou nº de factura"
+                    filtrosConfig={filtrosConfig}
+                    accoes={accoesFactura}
+                    rotuloAccoes={(factura) => `Mais acções sobre ${factura.numero_factura}`}
+                    selecao={selecao}
+                    abas={<AbasEstado abas={abasLista} activa={separador} onEscolher={escolherSeparador} rotulo="Estado das facturas" />}
+                    rodape={
+                        <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <span>Seleccione facturas para imprimir em A4 ou 3 por folha.</span>
+                            {separador !== "todos" && !semResultados && (
+                                <a href={urlImprimirFiltradas()} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400">
+                                    <Printer className="h-4 w-4" aria-hidden="true" />
+                                    Imprimir todas desta lista
+                                </a>
+                            )}
+                            <button type="button" onClick={() => setResumoAberto((v) => !v)} className="font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-400">
+                                {resumoAberto ? "Esconder resumo por mês" : "Resumo por mês"}
+                            </button>
+                        </span>
+                    }
+                    vazio={
+                        eActual && separador !== "paga"
+                            ? {
+                                  ilustracao: "factura",
+                                  titulo: totais.numeroFacturas === 0 ? `Ainda não há facturas de ${mesCiclo}` : "Nenhuma factura nesta lista",
+                                  mensagem: totais.numeroFacturas === 0 ? `As facturas de ${mesCiclo} são emitidas no fim do mês, depois das leituras confirmadas.` : "Não há facturas neste estado.",
+                                  mensagemFiltrada: "Nenhuma factura encontrada para os filtros seleccionados.",
+                                  extra: (
+                                      <Link href="/leituras" className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#DDE2EE] bg-white px-[18px] text-sm font-bold text-cyan-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-cyan-400">
+                                          Ver leituras
+                                      </Link>
+                                  ),
+                              }
+                            : {
+                                  ilustracao: "factura",
+                                  titulo: "Nenhuma factura nesta lista",
+                                  mensagem: "Não há facturas neste estado.",
+                                  mensagemFiltrada: "Nenhuma factura encontrada para os filtros seleccionados.",
+                              }
+                    }
+                />
+
+                {resumoAberto && (
+                    <AnimatedPanel className="overflow-hidden">
                         <button
                             type="button"
                             onClick={() => setResumoAberto((prev) => !prev)}
@@ -722,7 +791,7 @@ export default function Index({
                             aria-expanded={resumoAberto}
                         >
                             <div>
-                                <h3 className="flex items-center gap-2 text-lg font-semibold text-slate-950 dark:text-white">
+                                <h3 className="flex items-center gap-2 text-lg font-semibold text-ink dark:text-white">
                                     <BarChart3 className="h-5 w-5 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
                                     Resumo e comparação mensal
                                 </h3>
@@ -754,9 +823,9 @@ export default function Index({
                                     <tr>
                                         <th className="px-6 py-3">Período</th>
                                         <th className="px-6 py-3 text-right">Facturas</th>
-                                        <th className="px-6 py-3 text-right">Total (MZN)</th>
-                                        <th className="px-6 py-3 text-right">Recebido (MZN)</th>
-                                        <th className="px-6 py-3 text-right">Em aberto (MZN)</th>
+                                        <th className="px-6 py-3 text-right">Total (MT)</th>
+                                        <th className="px-6 py-3 text-right">Recebido (MT)</th>
+                                        <th className="px-6 py-3 text-right">Em aberto (MT)</th>
                                         <th className="px-6 py-3 text-right">Vs. mês anterior</th>
                                     </tr>
                                 </thead>
@@ -768,13 +837,13 @@ export default function Index({
                                             title={`Filtrar a lista por ${meses[grupo.mes - 1]}/${grupo.ano}`}
                                             className="cursor-pointer transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
                                         >
-                                            <td className="px-6 py-3 font-semibold text-slate-900 dark:text-white">
+                                            <td className="px-6 py-3 font-semibold text-ink dark:text-white">
                                                 {meses[grupo.mes - 1]}/{grupo.ano}
                                             </td>
                                             <td className="px-6 py-3 text-right text-slate-700 dark:text-slate-300">
                                                 {grupo.quantidade}
                                             </td>
-                                            <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                                            <td className="px-6 py-3 text-right font-medium text-ink dark:text-white">
                                                 {formatNumero(grupo.total)}
                                             </td>
                                             <td className="px-6 py-3 text-right text-emerald-600 dark:text-emerald-400">
@@ -814,27 +883,7 @@ export default function Index({
                         </AnimatePresence>
                     </AnimatedPanel>
 
-                    <DataTable
-                        rota="/facturas"
-                        filtros={filtros}
-                        padroes={padroes}
-                        paginador={facturas}
-                        colunas={colunas}
-                        cartao={cartaoFactura}
-                        detalhe={detalheFactura}
-                        placeholder="Pesquisar cliente ou nº de factura"
-                        periodo
-                        filtrosConfig={filtrosConfig}
-                        accoes={accoesFactura}
-                        rotuloAccoes={(factura) => `Mais acções sobre ${factura.numero_factura}`}
-                        selecao={selecao}
-                        vazio={{
-                            mensagem: "Ainda não há facturas emitidas.",
-                            mensagemFiltrada: "Nenhuma factura encontrada para os filtros seleccionados.",
-                            accao: { rotulo: "Emitir factura", icone: Plus, onClick: abrirNova, disabled: leiturasDisponiveis.length === 0 },
-                        }}
-                    />
-                </div>
+                )}
             </div>
 
             <Modal
@@ -860,7 +909,7 @@ export default function Index({
                                     renderItem={(leitura) => (
                                         <>
                                             <div className="min-w-0">
-                                                <p className="truncate font-medium text-slate-900 dark:text-white">
+                                                <p className="truncate font-medium text-ink dark:text-white">
                                                     {leitura.cliente?.nome ?? "Cliente removido"}
                                                 </p>
                                                 <p className="truncate text-xs text-slate-500 dark:text-slate-400">
@@ -901,7 +950,8 @@ export default function Index({
                 show={showModal && Boolean(editando)}
                 onClose={() => setShowModal(false)}
                 title={editando ? `Editar factura ${editando.numero_factura}` : ""}
-                maxWidth="lg"
+                description={editando ? `${editando.cliente?.nome ?? ""} · motivo obrigatório, fica no histórico` : undefined}
+                variante="painel"
             >
                 {editando && (
                     <form onSubmit={submitEdicao} className="space-y-4">
@@ -970,7 +1020,7 @@ export default function Index({
                                 id="periodoLote"
                                 value={periodoLote}
                                 onChange={(event) => selecionarPeriodoLote(event.target.value)}
-                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                className="mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             >
                                 {periodosParaLote.map(([chave, periodo]) => (
                                     <option key={chave} value={chave}>
@@ -1058,7 +1108,7 @@ export default function Index({
                                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                                 {titulo}
                                             </p>
-                                            <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                                            <p className="mt-1 text-sm font-semibold text-ink dark:text-white">
                                                 {meses[factura.mes - 1]}/{factura.ano}
                                             </p>
                                             <dl className="mt-3 space-y-2 text-sm">
@@ -1078,7 +1128,7 @@ export default function Index({
                                                     <dt className="font-semibold text-slate-700 dark:text-slate-300">
                                                         Total
                                                     </dt>
-                                                    <dd className="font-bold text-slate-950 dark:text-white">
+                                                    <dd className="font-bold text-ink dark:text-white">
                                                         {formatMoney(factura.total_pagar)}
                                                     </dd>
                                                 </div>

@@ -65,9 +65,12 @@ class PagamentoController extends Controller
             'valor' => fn ($q, $d) => $q->orderBy('pagamentos.valor_pago', $d),
         ], 'recibo', 'desc');
 
+        // No separador Recibos não é preciso carregar todas as facturas em aberto.
+        $abaRecibos = $request->query('aba') === 'recibos' || filled($search) || MesReferencia::foiPedido($request);
+
         return Inertia::render('Pagamentos/Index', [
             'pagamentos' => $this->comTotalDoLote($query->paginate(15)->withQueryString()),
-            'facturasEmAberto' => Factura::whereIn('estado', ['pendente', 'parcial'])
+            'facturasEmAberto' => $abaRecibos ? [] : Factura::whereIn('estado', ['pendente', 'parcial'])
                 ->with(['cliente' => fn ($q) => $q->withTrashed()->with('tarifa'), 'pagamentos'])
                 ->withSum('pagamentos', 'valor_pago')
                 ->orderByDesc('ano')->orderByDesc('mes')->get()
@@ -85,12 +88,15 @@ class PagamentoController extends Controller
             'creditos' => Credito::selectRaw('cliente_id, sum(valor) as saldo')->groupBy('cliente_id')->get()
                 ->filter(fn ($c) => (float) $c->saldo > 0.004)->mapWithKeys(fn ($c) => [$c->cliente_id => round((float) $c->saldo, 2)]),
             'dataActual' => now()->toDateString(),
+            'caixaHoje' => $this->caixaDeHoje($request->user()->id),
             'mesReferencia' => MesReferencia::paraSeletor($mesRef),
             'filtros' => [
                 ...$periodo,
                 'mes' => MesReferencia::foiPedido($request) ? $mesRef->format('Y-m') : '',
                 'search' => $search ?? '',
                 'metodo' => $metodo ?: 'todos',
+                // Separador do Caixa: Receber (omissão) ou Recibos (também quando se pesquisa).
+                'aba' => $abaRecibos ? 'recibos' : '',
                 'sort' => $sort,
                 'dir' => $dir,
             ],
@@ -115,11 +121,11 @@ class PagamentoController extends Controller
             'factura_id' => 'required|exists:facturas,id',
             'valor_pago' => 'required|numeric|min:0',
             'metodo_pagamento' => 'required|in:dinheiro,banco,mpesa,e-mola',
-            'referencia_pagamento' => 'nullable|string|max:255',
+            'referencia_pagamento' => ['nullable', 'string', 'max:255', \Illuminate\Validation\Rule::requiredIf(fn () => $request->input('metodo_pagamento') !== 'dinheiro' && (float) $request->input('valor_pago', 0) > 0)],
             'data_pagamento' => 'nullable|date',
             'usar_credito' => 'nullable|boolean',
             'guardar_excesso' => 'nullable|boolean',
-        ]);
+        ], ['referencia_pagamento.required' => 'Escreva a referência da transacção (M-Pesa, E-Mola ou banco).']);
 
         [$pagoEm, $erroData] = $this->resolverPagoEm($data['data_pagamento'] ?? null);
         if ($erroData) {
@@ -148,7 +154,7 @@ class PagamentoController extends Controller
             if (empty($data['guardar_excesso'])) {
                 // Não aceita mais do que o que falta pagar, a não ser que o excesso fique como crédito do cliente.
                 return back()->withErrors([
-                    'valor_pago' => 'O valor excede o que falta pagar desta factura (MZN '.number_format($restante, 2, ',', ' ').'). Marque "guardar o excesso como crédito" se o cliente deixa o troco.',
+                    'valor_pago' => 'O valor excede o que falta pagar desta factura ('.number_format($restante, 2, ',', ' ').' MT). Marque "guardar o excesso como crédito" se o cliente deixa o troco.',
                 ])->withInput();
             }
             $excesso = round($valorPago - $restante, 2);
@@ -220,7 +226,7 @@ class PagamentoController extends Controller
         // pagamento acabado de registar na lista.
         return redirect()->route('pagamentos.imprimir', $principal)
             ->with('status', $excesso > 0
-                ? 'Pagamento registado. Excesso de MZN '.number_format($excesso, 2, ',', ' ').' guardado como crédito do cliente.'
+                ? 'Pagamento registado. Excesso de '.number_format($excesso, 2, ',', ' ').' MT guardado como crédito do cliente.'
                 : 'Pagamento registado com sucesso.');
     }
 
@@ -245,12 +251,13 @@ class PagamentoController extends Controller
             'parcelas.*.factura_id' => 'required|integer|distinct|exists:facturas,id',
             'parcelas.*.valor_pago' => 'required|numeric|min:0.01',
             'metodo_pagamento' => 'required|in:dinheiro,banco,mpesa,e-mola',
-            'referencia_pagamento' => 'nullable|string|max:255',
+            'referencia_pagamento' => ['nullable', 'string', 'max:255', \Illuminate\Validation\Rule::requiredIf(fn () => $request->input('metodo_pagamento') !== 'dinheiro' && (float) $request->input('valor_recebido', 0) > 0)],
             'data_pagamento' => 'nullable|date',
             'valor_recebido' => 'nullable|numeric|min:0',
             'usar_credito' => 'nullable|boolean',
             'guardar_excesso' => 'nullable|boolean',
         ], [
+            'referencia_pagamento.required' => 'Escreva a referência da transacção (M-Pesa, E-Mola ou banco).',
             'parcelas.min' => 'Seleccione pelo menos duas facturas para este pagamento.',
             'parcelas.*.factura_id.distinct' => 'A mesma factura foi escolhida mais de uma vez.',
         ]);
@@ -279,7 +286,7 @@ class PagamentoController extends Controller
             $emFalta = round($factura->emFalta() + $factura->multaAtrasoPrevista(), 2);
             if ((float) $parcela['valor_pago'] > $emFalta + 0.005) {
                 return back()->withErrors([
-                    "parcelas.{$indice}.valor_pago" => "O valor excede o que falta pagar da factura {$factura->numero_factura} (MZN ".number_format($emFalta, 2, ',', ' ').').',
+                    "parcelas.{$indice}.valor_pago" => "O valor excede o que falta pagar da factura {$factura->numero_factura} (".number_format($emFalta, 2, ',', ' ').' MT).',
                 ])->withInput();
             }
         }
@@ -358,7 +365,7 @@ class PagamentoController extends Controller
         // Um só recibo com todas as facturas (os recibos individuais continuam a existir).
         return redirect()
             ->route('pagamentos.recibo-lote', ['lote' => $lote])
-            ->with('status', "{$pagamentos->count()} pagamentos registados (MZN ".number_format((float) $pagamentos->sum('valor_pago'), 2, ',', ' ').').');
+            ->with('status', "{$pagamentos->count()} pagamentos registados (".number_format((float) $pagamentos->sum('valor_pago'), 2, ',', ' ').' MT).');
     }
 
     /**
@@ -642,6 +649,7 @@ class PagamentoController extends Controller
             'fecho' => $fecho,
             'ultimoFecho' => $ultimoFecho,
             'podeConfirmar' => $data_referencia === now()->toDateString(),
+            'caixaHoje' => $this->caixaDeHoje($request->user()->id),
             'caixas' => $request->user()->hasRole('administrador')
                 ? User::whereHas('roles', fn ($q) => $q->where('name', 'caixa'))->get(['id', 'name'])
                 : [],
@@ -657,12 +665,22 @@ class PagamentoController extends Controller
     public function confirmarFecho(Request $request)
     {
         // O dinheiro que o caixa contou na gaveta — a diferença para o registado fica gravada.
-        $dados = $request->validate(['valor_contado' => 'required|numeric|min:0']);
+        $dados = $request->validate([
+            'valor_contado' => 'required|numeric|min:0',
+            // O que o caixa conferiu em cada método electrónico (mensagens / extracto).
+            'conferido' => 'nullable|array',
+            'conferido.*' => 'nullable|numeric|min:0',
+        ]);
+        $conferido = collect($dados['conferido'] ?? [])
+            ->only(['mpesa', 'e-mola', 'banco'])
+            ->filter(fn ($v) => $v !== null && $v !== '')
+            ->map(fn ($v) => round((float) $v, 2))
+            ->all();
 
         $utilizador = $request->user();
         $hoje = now()->toDateString();
 
-        $fechado = DB::transaction(function () use ($utilizador, $hoje, $dados) {
+        $fechado = DB::transaction(function () use ($utilizador, $hoje, $dados, $conferido) {
             User::whereKey($utilizador->id)->lockForUpdate()->firstOrFail();
             if (FechoCaixa::where('utilizador_id', $utilizador->id)->where('data', $hoje)->exists()) {
                 return false;
@@ -684,6 +702,7 @@ class PagamentoController extends Controller
                 'diferenca' => round((float) $dados['valor_contado'] - $esperadoDinheiro, 2),
                 'total_geral' => $geral,
                 'total_por_metodo' => $porMetodo,
+                'conferido_por_metodo' => $conferido ?: null,
                 'numero_pagamentos' => $pagamentos->count() + $adiantamentos->count(),
                 'fechado_por' => $utilizador->id,
             ]);
@@ -712,6 +731,24 @@ class PagamentoController extends Controller
         }
 
         return [$porMetodo->all(), round((float) $pagamentos->sum('valor_pago') + (float) $adiantamentos->sum('valor'), 2)];
+    }
+
+    /**
+     * "Caixa de hoje" do utilizador actual: total, recibos e quanto entrou por
+     * método (o mesmo cálculo do fecho), e se a caixa já foi fechada.
+     *
+     * @return array{total: float, recibos: int, porMetodo: array<string, float>, fechada: bool}
+     */
+    private function caixaDeHoje(int $utilizadorId): array
+    {
+        $hoje = now()->toDateString();
+        $pagamentos = Pagamento::where('recebido_por', $utilizadorId)->where('origem_credito', false)
+            ->whereDate('created_at', $hoje)->get(['id', 'valor_pago', 'metodo_pagamento']);
+        $adiantamentos = Credito::where('tipo', 'entrada')->where('recebido_por', $utilizadorId)
+            ->whereDate('created_at', $hoje)->get(['id', 'valor', 'metodo_pagamento']);
+        [$porMetodo, $total] = $this->totaisDoDia($pagamentos, $adiantamentos);
+
+        return ['total' => $total, 'recibos' => $pagamentos->count(), 'porMetodo' => $porMetodo, 'fechada' => $this->caixaFechadaHoje($utilizadorId)];
     }
 
     private function caixaFechadaHoje(int $utilizadorId): bool

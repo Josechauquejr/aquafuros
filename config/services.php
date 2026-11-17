@@ -26,6 +26,16 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    // Inteligência artificial (Google Gemini) — a chave fica só no servidor.
+    // Sem GEMINI_API_KEY as funcionalidades de IA ficam escondidas.
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.5-flash'),
+        'timeout' => (int) env('GEMINI_TIMEOUT', 60),
+        // Máximo de pedidos por utilizador por dia (controlo de custo).
+        'limite_diario' => (int) env('GEMINI_LIMITE_DIARIO', 50),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

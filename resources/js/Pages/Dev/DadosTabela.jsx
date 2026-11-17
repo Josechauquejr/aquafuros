@@ -42,7 +42,7 @@ export default function DadosTabela({ tabela, colunas, pk, estrangeiras, linhas,
                     <Link href="/dev/dados" className="inline-flex items-center gap-1 text-sm font-semibold text-cyan-700 hover:underline dark:text-cyan-300">
                         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Explorador de dados
                     </Link>
-                    <h2 className="mt-1 text-2xl font-bold leading-tight text-slate-950 dark:text-white">{tabela}</h2>
+                    <h2 className="mt-1 text-2xl font-bold leading-tight text-ink dark:text-white">{tabela}</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{linhas.total} registo(s) · só leitura</p>
                 </div>
             }
@@ -77,7 +77,7 @@ export default function DadosTabela({ tabela, colunas, pk, estrangeiras, linhas,
                                                     <Lock className="h-3 w-3" aria-hidden="true" /> {c.name}
                                                 </span>
                                             ) : (
-                                                <button type="button" onClick={() => ordenar(c.name)} className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-white">
+                                                <button type="button" onClick={() => ordenar(c.name)} className="inline-flex items-center gap-1 hover:text-ink dark:hover:text-white">
                                                     {c.name}
                                                     {filtros.sort === c.name && (filtros.dir === "asc" ? <ArrowUp className="h-3 w-3" aria-hidden="true" /> : <ArrowDown className="h-3 w-3" aria-hidden="true" />)}
                                                 </button>

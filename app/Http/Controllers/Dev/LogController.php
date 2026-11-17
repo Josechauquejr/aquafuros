@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\AcessoSistema;
 use App\Models\ErroSistema;
 use App\Models\User;
+use App\Support\IA\ExplicadorErros;
+use App\Support\IA\Gemini;
+use App\Support\IA\IaIndisponivel;
 use App\Support\ResolvedorPeriodo;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -76,6 +79,7 @@ class LogController extends Controller
         return Inertia::render('Dev/Logs', [
             'aba' => 'erros',
             'erros' => $query->paginate(20)->withQueryString(),
+            'iaDisponivel' => Gemini::disponivel(),
             'filtros' => [
                 'estado' => $estado,
                 'search' => $search ?? '',
@@ -88,5 +92,16 @@ class LogController extends Controller
         $erro->update(['resolvido' => ! $erro->resolvido]);
 
         return back()->with('status', $erro->resolvido ? 'Erro marcado como resolvido.' : 'Erro marcado como pendente.');
+    }
+
+    public function explicar(Request $request, ErroSistema $erro)
+    {
+        try {
+            ExplicadorErros::explicar($erro, $request->user()?->id);
+        } catch (IaIndisponivel $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('status', 'Explicação gerada.');
     }
 }

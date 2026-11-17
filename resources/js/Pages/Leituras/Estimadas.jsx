@@ -1,4 +1,6 @@
 import { Head, router, useForm, usePage } from "@inertiajs/react";
+import AbasEstado from "@/Components/AbasEstado";
+import AnimatedPanel from "@/Components/AnimatedPanel";
 import { useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import PrimaryButton from "@/Components/PrimaryButton";
@@ -66,9 +68,23 @@ export default function Estimadas({ estimativas, acertos, clientes }) {
     const executar = (url, metodo = "put") => router[metodo](url, {}, { preserveScroll: true });
 
     return (
-        <AdminLayout header={<h1 className="text-xl font-semibold text-slate-900 dark:text-white">Leituras estimadas</h1>}>
+        <AdminLayout header={<h1 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Leituras</h1>}>
             <Head title="Leituras estimadas" />
             <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+                    <AnimatedPanel className="overflow-hidden">
+                        <AbasEstado
+                            rotulo="Estado das leituras"
+                            className="border-b-0"
+                            activa="estimadas"
+                            onEscolher={(aba) => aba.chave !== "estimadas" && router.visit(aba.chave === "porler" ? "/leituras" : `/leituras?estado=${aba.chave}`)}
+                            abas={[
+                                { chave: "porler", rotulo: "Por ler" },
+                                { chave: "pendente", rotulo: "Por confirmar" },
+                                { chave: "confirmadas", rotulo: "Confirmadas" },
+                                { chave: "estimadas", rotulo: "Estimadas" },
+                            ]}
+                        />
+                    </AnimatedPanel>
                 {flash?.status && <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{flash.status}</div>}
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
                     <h2 className="text-lg font-semibold">Registar estimativa mensal</h2>
@@ -77,7 +93,7 @@ export default function Estimadas({ estimativas, acertos, clientes }) {
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                             <div className="sm:col-span-2">
                                 <InputLabel htmlFor="cliente_id" value="Cliente" />
-                                <select id="cliente_id" value={form.data.cliente_id} onChange={(e) => { form.setData("cliente_id", e.target.value); setPreview(null); }} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white">
+                                <select id="cliente_id" value={form.data.cliente_id} onChange={(e) => { form.setData("cliente_id", e.target.value); setPreview(null); }} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-ink shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white">
                                     <option value="">Escolha o cliente</option>
                                     {clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome} · {cliente.numero_cliente}</option>)}
                                 </select>
@@ -85,7 +101,7 @@ export default function Estimadas({ estimativas, acertos, clientes }) {
                             </div>
                             <div>
                                 <InputLabel htmlFor="mes" value="Mês" />
-                                <select id="mes" value={form.data.mes} onChange={(e) => { form.setData("mes", e.target.value); setPreview(null); }} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white">
+                                <select id="mes" value={form.data.mes} onChange={(e) => { form.setData("mes", e.target.value); setPreview(null); }} className="mt-1 block w-full rounded-md border-slate-300 bg-white text-ink shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white">
                                     {meses.map((mes, i) => <option key={mes} value={i + 1}>{mes}</option>)}
                                 </select>
                             </div>

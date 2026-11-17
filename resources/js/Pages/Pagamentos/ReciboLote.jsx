@@ -27,7 +27,7 @@ export default function ReciboLote({ pagamentos, total }) {
             <Head title={`Recibo — ${primeiro.cliente?.nome ?? "cliente"}`} />
 
             <div className="mx-auto mb-4 flex max-w-3xl items-center justify-between gap-3 px-4 print:hidden">
-                <Link href="/pagamentos" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950">
+                <Link href="/pagamentos" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-ink">
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                     Voltar aos pagamentos
                 </Link>
@@ -45,10 +45,10 @@ export default function ReciboLote({ pagamentos, total }) {
                 </div>
             </div>
 
-            <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm print:border-0 print:shadow-none">
+            <div className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-ink shadow-sm print:border-0 print:shadow-none">
                 <div className="flex items-start justify-between border-b border-slate-300 pb-6">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-cyan-700 text-white">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-brand text-white">
                             {empresa?.logotipoUrl ? (
                                 <img src={empresa.logotipoUrl} alt={empresa.nome} crossOrigin="anonymous" className="h-full w-full object-contain" />
                             ) : (

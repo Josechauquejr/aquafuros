@@ -14,7 +14,7 @@ function Linha({ rotulo, children }) {
     return (
         <div className="flex items-start justify-between gap-3 py-1 text-sm">
             <dt className="text-slate-500 dark:text-slate-400">{rotulo}</dt>
-            <dd className="text-right font-medium text-slate-900 dark:text-white">{children ?? "—"}</dd>
+            <dd className="text-right font-medium text-ink dark:text-white">{children ?? "—"}</dd>
         </div>
     );
 }
@@ -30,7 +30,7 @@ function Cartao({ icone: Icone, titulo, estado, children }) {
                     <span className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                         <Icone className="h-5 w-5" aria-hidden="true" />
                     </span>
-                    <h3 className="font-semibold text-slate-950 dark:text-white">{titulo}</h3>
+                    <h3 className="font-semibold text-ink dark:text-white">{titulo}</h3>
                 </div>
                 <StatusBadge tone={tom}>{texto}</StatusBadge>
             </div>
@@ -61,8 +61,7 @@ export default function Saude({ servicos, aplicacao, alertas }) {
             header={
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                        <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Saúde do sistema</h2>
+                        <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Saúde do sistema</h2>
                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                             Estado dos serviços da aplicação. Só leitura: esta página não altera nada.
                         </p>
@@ -86,7 +85,7 @@ export default function Saude({ servicos, aplicacao, alertas }) {
                             ) : (
                                 <AlertTriangle className="h-5 w-5 text-amber-600" aria-hidden="true" />
                             )}
-                            <h3 className="font-semibold text-slate-950 dark:text-white">
+                            <h3 className="font-semibold text-ink dark:text-white">
                                 {alertas.length === 0 ? "Tudo em ordem" : `${alertas.length} alerta(s)`}
                             </h3>
                         </div>
@@ -96,7 +95,7 @@ export default function Saude({ servicos, aplicacao, alertas }) {
                                     <li key={alerta.titulo} className="flex items-start gap-3">
                                         <StatusBadge tone={nivelTom[alerta.nivel] ?? "slate"}>{alerta.nivel === "alto" ? "Alto" : "Médio"}</StatusBadge>
                                         <div>
-                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">{alerta.titulo}</p>
+                                            <p className="text-sm font-semibold text-ink dark:text-white">{alerta.titulo}</p>
                                             <p className="text-sm text-slate-600 dark:text-slate-400">{alerta.detalhe}</p>
                                         </div>
                                     </li>
@@ -150,7 +149,7 @@ export default function Saude({ servicos, aplicacao, alertas }) {
                     <AnimatedPanel className="p-5">
                         <div className="flex items-center gap-3">
                             <Activity className="h-5 w-5 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
-                            <h3 className="font-semibold text-slate-950 dark:text-white">Aplicação</h3>
+                            <h3 className="font-semibold text-ink dark:text-white">Aplicação</h3>
                         </div>
                         <dl className="mt-4 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
                             <Linha rotulo="Nome">{aplicacao.nome}</Linha>

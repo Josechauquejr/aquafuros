@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
-import { HugeiconsIcon } from '@hugeicons/react';
-import { Cancel01Icon } from '@hugeicons/core-free-icons';
+import { X } from 'lucide-react';
 
 const EASE_OUT = [0.23, 1, 0.32, 1];
 const FLICK = 0.11;
@@ -30,9 +29,9 @@ export default function SwipeToast({
   onAction,
   open = true,
   onClose,
-  background = '#27272a',
+  background = '#2A3140',
   color = '#f5f5f5',
-  fuseColor = '#f5a524',
+  fuseColor = '#B86A00',
   width = 356,
   radius = 12,
   slideMs = 400,
@@ -318,7 +317,7 @@ export default function SwipeToast({
                 aria-label="Close"
                 onClick={() => close('close')}
               >
-                <HugeiconsIcon icon={Cancel01Icon} size={12} strokeWidth={2.5} />
+                <X size={12} strokeWidth={2.5} />
               </button>
             ) : null}
             <i

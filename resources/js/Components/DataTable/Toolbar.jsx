@@ -14,7 +14,7 @@ export const opcoesPeriodo = [
 ];
 
 const campoClasses =
-    "block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+    "block min-h-[44px] w-full rounded-[10px] border-[#DDE2EE] bg-white text-base text-ink sm:text-sm dark:border-slate-800 dark:bg-[#1E232D] dark:text-slate-100";
 
 export function rotuloPeriodo(filtros, opcoes = opcoesPeriodo) {
     if (filtros.periodo === "personalizado" && (filtros.data_inicio || filtros.data_fim)) {
@@ -87,7 +87,7 @@ export function PainelPeriodo({ filtros, navegar, fechar, opcoes = opcoesPeriodo
                             navegar({ periodo: "personalizado", data_inicio: inicio || null, data_fim: fim || null });
                             fechar();
                         }}
-                        className="h-10 w-full rounded-md bg-cyan-700 text-sm font-semibold text-white transition hover:bg-cyan-800 disabled:opacity-50 dark:bg-cyan-500 dark:text-slate-950"
+                        className="h-10 w-full rounded-md bg-brand text-sm font-semibold text-white transition hover:bg-brand-hover disabled:opacity-50 dark:bg-cyan-500 dark:text-slate-950"
                     >
                         Aplicar
                     </button>
@@ -225,7 +225,7 @@ export default function Toolbar({
             <div className="flex flex-wrap items-center gap-2">
                 <div className="relative basis-full md:basis-0 md:flex-1">
                     <Search
-                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                        className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500 dark:text-slate-400"
                         aria-hidden="true"
                     />
                     <TextInput
@@ -234,7 +234,7 @@ export default function Toolbar({
                         onChange={(evento) => setSearch(evento.target.value)}
                         placeholder={placeholder}
                         aria-label={placeholder}
-                        className="h-10 w-full pl-9"
+                        className="h-11 w-full rounded-[10px] pl-10"
                     />
                 </div>
 
@@ -274,7 +274,7 @@ export default function Toolbar({
                     {chips.map((chip) => (
                         <span
                             key={chip.chave}
-                            className="inline-flex items-center gap-1 rounded-full bg-cyan-50 py-1 pl-3 pr-1 text-xs font-medium text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-200"
+                            className="inline-flex items-center gap-1 rounded-full border border-[#B9CCFF] bg-cyan-100 py-1 pl-3 pr-1 text-xs font-semibold text-brand dark:border-[rgba(110,162,255,0.32)] dark:bg-[rgba(110,162,255,0.16)] dark:text-cyan-300"
                         >
                             {chip.texto}
                             <button
@@ -292,7 +292,7 @@ export default function Toolbar({
                         <button
                             type="button"
                             onClick={limparTudo}
-                            className="text-xs font-semibold text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-white"
+                            className="text-xs font-semibold text-slate-500 underline-offset-2 hover:text-ink hover:underline dark:text-slate-400 dark:hover:text-white"
                         >
                             Limpar tudo
                         </button>

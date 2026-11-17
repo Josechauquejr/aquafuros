@@ -2,6 +2,7 @@ import { router } from "@inertiajs/react";
 import { useState } from "react";
 import DangerButton from "@/Components/DangerButton";
 import InputError from "@/Components/InputError";
+import Ilustracao from "@/Components/Ilustracao";
 import Modal from "@/Components/Modal";
 import SecondaryButton from "@/Components/SecondaryButton";
 import TextInput from "@/Components/TextInput";
@@ -34,19 +35,21 @@ export default function ConfirmarComTexto({ accao, palavra, titulo, descricao, r
     };
 
     return (
-        <Modal show={Boolean(accao)} onClose={fechar} title={titulo} maxWidth="md">
-            <form onSubmit={confirmar} className="space-y-4">
-                <p className="text-sm text-slate-600 dark:text-slate-300">{descricao}</p>
-                <div>
-                    <label htmlFor="confirmacao" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-                        Para confirmar, escreva <strong className="font-mono">{palavra}</strong>
-                    </label>
-                    <TextInput id="confirmacao" value={texto} onChange={(e) => setTexto(e.target.value)} autoComplete="off" autoFocus className="mt-1 block w-full font-mono" />
-                    <InputError message={erro} className="mt-1" />
-                </div>
-                <div className="flex justify-end gap-3">
-                    <SecondaryButton type="button" onClick={fechar}>Cancelar</SecondaryButton>
-                    <DangerButton type="submit" disabled={a_enviar || texto.trim() !== palavra}>{rotulo}</DangerButton>
+        <Modal show={Boolean(accao)} onClose={fechar} title={titulo} semCabecalho>
+            <form onSubmit={confirmar} className="flex flex-col items-center gap-3 text-center">
+                <Ilustracao nome="lixeira" largura={150} />
+                <strong className="text-xl leading-snug text-ink dark:text-[#F2F5FB]">{titulo}</strong>
+                <p className="text-[15px] leading-relaxed text-slate-600 dark:text-slate-300">{descricao}</p>
+                <label htmlFor="confirmacao" className="flex w-full flex-col gap-1.5 text-left">
+                    <span className="text-[13px] font-semibold text-ink dark:text-[#F2F5FB]">
+                        Para confirmar, escreva <strong>{palavra}</strong>
+                    </span>
+                    <TextInput id="confirmacao" value={texto} onChange={(e) => setTexto(e.target.value)} autoComplete="off" autoFocus className="block w-full rounded-md" />
+                    <InputError message={erro} />
+                </label>
+                <div className="mt-1 grid w-full grid-cols-2 gap-2.5">
+                    <SecondaryButton type="button" onClick={fechar} className="min-h-[48px] w-full rounded-[14px] text-sm font-bold">Cancelar</SecondaryButton>
+                    <DangerButton type="submit" disabled={a_enviar || texto.trim() !== palavra} className="min-h-[48px] w-full rounded-[14px] text-sm">{rotulo}</DangerButton>
                 </div>
             </form>
         </Modal>

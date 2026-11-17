@@ -32,6 +32,7 @@ class FechoCaixa extends Model
         'data',
         'total_geral',
         'total_por_metodo',
+        'conferido_por_metodo',
         'valor_contado',
         'diferenca',
         'numero_pagamentos',
@@ -41,6 +42,7 @@ class FechoCaixa extends Model
     protected $casts = [
         'data' => 'date',
         'total_por_metodo' => 'array',
+        'conferido_por_metodo' => 'array',
     ];
 
     public function utilizador()

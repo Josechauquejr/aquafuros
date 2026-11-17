@@ -84,8 +84,7 @@ export default function Configuracoes({ funcionalidades, horario, empresa }) {
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">
                         Configurações do Sistema
                     </h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -100,7 +99,7 @@ export default function Configuracoes({ funcionalidades, horario, empresa }) {
                 <div className="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
 
                     <AnimatedPanel delay={0.05} className="p-6">
-                        <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
+                        <h3 className="flex items-center gap-2 font-semibold text-ink dark:text-white">
                             <Building2 className="h-5 w-5 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
                             Dados da empresa
                         </h3>
@@ -198,7 +197,7 @@ export default function Configuracoes({ funcionalidades, horario, empresa }) {
 
                     <AnimatedPanel delay={0.1} className="overflow-hidden">
                         <div className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-                            <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
+                            <h3 className="flex items-center gap-2 font-semibold text-ink dark:text-white">
                                 <SlidersHorizontal className="h-5 w-5 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
                                 Secções do sistema
                             </h3>
@@ -214,7 +213,7 @@ export default function Configuracoes({ funcionalidades, horario, empresa }) {
                                     variants={itemVariants}
                                     className="flex items-center justify-between gap-3 px-6 py-4"
                                 >
-                                    <p id={`funcionalidade-${funcionalidade.id}`} className="font-medium text-slate-900 dark:text-white">{funcionalidade.nome}</p>
+                                    <p id={`funcionalidade-${funcionalidade.id}`} className="font-medium text-ink dark:text-white">{funcionalidade.nome}</p>
                                     <button
                                         type="button"
                                         role="switch"
@@ -237,7 +236,7 @@ export default function Configuracoes({ funcionalidades, horario, empresa }) {
                     </AnimatedPanel>
 
                     <AnimatedPanel delay={0.2} className="p-6">
-                        <h3 className="flex items-center gap-2 font-semibold text-slate-950 dark:text-white">
+                        <h3 className="flex items-center gap-2 font-semibold text-ink dark:text-white">
                             <Clock className="h-5 w-5 text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
                             Horário de acesso à plataforma
                         </h3>

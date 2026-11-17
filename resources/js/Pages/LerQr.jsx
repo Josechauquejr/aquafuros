@@ -88,8 +88,7 @@ export default function LerQr() {
         <AdminLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Verificação</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Ler QR Code</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Ler QR Code</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Aponte a câmara ao QR code impresso na factura ou no recibo.
                     </p>

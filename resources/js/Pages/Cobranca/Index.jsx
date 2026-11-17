@@ -1,20 +1,19 @@
-import { Head, Link, router, useForm } from "@inertiajs/react";
-import { Ban, CalendarCheck, PhoneCall, Search } from "lucide-react";
+import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
+import { Ban, PhoneCall, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
-import SeccaoRecolhivel from "@/Components/SeccaoRecolhivel";
-import ConfirmDialog from "@/Components/ConfirmDialog";
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
-import KpiCard from "@/Components/KpiCard";
 import Modal from "@/Components/Modal";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
 import { formatDate, formatMoney } from "@/lib/utils";
-import { AlertTriangle, Users, Wallet } from "lucide-react";
+import CabecalhoLista from "@/Components/CabecalhoLista";
+import EstadoVazio from "@/Components/EstadoVazio";
+import { cn } from "@/lib/utils";
 
 const canais = { email: "Email", telefone: "Telefone", presencial: "Presencial", whatsapp: "WhatsApp", sms: "SMS", outro: "Outro" };
 const resultados = {
@@ -24,10 +23,10 @@ const resultados = {
     pagou: "Já pagou",
     outro: "Outro",
 };
-const tomPromessa = { pendente: "amber", cumprida: "emerald", falhada: "rose", cancelada: "slate" };
+const tomPromessa = { pendente: "cyan", cumprida: "emerald", falhada: "rose", cancelada: "slate" };
 
 const selectClasses =
-    "mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+    "mt-1 block min-h-[44px] w-full rounded-md border-[#DDE2EE] bg-white text-base text-ink sm:text-sm dark:border-slate-800 dark:bg-[#1E232D] dark:text-slate-100";
 
 export default function Index({ linhas, totais, zonas, filtros }) {
     const [search, setSearch] = useState(filtros.search);
@@ -59,155 +58,252 @@ export default function Index({ linhas, totais, zonas, filtros }) {
         form.post("/cobranca/contactos", { preserveScroll: true, onSuccess: () => setAlvo(null) });
     };
 
-    const cartoes = [
-        { label: "Clientes em atraso", value: totais.clientes, detail: "com facturas vencidas", icon: Users, tone: "rose" },
-        { label: "Em atraso", value: formatMoney(totais.valor), detail: "por receber, já vencido", icon: Wallet, tone: "amber" },
-        { label: "Sem contacto", value: totais.semContacto, detail: "nunca contactados ou há 15+ dias", icon: PhoneCall, tone: totais.semContacto > 0 ? "rose" : "emerald" },
-        { label: "Promessas", value: `${totais.promessasPendentes} / ${totais.promessasFalhadas}`, detail: "pendentes / falhadas", icon: CalendarCheck, tone: totais.promessasFalhadas > 0 ? "rose" : "cyan" },
+    const { ciclo } = usePage().props;
+    const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    const ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const mesSeguinte = ciclo ? ABREV[(MESES.indexOf(ciclo.mes) + 1) % 12] : "";
+    const chips = [
+        { chave: "todos", rotulo: "Todos em atraso", contagem: totais.clientes },
+        { chave: "sem_contacto", rotulo: "Sem contacto há 15+ dias", contagem: totais.semContacto },
+        { chave: "com_promessa", rotulo: "Promessa pendente", contagem: totais.promessasPendentes },
+        { chave: "promessa_falhada", rotulo: "Promessa falhada", contagem: totais.promessasFalhadas },
+        { chave: "risco", rotulo: "Risco de corte", contagem: totais.emRisco },
     ];
+    const comPesquisa = Boolean(filtros.search);
+    const estado = (rotulo, valor, detalhe, tom) => (
+        <div className="flex min-w-0 flex-col gap-1 px-5 py-4">
+            <span className="text-[13px] text-slate-500 dark:text-slate-400">{rotulo}</span>
+            <span className="text-2xl font-bold tabular-nums text-ink dark:text-[#F2F5FB]">{valor}</span>
+            {detalhe && (
+                <span
+                    className={cn(
+                        "text-[13px] font-semibold",
+                        tom === "rose" ? "text-rose-700 dark:text-rose-300" : tom === "amber" ? "text-amber-700 dark:text-amber-300" : "text-slate-500 dark:text-slate-400",
+                    )}
+                >
+                    {detalhe}
+                </span>
+            )}
+        </div>
+    );
+    const campo = "min-h-[44px] rounded-[10px] border-[#DDE2EE] bg-white text-sm text-ink dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB]";
 
     return (
-        <AdminLayout
-            header={
-                <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Cobrança</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Clientes em atraso</h2>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        A lista de trabalho: quem deve, o que já se fez com cada um e o que prometeram. Registe cada contacto e as promessas de pagamento.
-                    </p>
-                </div>
-            }
-        >
+        <AdminLayout>
             <Head title="Cobrança" />
-            <div className="py-8 sm:py-10">
-                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        {cartoes.map((c, i) => (
-                            <KpiCard key={c.label} {...c} delay={i * 0.06} />
-                        ))}
-                    </section>
+            <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+                <CabecalhoLista
+                    contexto={ciclo ? `Ciclo de ${ciclo.mes} · a cobrança deste ciclo começa a 11 ${mesSeguinte}` : undefined}
+                    titulo="Cobrança"
+                    resumo="Quem deve, o que já se fez com cada um e o que prometeram."
+                />
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative min-w-[14rem] flex-1">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-                            <TextInput
-                                type="search"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Pesquisar cliente, nº ou telefone"
-                                className="h-10 w-full pl-9"
-                            />
+                {totais.clientes > 0 && (
+                    <AnimatedPanel className="grid grid-cols-2 divide-[#E8ECF4] lg:grid-cols-4 lg:divide-x dark:divide-slate-800">
+                        {estado("Em atraso", formatMoney(totais.valor), `${totais.clientes} ${totais.clientes === 1 ? "cliente" : "clientes"}`)}
+                        {estado("Sem contacto há 15+ dias", totais.semContacto, totais.semContacto > 0 ? "Ligar hoje" : "Todos contactados", totais.semContacto > 0 ? "amber" : undefined)}
+                        {estado(
+                            "Promessas",
+                            <>
+                                {totais.promessasPendentes} <span className="text-sm font-medium text-slate-500">pendentes · {totais.promessasFalhadas} falhadas</span>
+                            </>,
+                            null,
+                        )}
+                        {estado("Risco de corte", totais.emRisco, totais.emRisco > 0 ? "Dívida acima do limite da tarifa" : null, totais.emRisco > 0 ? "rose" : undefined)}
+                    </AnimatedPanel>
+                )}
+
+                <AnimatedPanel className="overflow-hidden">
+                    <div className="flex flex-col gap-3 border-b border-[#E8ECF4] px-[18px] py-3.5 dark:border-slate-800">
+                        <div className="flex flex-wrap gap-2.5">
+                            <label className="flex min-h-[44px] flex-[1_1_260px] items-center gap-2.5 rounded-[10px] border border-[#DDE2EE] px-3 focus-within:border-cyan-500 focus-within:shadow-[0_0_0_4px_rgba(0,89,255,0.18)] dark:border-slate-800 dark:bg-[#1E232D]">
+                                <Search className="h-[18px] w-[18px] text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                                <input
+                                    type="search"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder="Nome, nº de cliente ou telefone"
+                                    aria-label="Procurar cliente em atraso"
+                                    className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] focus:!border-0 focus:!shadow-none focus:ring-0 dark:text-[#F2F5FB]"
+                                />
+                            </label>
+                            <select value={filtros.zona} onChange={(e) => navegar({ zona: e.target.value })} className={campo} aria-label="Zona">
+                                <option value="todas">Todas as zonas</option>
+                                {zonas.map((z) => (
+                                    <option key={z.id} value={z.id}>
+                                        {z.nome}
+                                    </option>
+                                ))}
+                            </select>
+                            <select value={filtros.ordem} onChange={(e) => navegar({ ordem: e.target.value === "valor" ? "" : e.target.value })} className={campo} aria-label="Ordenar">
+                                <option value="valor">Maior dívida primeiro</option>
+                                <option value="dias">Mais dias em atraso</option>
+                                <option value="contacto">Contacto mais antigo</option>
+                            </select>
                         </div>
-                        <select value={filtros.zona} onChange={(e) => navegar({ zona: e.target.value })} className={`${selectClasses} mt-0 h-10 w-auto`} aria-label="Zona">
-                            <option value="todas">Todas as zonas</option>
-                            {zonas.map((z) => (
-                                <option key={z.id} value={z.id}>{z.nome}</option>
-                            ))}
-                        </select>
-                        <select value={filtros.filtro} onChange={(e) => navegar({ filtro: e.target.value })} className={`${selectClasses} mt-0 h-10 w-auto`} aria-label="Mostrar">
-                            <option value="todos">Todos</option>
-                            <option value="sem_contacto">Sem contacto há 15+ dias</option>
-                            <option value="com_promessa">Com promessa pendente</option>
-                            <option value="promessa_falhada">Promessa falhada</option>
-                        </select>
+                        <div role="group" aria-label="Situação" className="flex flex-wrap gap-2">
+                            {chips.map((chip) => {
+                                const on = chip.chave === (filtros.filtro || "todos");
+                                return (
+                                    <button
+                                        key={chip.chave}
+                                        type="button"
+                                        aria-pressed={on}
+                                        onClick={() => navegar({ filtro: chip.chave })}
+                                        className={cn(
+                                            "min-h-[40px] rounded-full border px-3.5 text-sm font-semibold transition-colors",
+                                            on
+                                                ? "border-[#B9CCFF] bg-cyan-100 text-brand dark:border-[rgba(110,162,255,0.32)] dark:bg-[rgba(110,162,255,0.16)] dark:text-cyan-300"
+                                                : "border-[#DDE2EE] bg-white text-ink hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-[#F2F5FB] dark:hover:bg-[#1E232D]",
+                                        )}
+                                    >
+                                        {chip.rotulo} <span className="tabular-nums opacity-80">{chip.contagem}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
-                    <SeccaoRecolhivel title="Lista de clientes em atraso" description="Contactos, promessas e pagamentos" icon={Users}>
-                    <AnimatedPanel className="border-0 shadow-none rounded-none overflow-hidden">
-                        {linhas.length === 0 ? (
-                            <p className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">Nenhum cliente em atraso com estes filtros.</p>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full min-w-[860px] text-left text-sm">
-                                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
-                                        <tr>
-                                            <th className="px-5 py-3">Cliente</th>
-                                            <th className="px-3 py-3 text-right">Em atraso</th>
-                                            <th className="px-3 py-3">Último contacto</th>
-                                            <th className="px-3 py-3">Promessa</th>
-                                            <th className="px-5 py-3 text-right">Acções</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {linhas.map((l) => (
-                                            <tr key={l.cliente.id} className="align-top">
-                                                <td className="px-5 py-4">
-                                                    <p className="font-medium text-slate-900 dark:text-white">{l.cliente.nome}</p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                        {l.cliente.numero_cliente} · {l.zona ?? "sem zona"} · {l.cliente.telefone ?? "sem telefone"}
-                                                    </p>
-                                                    {l.credito > 0 && <p className="text-xs text-emerald-700 dark:text-emerald-300">Crédito a favor: {formatMoney(l.credito)}</p>}
-                                                </td>
-                                                <td className="px-3 py-4 text-right">
-                                                    <p className="font-semibold text-rose-600 dark:text-rose-400">{formatMoney(l.valor)}</p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">{l.facturas} factura(s) · {l.diasAtraso} dia(s)</p>
-                                                </td>
-                                                <td className="px-3 py-4">
-                                                    {l.ultimoContacto ? (
-                                                        <>
-                                                            <p className="text-slate-800 dark:text-slate-200">{resultados[l.ultimoContacto.resultado]}</p>
-                                                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                                {canais[l.ultimoContacto.canal]} · há {l.ultimoContacto.dias} dia(s)
-                                                            </p>
-                                                        </>
-                                                    ) : (
-                                                        <StatusBadge tone="rose">Nunca contactado</StatusBadge>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-4">
-                                                    {l.promessa ? (
-                                                        <>
+                    {linhas.length === 0 ? (
+                        <EstadoVazio
+                            ilustracao={comPesquisa ? "pesquisa" : "furo"}
+                            titulo={
+                                comPesquisa
+                                    ? `Nenhum cliente com “${filtros.search}”`
+                                    : totais.clientes === 0
+                                      ? "Ninguém em atraso"
+                                      : filtros.filtro === "promessa_falhada"
+                                        ? "Nenhuma promessa falhada"
+                                        : "Ninguém nesta situação"
+                            }
+                            accoes={
+                                (comPesquisa || (filtros.filtro && filtros.filtro !== "todos")) && totais.clientes > 0 ? (
+                                    <SecondaryButton
+                                        type="button"
+                                        onClick={() => {
+                                            setSearch("");
+                                            router.get("/cobranca", {}, { preserveScroll: true, replace: true });
+                                        }}
+                                    >
+                                        Ver todos em atraso
+                                    </SecondaryButton>
+                                ) : null
+                            }
+                        >
+                            {comPesquisa
+                                ? "Confirme o nome ou procure pelo nº de cliente ou telefone."
+                                : totais.clientes === 0
+                                  ? "Todas as facturas vencidas estão pagas. Quando alguém passar do prazo, aparece aqui."
+                                  : "Bom sinal. Quando um cliente não cumprir o que prometeu, aparece aqui para voltar a contactar."}
+                        </EstadoVazio>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[920px] text-left text-sm">
+                                <thead className="border-b border-[#E8ECF4] bg-[#F7F9FD] text-xs font-bold tracking-[0.6px] text-slate-500 dark:border-slate-800 dark:bg-white/[0.02] dark:text-slate-400">
+                                    <tr>
+                                        <th className="px-5 py-3">CLIENTE</th>
+                                        <th className="px-3 py-3 text-right">EM ATRASO</th>
+                                        <th className="px-3 py-3">HÁ</th>
+                                        <th className="px-3 py-3">ÚLTIMO CONTACTO</th>
+                                        <th className="px-3 py-3">PROMESSA</th>
+                                        <th className="px-5 py-3">
+                                            <span className="sr-only">Acções</span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#EEF1F7] dark:divide-slate-800">
+                                    {linhas.map((l) => (
+                                        <tr key={l.cliente.id} className="align-top">
+                                            <td className="px-5 py-4">
+                                                <Link href={`/clientes/${l.cliente.numero_cliente}`} className="flex flex-col text-ink dark:text-[#F2F5FB]">
+                                                    <strong className="text-[15px]">{l.cliente.nome}</strong>
+                                                    <span className="text-[13px] text-slate-500 dark:text-slate-400">
+                                                        {l.cliente.numero_cliente} · {l.cliente.telefone ?? "sem telefone"}
+                                                    </span>
+                                                </Link>
+                                                {l.credito > 0 && <p className="text-xs text-emerald-700 dark:text-emerald-300">Crédito a favor: {formatMoney(l.credito)}</p>}
+                                            </td>
+                                            <td className="px-3 py-4 text-right">
+                                                <p className={cn("text-[15px] font-bold tabular-nums", l.emRisco ? "text-rose-700 dark:text-rose-300" : "text-ink dark:text-[#F2F5FB]")}>{formatMoney(l.valor)}</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                    {l.facturas} {l.facturas === 1 ? "factura" : "facturas"}
+                                                    {l.emRisco ? " · risco de corte" : ""}
+                                                </p>
+                                            </td>
+                                            <td className="px-3 py-4">
+                                                <StatusBadge tone={l.diasAtraso > 30 || l.emRisco ? "rose" : "amber"}>
+                                                    {l.diasAtraso} {l.diasAtraso === 1 ? "dia" : "dias"}
+                                                </StatusBadge>
+                                            </td>
+                                            <td className="px-3 py-4">
+                                                {l.ultimoContacto ? (
+                                                    <>
+                                                        <p className="text-ink dark:text-[#F2F5FB]">
+                                                            {canais[l.ultimoContacto.canal]} · {formatDate(l.ultimoContacto.data)}
+                                                        </p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                            {resultados[l.ultimoContacto.resultado]} · há {l.ultimoContacto.dias} {l.ultimoContacto.dias === 1 ? "dia" : "dias"}
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <StatusBadge tone="amber">Nunca contactado</StatusBadge>
+                                                )}
+                                                {l.historico.length > 1 && (
+                                                    <details className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                                        <summary className="cursor-pointer font-semibold text-cyan-700 dark:text-cyan-400">Histórico ({l.historico.length})</summary>
+                                                        <ul className="mt-1 space-y-1">
+                                                            {l.historico.map((h) => (
+                                                                <li key={h.data}>
+                                                                    {formatDate(h.data)} · {canais[h.canal]} · {resultados[h.resultado]} · {h.utilizador}
+                                                                    {h.nota ? ` — ${h.nota}` : ""}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </details>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-4">
+                                                {l.promessa ? (
+                                                    <>
+                                                        <p className="text-ink dark:text-[#F2F5FB]">
+                                                            Pagar {formatMoney(l.promessa.valor)} até {formatDate(l.promessa.data)}
+                                                        </p>
+                                                        <span className="mt-1 flex items-center gap-2">
                                                             <StatusBadge tone={tomPromessa[l.promessa.estado]}>
                                                                 {l.promessa.estado === "pendente" ? "Pendente" : l.promessa.estado === "cumprida" ? "Cumprida" : l.promessa.estado === "falhada" ? "Falhada" : "Cancelada"}
                                                             </StatusBadge>
-                                                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                                {formatMoney(l.promessa.valor)} até {formatDate(l.promessa.data)}
-                                                            </p>
                                                             {l.promessa.estado === "pendente" && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => router.put(`/cobranca/promessas/${l.promessa.id}/cancelar`, {}, { preserveScroll: true })}
-                                                                    className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500 underline-offset-2 hover:underline"
+                                                                    className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-ink dark:text-slate-400"
                                                                 >
                                                                     <Ban className="h-3 w-3" aria-hidden="true" /> cancelar
                                                                 </button>
                                                             )}
-                                                        </>
-                                                    ) : (
-                                                        <span className="text-slate-400">—</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-5 py-4">
-                                                    <div className="flex flex-wrap justify-end gap-2"><SecondaryButton type="button" onClick={() => abrir(l)}>
-                                                            <PhoneCall className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Registar contacto
-                                                        </SecondaryButton>
-                                                        <Link href={`/pagamentos?search=${encodeURIComponent(l.cliente.nome)}`} className="inline-flex items-center rounded-md px-2 py-2 text-xs font-semibold text-cyan-700 hover:underline dark:text-cyan-300">
-                                                            Pagamentos
-                                                        </Link>
-                                                    </div>
-                                                    {l.historico.length > 0 && (
-                                                        <details className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                                                            <summary className="cursor-pointer text-right">Histórico ({l.historico.length})</summary>
-                                                            <ul className="mt-1 space-y-1 text-left">
-                                                                {l.historico.map((h) => (
-                                                                    <li key={h.data}>
-                                                                        {formatDate(h.data)} · {canais[h.canal]} · {resultados[h.resultado]} · {h.utilizador}
-                                                                        {h.nota ? ` — ${h.nota}` : ""}
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        </details>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </AnimatedPanel>
-                    </SeccaoRecolhivel>
-                </div>
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-slate-400 dark:text-slate-500">—</span>
+                                                )}
+                                            </td>
+                                            <td className="px-5 py-4 text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => abrir(l)}
+                                                    className="inline-flex min-h-[40px] items-center gap-2 whitespace-nowrap rounded-[10px] border border-[#DDE2EE] px-3.5 text-sm font-semibold text-cyan-700 hover:bg-slate-50 dark:border-slate-800 dark:text-cyan-400 dark:hover:bg-[#1E232D]"
+                                                >
+                                                    <PhoneCall className="h-4 w-4" aria-hidden="true" />
+                                                    Registar contacto
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </AnimatedPanel>
             </div>
 
             <Modal show={Boolean(alvo)} onClose={() => setAlvo(null)} title={alvo ? `Contacto — ${alvo.cliente.nome}` : ""} maxWidth="lg">
@@ -234,7 +330,7 @@ export default function Index({ linhas, totais, zonas, filtros }) {
                     {form.data.resultado === "prometeu_pagar" && (
                         <div className="grid gap-4 rounded-md border border-amber-200 bg-amber-50 p-4 sm:grid-cols-2 dark:border-amber-900 dark:bg-amber-950/30">
                             <div>
-                                <InputLabel htmlFor="valor_promessa" value="Valor prometido (MZN)" />
+                                <InputLabel htmlFor="valor_promessa" value="Valor prometido (MT)" />
                                 <TextInput id="valor_promessa" type="number" min="0.01" step="0.01" value={form.data.valor} onChange={(e) => form.setData("valor", e.target.value)} className="mt-1 block w-full" />
                                 <InputError message={form.errors.valor} className="mt-1" />
                             </div>

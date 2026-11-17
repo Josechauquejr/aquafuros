@@ -1,140 +1,279 @@
 import { Head, router, useForm } from "@inertiajs/react";
-import { Droplets, Plus, Trash2, TrendingDown } from "lucide-react";
-import { useState } from "react";
+import { Droplets, Gauge, Layers, MapPin, Save, Search, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
+import CabecalhoLista from "@/Components/CabecalhoLista";
 import ConfirmDialog from "@/Components/ConfirmDialog";
+import Ilustracao from "@/Components/Ilustracao";
 import InputError from "@/Components/InputError";
-import InputLabel from "@/Components/InputLabel";
-import KpiCard from "@/Components/KpiCard";
 import PrimaryButton from "@/Components/PrimaryButton";
 import SeletorMes from "@/Components/SeletorMes";
+import StatusBadge from "@/Components/StatusBadge";
 import GraficoSerie, { formatarCompacto } from "@/Components/charts/GraficoSerie";
-import TextInput from "@/Components/TextInput";
-import { formatVolume } from "@/lib/utils";
+import { cn, formatVolume } from "@/lib/utils";
 
-const selectClasses =
-    "mt-1 block w-full rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 const pct = (v) => (v === null || v === undefined ? "—" : `${Number(v).toLocaleString("pt-PT", { maximumFractionDigits: 1 })}%`);
+const LIMITE = 30;
 
-export default function Index({ mesReferencia, registos, perdas, zonas, historico, filtros }) {
+/**
+ * Produção de água: a conta à vista (Produzida − Facturada = Perdas, com o
+ * limite de 30% marcado) e o registo de todas as zonas numa tabela, com um
+ * campo em cada linha, em vez de um formulário de cada vez.
+ */
+export default function Index({ mesReferencia, registos, perdas, zonas, historico, filtros, facturadoPorZona = {} }) {
     const [ano, mes] = mesReferencia.valor.split("-").map(Number);
-    const form = useForm({ mes, ano, zona_id: "", volume_m3: "" });
+    const registoDe = useMemo(() => Object.fromEntries(registos.map((r) => [r.zona_id ?? "sistema", r])), [registos]);
+    const [modo, setModo] = useState(registoDe.sistema ? "sistema" : "zona");
+    const [valores, setValores] = useState({});
+    const [texto, setTexto] = useState("");
+    const [estado, setEstado] = useState("todas");
+    const [soComClientes, setSoComClientes] = useState(true);
     const [paraApagar, setParaApagar] = useState(null);
+    const sistema = useForm({ mes, ano, zona_id: "", volume_m3: "" });
+    const [aGuardar, setAGuardar] = useState(false);
+    const [erros, setErros] = useState({});
 
-    const guardar = (evento) => {
-        evento.preventDefault();
-        form.transform((d) => ({ ...d, mes, ano })).post("/producao", { preserveScroll: true, onSuccess: () => form.setData("volume_m3", "") });
+    const termo = texto.trim().toLowerCase();
+    const linhas = zonas
+        .filter((z) => !soComClientes || z.clientes_activos > 0)
+        .filter((z) => !termo || z.nome.toLowerCase().includes(termo))
+        .filter((z) => estado === "todas" || (estado === "por" ? !registoDe[z.id] : Boolean(registoDe[z.id])));
+    const prontas = Object.entries(valores).filter(([, v]) => v !== "" && v !== null && Number(v) >= 0);
+
+    const guardarZonas = () => {
+        if (prontas.length === 0) return;
+        router.post(
+            "/producao",
+            { mes, ano, registos: prontas.map(([zona_id, volume_m3]) => ({ zona_id: Number(zona_id), volume_m3 })) },
+            {
+                preserveScroll: true,
+                onStart: () => setAGuardar(true),
+                onFinish: () => setAGuardar(false),
+                onSuccess: () => setValores({}),
+                onError: (e) => setErros(e),
+            },
+        );
     };
 
-    return (
-        <AdminLayout
-            header={
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Operação</p>
-                        <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Produção de água e perdas</h2>
-                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Registe a água captada ou bombeada em cada mês (lida no contador de produção). A diferença para o que se factura são as perdas.
-                        </p>
-                    </div>
-                    <SeletorMes rota="/producao" mesReferencia={mesReferencia} extra={filtros} />
-                </div>
-            }
-        >
-            <Head title="Produção de água" />
-            <div className="py-8 sm:py-10">
-                <div className="mx-auto max-w-5xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                        <KpiCard label="Produzida" value={formatVolume(perdas.produzidoM3)} detail={mesReferencia.rotulo} icon={Droplets} tone="cyan" />
-                        <KpiCard label="Facturada" value={formatVolume(perdas.facturadoM3)} detail="leituras com factura válida" icon={Droplets} tone="emerald" />
-                        <KpiCard label="Perdas" value={perdas.perdasM3 === null ? "—" : formatVolume(perdas.perdasM3)} detail="produzida − facturada" icon={TrendingDown} tone={perdas.perdasPct > 30 ? "rose" : "amber"} />
-                        <KpiCard label="Perdas (%)" value={pct(perdas.perdasPct)} detail={perdas.temDados ? "acima de 30% é preocupante" : "falta registar a produção do mês"} icon={TrendingDown} tone={perdas.perdasPct > 30 ? "rose" : "emerald"} />
-                    </section>
+    const guardarSistema = (evento) => {
+        evento.preventDefault();
+        sistema.transform((d) => ({ ...d, mes, ano, zona_id: "" })).post("/producao", { preserveScroll: true, onSuccess: () => sistema.setData("volume_m3", "") });
+    };
 
-                    <div className="grid gap-6 lg:grid-cols-2">
-                        <AnimatedPanel className="p-6">
-                            <h3 className="font-semibold text-slate-950 dark:text-white">Registar produção de {mesReferencia.rotulo}</h3>
-                            <form onSubmit={guardar} className="mt-4 space-y-4">
-                                <div>
-                                    <InputLabel htmlFor="zona_producao" value="Zona" />
-                                    <select id="zona_producao" value={form.data.zona_id} onChange={(e) => form.setData("zona_id", e.target.value)} className={selectClasses}>
-                                        <option value="">Sistema todo</option>
-                                        {zonas.map((z) => (
-                                            <option key={z.id} value={z.id}>{z.nome}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <InputLabel htmlFor="volume" value="Volume captado (m³)" />
-                                    <TextInput id="volume" type="number" min="0" step="0.01" value={form.data.volume_m3} onChange={(e) => form.setData("volume_m3", e.target.value)} className="mt-1 block w-full" required />
-                                    <InputError message={form.errors.volume_m3} className="mt-1" />
-                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Voltar a registar o mesmo mês e zona corrige o valor.</p>
-                                </div>
-                                <PrimaryButton disabled={form.processing}>
-                                    <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+    const perdasAcima = perdas.perdasPct !== null && perdas.perdasPct >= LIMITE;
+    const caixa = "flex min-w-[150px] flex-1 flex-col gap-1 rounded-[14px] border border-[#E3E8F2] p-4 dark:border-slate-800";
+
+    return (
+        <AdminLayout>
+            <Head title="Produção de água" />
+            <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+                <CabecalhoLista contexto="Terreno · uma vez por mês" titulo="Produção de água" resumo="Quanta água sai do furo e quanta chega às facturas.">
+                    <SeletorMes rota="/producao" mesReferencia={mesReferencia} extra={filtros} />
+                </CabecalhoLista>
+
+                <AnimatedPanel className="flex flex-col gap-4 p-6">
+                    <div className="flex flex-wrap items-stretch gap-3">
+                        <div className={caixa}>
+                            <span className="text-sm text-slate-500 dark:text-slate-400">Produzida</span>
+                            <strong className="text-2xl tabular-nums text-ink dark:text-[#F2F5FB]">{perdas.temDados ? formatVolume(perdas.produzidoM3) : "Por registar"}</strong>
+                        </div>
+                        <span className="self-center text-2xl text-slate-400" aria-hidden="true">−</span>
+                        <div className={caixa}>
+                            <span className="text-sm text-slate-500 dark:text-slate-400">Facturada</span>
+                            <strong className="text-2xl tabular-nums text-ink dark:text-[#F2F5FB]">{formatVolume(perdas.facturadoM3)}</strong>
+                        </div>
+                        <span className="self-center text-2xl text-slate-400" aria-hidden="true">=</span>
+                        <div className={cn(caixa, "flex-row items-center gap-3", perdasAcima ? "border-[#F3C6C1] bg-rose-50 dark:border-[rgba(244,163,154,0.3)] dark:bg-[rgba(244,163,154,0.08)]" : "border-[#B9CCFF] bg-[#F7F9FF] dark:border-[rgba(110,162,255,0.32)] dark:bg-[rgba(0,89,255,0.10)]")}>
+                            <Ilustracao nome="grafico" largura={80} className="hidden sm:block" />
+                            <span className="flex flex-col gap-1">
+                                <span className="text-sm text-slate-500 dark:text-slate-400">Perdas</span>
+                                <strong className={cn("text-2xl tabular-nums", perdasAcima ? "text-rose-700 dark:text-rose-300" : "text-brand dark:text-cyan-300")}>
+                                    {perdas.perdasPct === null ? "Depois do registo" : `${pct(perdas.perdasPct)} · ${formatVolume(perdas.perdasM3)}`}
+                                </strong>
+                            </span>
+                        </div>
+                    </div>
+                    {perdas.perdasPct !== null && (
+                        <div className="relative h-2.5 rounded-full bg-[#E8ECF4] dark:bg-slate-800" role="img" aria-label={`Perdas ${pct(perdas.perdasPct)}; limite ${LIMITE}%`}>
+                            <span className={cn("block h-full rounded-full", perdasAcima ? "bg-rose-600" : "bg-cyan-500")} style={{ width: `${Math.min(100, Math.max(0, perdas.perdasPct))}%` }} />
+                            <span className="absolute -top-1 h-[18px] w-0.5 bg-ink dark:bg-[#F2F5FB]" style={{ left: `${LIMITE}%` }} aria-hidden="true" />
+                        </div>
+                    )}
+                    <span className="text-sm text-slate-600 dark:text-slate-300">
+                        Limite: abaixo de {LIMITE}% de perdas. Mais do que isso costuma ser fuga, ligação ilegal ou contador avariado.
+                    </span>
+                </AnimatedPanel>
+
+                <AnimatedPanel className="overflow-hidden">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8ECF4] px-6 py-5 dark:border-slate-800">
+                        <h2 className="text-lg font-bold text-ink dark:text-[#F2F5FB]">Registar a água captada</h2>
+                        <div role="radiogroup" aria-label="Registar por" className="inline-flex gap-1.5 rounded-[14px] border border-slate-200 p-1.5 dark:border-slate-800">
+                            {[
+                                ["zona", "Por zona", Layers],
+                                ["sistema", "Sistema todo", Gauge],
+                            ].map(([chave, rotulo, Icone]) => (
+                                <button
+                                    key={chave}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={modo === chave}
+                                    onClick={() => setModo(chave)}
+                                    className={cn("inline-flex min-h-[40px] items-center gap-2 rounded-[10px] px-3.5 text-sm font-bold", modo === chave ? "bg-brand text-white dark:bg-cyan-500" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/[0.04]")}
+                                >
+                                    <Icone className="h-4 w-4" aria-hidden="true" />
+                                    {rotulo}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {modo === "zona" ? (
+                        <>
+                            <div className="flex flex-wrap items-center gap-2.5 border-b border-[#E8ECF4] px-[18px] py-3.5 dark:border-slate-800">
+                                <label className="flex min-h-[44px] flex-[1_1_220px] items-center gap-2.5 rounded-[10px] border border-[#DDE2EE] px-3 focus-within:border-cyan-500 dark:border-slate-800 dark:bg-[#1E232D]">
+                                    <Search className="h-[18px] w-[18px] text-slate-500" aria-hidden="true" />
+                                    <input type="search" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Procurar zona" aria-label="Procurar zona" className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] focus:!border-0 focus:!shadow-none focus:ring-0 dark:text-[#F2F5FB]" />
+                                </label>
+                                <select value={estado} onChange={(e) => setEstado(e.target.value)} aria-label="Estado" className="min-h-[44px] rounded-[10px] border-[#DDE2EE] text-sm dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB]">
+                                    <option value="todas">Todas as zonas</option>
+                                    <option value="por">Por registar</option>
+                                    <option value="reg">Registadas</option>
+                                </select>
+                                <label className="inline-flex min-h-[44px] items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                                    <input type="checkbox" checked={soComClientes} onChange={(e) => setSoComClientes(e.target.checked)} className="h-[18px] w-[18px] rounded" />
+                                    Só zonas com clientes
+                                </label>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[720px] text-left text-sm">
+                                    <thead className="border-b border-[#E8ECF4] bg-[#F7F9FD] text-xs font-bold tracking-[0.6px] text-slate-500 dark:border-slate-800 dark:bg-white/[0.02] dark:text-slate-400">
+                                        <tr>
+                                            <th className="px-6 py-3">ZONA</th>
+                                            <th className="px-3 py-3 text-right">CLIENTES</th>
+                                            <th className="px-3 py-3">ÁGUA CAPTADA</th>
+                                            <th className="px-3 py-3 text-right">FACTURADA</th>
+                                            <th className="px-6 py-3">ESTADO</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#EEF1F7] dark:divide-slate-800">
+                                        {linhas.map((z) => {
+                                            const registo = registoDe[z.id];
+                                            const valor = valores[z.id] ?? "";
+                                            const pronto = valor !== "";
+                                            return (
+                                                <tr key={z.id}>
+                                                    <td className="px-6 py-3">
+                                                        <strong className="text-[15px] text-ink dark:text-[#F2F5FB]">{z.nome}</strong>
+                                                    </td>
+                                                    <td className="px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">{z.clientes_activos}</td>
+                                                    <td className="px-3 py-3">
+                                                        <label className="inline-flex items-center gap-2">
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.01"
+                                                                value={valor}
+                                                                placeholder={registo ? String(Number(registo.volume_m3)) : "0"}
+                                                                onChange={(e) => setValores((v) => ({ ...v, [z.id]: e.target.value }))}
+                                                                aria-label={`Água captada em ${z.nome}`}
+                                                                className={cn("min-h-[44px] w-36 rounded-[10px] border-[#DDE2EE] text-right tabular-nums dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB]", pronto && "!border-[#9DB8FF] !bg-[#F7F9FF] dark:!bg-[rgba(0,89,255,0.08)]")}
+                                                            />
+                                                            <span className="text-slate-500">m³</span>
+                                                        </label>
+                                                    </td>
+                                                    <td className="px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">{formatVolume(facturadoPorZona[z.id] ?? 0)}</td>
+                                                    <td className="px-6 py-3">
+                                                        {pronto ? (
+                                                            <StatusBadge tone="cyan">Pronta a guardar</StatusBadge>
+                                                        ) : registo ? (
+                                                            <span className="inline-flex items-center gap-2">
+                                                                <StatusBadge tone="emerald">{formatVolume(registo.volume_m3)}</StatusBadge>
+                                                                <button type="button" onClick={() => setParaApagar(registo)} aria-label={`Apagar registo de ${z.nome}`} className="inline-flex h-9 w-9 items-center justify-center rounded-[9px] text-slate-400 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-white/[0.06]">
+                                                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                                                </button>
+                                                            </span>
+                                                        ) : (
+                                                            <StatusBadge tone="amber">Por registar</StatusBadge>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {linhas.length === 0 && (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                                                    <MapPin className="mx-auto mb-2 h-5 w-5" aria-hidden="true" />
+                                                    Nenhuma zona com estes filtros.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <InputError message={Object.values(erros)[0]} className="px-6 pt-2" />
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E8ECF4] px-6 py-4 dark:border-slate-800">
+                                <span className="text-sm text-slate-500 dark:text-slate-400">Voltar a registar o mesmo mês e zona corrige o valor.</span>
+                                <PrimaryButton type="button" onClick={guardarZonas} disabled={prontas.length === 0 || aGuardar} className="min-h-[48px]">
+                                    <Save className="h-[18px] w-[18px]" aria-hidden="true" />
+                                    {aGuardar ? "A guardar…" : prontas.length === 0 ? "Guardar" : `Guardar ${prontas.length} ${prontas.length === 1 ? "zona" : "zonas"}`}
+                                </PrimaryButton>
+                            </div>
+                        </>
+                    ) : (
+                        <form onSubmit={guardarSistema} className="flex flex-col gap-4 p-6">
+                            <label className="flex flex-col gap-1.5">
+                                <span className="text-sm font-semibold text-ink dark:text-[#F2F5FB]">Água captada no sistema todo</span>
+                                <span className="inline-flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        required
+                                        value={sistema.data.volume_m3}
+                                        onChange={(e) => sistema.setData("volume_m3", e.target.value)}
+                                        placeholder={registoDe.sistema ? String(Number(registoDe.sistema.volume_m3)) : "Leitura do contador de produção"}
+                                        className="min-h-[48px] w-64 rounded-md border-[#DDE2EE] text-right tabular-nums dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB]"
+                                    />
+                                    <span className="text-slate-500">m³</span>
+                                </span>
+                                <InputError message={sistema.errors.volume_m3} />
+                            </label>
+                            <p className="text-sm text-slate-600 dark:text-slate-300">Use quando há um só contador à saída do furo. Assim não se vê em que zona se perde água.</p>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <PrimaryButton disabled={sistema.processing} className="min-h-[48px]">
+                                    <Save className="h-[18px] w-[18px]" aria-hidden="true" />
                                     Guardar
                                 </PrimaryButton>
-                            </form>
-                        </AnimatedPanel>
-
-                        <AnimatedPanel className="overflow-hidden">
-                            <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                                <h3 className="font-semibold text-slate-950 dark:text-white">Registos do mês</h3>
+                                {registoDe.sistema && (
+                                    <button type="button" onClick={() => setParaApagar(registoDe.sistema)} className="text-sm font-semibold text-rose-700 hover:text-rose-800 dark:text-rose-300">
+                                        Apagar o registo actual ({formatVolume(registoDe.sistema.volume_m3)})
+                                    </button>
+                                )}
                             </div>
-                            {registos.length === 0 ? (
-                                <p className="px-6 py-8 text-sm text-slate-500 dark:text-slate-400">Ainda não há produção registada neste mês.</p>
-                            ) : (
-                                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {registos.map((r) => (
-                                        <li key={r.id} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
-                                            <span className="font-medium text-slate-900 dark:text-white">{r.zona?.nome ?? "Sistema todo"}</span>
-                                            <span className="flex items-center gap-3">
-                                                <span className="text-slate-700 dark:text-slate-300">{formatVolume(r.volume_m3)}</span>
-                                                <button type="button" onClick={() => setParaApagar(r)} className="inline-flex h-9 w-9 items-center justify-center text-slate-400 hover:text-rose-600" aria-label="Apagar registo">
-                                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                                </button>
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                            {perdas.porZona.length > 0 && (
-                                <div className="border-t border-slate-200 px-6 py-4 dark:border-slate-800">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Perdas por zona</p>
-                                    <ul className="mt-2 space-y-1 text-sm">
-                                        {perdas.porZona.map((z) => (
-                                            <li key={z.zona} className="flex justify-between gap-3">
-                                                <span className="text-slate-700 dark:text-slate-300">{z.zona}</span>
-                                                <span className={z.perdasPct > 30 ? "font-semibold text-rose-600" : "font-semibold text-slate-900 dark:text-white"}>{pct(z.perdasPct)}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </AnimatedPanel>
-                    </div>
+                        </form>
+                    )}
+                </AnimatedPanel>
 
-                    <GraficoSerie
-                        titulo="Produzida vs. facturada"
-                        descricao="Últimos 6 meses (sistema todo ou soma das zonas)"
-                        icone={Droplets}
-                        dados={historico}
-                        series={[
-                            { chave: "produzido", label: "Produzida", cor: "#2a78d6" },
-                            { chave: "facturado", label: "Facturada", cor: "#1baf7a" },
-                        ]}
-                        tipo="bar"
-                        formatar={formatVolume}
-                        formatarEixo={formatarCompacto}
-                    />
-                </div>
+                <GraficoSerie
+                    titulo="Produzida vs. facturada"
+                    descricao="Últimos 6 meses (sistema todo ou soma das zonas)"
+                    icone={Droplets}
+                    dados={historico}
+                    series={[
+                        { chave: "produzido", label: "Produzida", cor: "#0059FF" },
+                        { chave: "facturado", label: "Facturada", cor: "#9DBBFF" },
+                    ]}
+                    tipo="bar"
+                    formatar={formatVolume}
+                    formatarEixo={formatarCompacto}
+                />
             </div>
             <ConfirmDialog
                 show={Boolean(paraApagar)}
                 onClose={() => setParaApagar(null)}
                 tone="simples"
-                title="Apagar registo de produção"
+                title="Apagar este registo de produção?"
                 description={`O registo de ${paraApagar ? formatVolume(paraApagar.volume_m3) : ""} (${paraApagar?.zona?.nome ?? "Sistema todo"}) deixa de contar para as perdas de água deste mês.`}
                 confirmLabel="Apagar"
                 onConfirm={() => router.delete(`/producao/${paraApagar.id}`, { preserveScroll: true, onFinish: () => setParaApagar(null) })}

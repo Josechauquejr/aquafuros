@@ -235,7 +235,7 @@ class PagamentoMultiploTest extends TestCase
         $velha = $this->factura($this->ana, 'F-0', 400, $anterior->month);
         $velha->forceFill(['created_at' => $anterior->copy()->day(15), 'data_vencimento' => now()->subDays(45)])->saveQuietly();
 
-        $this->actingAs($this->caixa)->post('/pagamentos', ['factura_id' => $f->id, 'valor_pago' => 1000, 'metodo_pagamento' => 'mpesa', 'incluir_multa' => true]);
+        $this->actingAs($this->caixa)->post('/pagamentos', ['factura_id' => $f->id, 'valor_pago' => 1000, 'metodo_pagamento' => 'mpesa', 'referencia_pagamento' => 'MP-2', 'incluir_multa' => true]);
         $this->post('/pagamentos', ['factura_id' => $velha->id, 'valor_pago' => 100, 'metodo_pagamento' => 'dinheiro']);
 
         $this->get('/admin/kpis')->assertInertia(fn (Assert $p) => $p

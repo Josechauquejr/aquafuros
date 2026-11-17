@@ -53,7 +53,14 @@ class LeituraController extends Controller
 
         // Pendente → confirmada (sem factura) → facturada: a mesma ordem
         // lógica usada ao ordenar por estado.
+        // Separadores "Por confirmar" e "Confirmadas" do mês: sem mês no URL,
+        // ficam no mês do ciclo actual (não todas as leituras de sempre).
+        if (in_array($estado, ['pendente', 'confirmadas'], true) && ! MesReferencia::foiPedido($request) && ! $request->filled('periodo')) {
+            $query->where('leituras.mes', $mesRef->month)->where('leituras.ano', $mesRef->year);
+        }
+
         match ($estado) {
+            'confirmadas' => $query->where('confirmado', true),
             'pendente' => $query->where('confirmado', false),
             'confirmada' => $query->where('confirmado', true)->whereDoesntHave('factura'),
             'facturada' => $query->whereHas('factura'),
@@ -139,15 +146,107 @@ class LeituraController extends Controller
             'pendentesTotal' => Leitura::where('confirmado', false)->count(),
             'facturarAoConfirmar' => Facturacao::facturarAoConfirmar(),
             'mesReferencia' => MesReferencia::paraSeletor($mesRef),
+            ...$this->progressoDoMes($mesRef),
             'filtros' => [
                 ...$periodo,
                 'mes' => MesReferencia::foiPedido($request) ? $mesRef->format('Y-m') : '',
                 'search' => $search ?? '',
-                'estado' => in_array($estado, ['pendente', 'confirmada', 'facturada'], true) ? $estado : 'todos',
+                'estado' => in_array($estado, ['pendente', 'confirmada', 'facturada', 'confirmadas'], true) ? $estado : 'todos',
                 'sort' => $sort,
                 'dir' => $dir,
             ],
         ]);
+    }
+
+    /**
+     * Volta a pôr uma leitura confirmada "por confirmar" — só enquanto ainda
+     * não tem factura (depois disso corrige-se com "Corrigir").
+     */
+    public function desfazerConfirmacao(Leitura $leitura)
+    {
+        if (! $leitura->confirmado) {
+            return back()->with('error', 'Esta leitura ainda não está confirmada.');
+        }
+        if ($leitura->factura()->exists()) {
+            return back()->with('error', 'A leitura já tem factura: use "Corrigir" para a alterar.');
+        }
+
+        $leitura->update(['confirmado' => false, 'confirmado_por' => null, 'confirmado_em' => null]);
+
+        return back()->with('status', 'Confirmação desfeita. A leitura voltou a "por confirmar".');
+    }
+
+    /**
+     * "Leitura explicada": anterior → actual → consumo, comparação com o
+     * normal do cliente, valor previsto e o que acontece a seguir.
+     */
+    public function show(Leitura $leitura)
+    {
+        $leitura->load([
+            'cliente' => fn ($q) => $q->withTrashed()->with('tarifa'),
+            'registadoPor' => fn ($q) => $q->withTrashed(),
+            'factura',
+            'correccaoActiva.user:id,name',
+        ]);
+        $confirmadaPor = $leitura->confirmado_por ? \App\Models\User::withTrashed()->find($leitura->confirmado_por)?->name : null;
+
+        // Consumos dos 3 meses anteriores (leituras activas), para a régua do "normal".
+        $anteriores = Leitura::where('cliente_id', $leitura->cliente_id)
+            ->whereRaw('(ano * 100 + mes) < ?', [$leitura->ano * 100 + $leitura->mes])
+            ->orderByDesc('ano')->orderByDesc('mes')->limit(3)->get()
+            ->map(fn ($l) => ['mes' => $l->mes, 'ano' => $l->ano, 'consumo' => $l->consumo(), 'data' => $l->created_at->toDateString()]);
+
+        $tarifa = $leitura->cliente?->tarifa;
+        $consumo = $leitura->consumo();
+        $previsto = $tarifa
+            ? ($consumo <= (float) $tarifa->consumo_minimo_m3 ? (float) $tarifa->taxa_minima : round($consumo * (float) $tarifa->preco_m3, 2))
+            : null;
+
+        return Inertia::render('Leituras/Show', [
+            'leitura' => $leitura,
+            'consumo' => $consumo,
+            'confirmadaPor' => $confirmadaPor,
+            'anteriores' => $anteriores->values(),
+            'tarifa' => $tarifa ? ['nome' => $tarifa->nome, 'preco_m3' => (float) $tarifa->preco_m3, 'taxa_minima' => (float) $tarifa->taxa_minima, 'consumo_minimo_m3' => (float) $tarifa->consumo_minimo_m3, 'percentagem_multa' => (float) $tarifa->percentagem_multa] : null,
+            'previsto' => $previsto,
+            'facturarAoConfirmar' => Facturacao::facturarAoConfirmar(),
+        ]);
+    }
+
+    /**
+     * O que os separadores e a barra de progresso das Leituras precisam:
+     * quem falta ler (só no mês actual), o progresso por zona e as contagens
+     * de cada separador (Por ler · Por confirmar · Confirmadas · Estimadas).
+     */
+    private function progressoDoMes(\Illuminate\Support\Carbon $mesRef): array
+    {
+        $doMes = fn ($q) => $q->where('mes', $mesRef->month)->where('ano', $mesRef->year);
+        $activos = Cliente::where('estado', 'ativo')
+            ->with('zona:id,nome')
+            ->withExists(['leituras as lido' => $doMes])
+            ->orderBy('nome')
+            ->get(['id', 'numero_cliente', 'nome', 'zona_id']);
+
+        $zonas = $activos->groupBy(fn ($c) => $c->zona?->nome ?? 'Sem zona')
+            ->map(fn ($grupo, $nome) => ['nome' => $nome, 'total' => $grupo->count(), 'lidos' => $grupo->where('lido', true)->count()])
+            ->sortByDesc('total')->values();
+
+        $porLer = $activos->where('lido', false)->values();
+        $eActual = $mesRef->equalTo(MesReferencia::actual());
+
+        return [
+            'porLer' => $eActual
+                ? $porLer->map(fn ($c) => ['id' => $c->id, 'numero_cliente' => $c->numero_cliente, 'nome' => $c->nome, 'zona' => $c->zona?->nome])->values()
+                : [],
+            'zonas' => $zonas,
+            'contagens' => [
+                'porLer' => $porLer->count(),
+                'porConfirmar' => Leitura::where('mes', $mesRef->month)->where('ano', $mesRef->year)->where('confirmado', false)->count(),
+                'confirmadas' => Leitura::where('mes', $mesRef->month)->where('ano', $mesRef->year)->where('confirmado', true)->count(),
+                'estimadas' => LeituraEstimada::where('mes', $mesRef->month)->where('ano', $mesRef->year)->whereNull('cancelado_em')->count(),
+                'clientes' => $activos->count(),
+            ],
+        ];
     }
 
     /**
@@ -560,7 +659,7 @@ class LeituraController extends Controller
         });
 
         return back()->with('status', $afectaFactura
-            ? "Leitura corrigida. A factura {$factura->numero_factura} foi recalculada: novo total ".number_format((float) $factura->fresh()->total_pagar, 2, ',', ' ').' MZN.'
+            ? "Leitura corrigida. A factura {$factura->numero_factura} foi recalculada: novo total ".number_format((float) $factura->fresh()->total_pagar, 2, ',', ' ').' MT.'
             : 'Leitura corrigida.');
     }
 

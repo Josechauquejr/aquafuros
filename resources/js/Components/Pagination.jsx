@@ -18,10 +18,10 @@ export default function Pagination({ paginador, preserveScroll = true }) {
 
     return (
         <nav
-            className="flex flex-col items-center justify-between gap-3 px-2 py-3 sm:flex-row"
+            className="flex flex-1 flex-col items-center justify-between gap-3 sm:flex-row"
             aria-label="Paginação"
         >
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
                 A mostrar <span className="font-medium text-slate-700 dark:text-slate-300">{paginador.from ?? 0}</span>–
                 <span className="font-medium text-slate-700 dark:text-slate-300">{paginador.to ?? 0}</span> de{" "}
                 <span className="font-medium text-slate-700 dark:text-slate-300">{paginador.total}</span>
@@ -39,9 +39,9 @@ export default function Pagination({ paginador, preserveScroll = true }) {
                             onClick={() => irPara(link.url)}
                             whileTap={link.url ? { scale: 0.97 } : {}}
                             className={cn(
-                                "flex h-10 min-w-[2.5rem] items-center justify-center rounded-md px-2 text-sm font-medium transition-colors sm:h-8 sm:min-w-[2rem] sm:text-xs",
+                                "flex h-10 min-w-[2.5rem] items-center justify-center rounded-[9px] px-2 text-sm font-semibold tabular-nums transition-colors sm:h-9 sm:min-w-[2.25rem]",
                                 link.active
-                                    ? "bg-cyan-700 text-white"
+                                    ? "bg-brand font-bold text-white dark:bg-cyan-500"
                                     : link.url
                                         ? "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                                         : "cursor-not-allowed text-slate-300 dark:text-slate-700",

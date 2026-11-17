@@ -10,7 +10,7 @@ import StatusBadge from "@/Components/StatusBadge";
 import TextInput from "@/Components/TextInput";
 import { formatDateTime } from "@/lib/utils";
 
-const selectClasses = "h-10 rounded-md border-slate-300 bg-white text-sm text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+const selectClasses = "h-10 rounded-md border-slate-300 bg-white text-sm text-ink shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
 const tons = { teste: "slate", codigo_verificacao: "cyan", codigo_recuperacao: "amber", senha_inicial: "emerald", senha_reposicao: "amber" };
 
 export default function Index({ envios, tipos, totais, filtros }) {
@@ -30,7 +30,7 @@ export default function Index({ envios, tipos, totais, filtros }) {
     }, [search]);
 
     return (
-        <AdminLayout header={<div><p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Acessos</p><h2 className="text-2xl font-bold text-slate-950 dark:text-white">Emails de autenticação</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Códigos de verificação e reposição de senha enviados pelo sistema.</p></div>}>
+        <AdminLayout header={<div><h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Emails de autenticação</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Códigos de verificação e reposição de senha enviados pelo sistema.</p></div>}>
             <Head title="Emails de autenticação" />
             <div className="py-8 sm:py-10"><div className="mx-auto max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8">
                 <section className="grid grid-cols-2 gap-4 xl:grid-cols-5">

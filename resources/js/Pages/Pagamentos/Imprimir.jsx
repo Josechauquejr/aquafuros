@@ -2,6 +2,7 @@ import { Head, Link, usePage } from "@inertiajs/react";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useRef } from "react";
 import AnimatedButton from "@/Components/AnimatedButton";
+import Ilustracao from "@/Components/Ilustracao";
 import BotaoDescarregarPdf from "@/Components/print/BotaoDescarregarPdf";
 import FormatoImpressaoToggle, { EstiloPagina } from "@/Components/print/FormatoImpressaoToggle";
 import ReciboTermico58mm from "@/Components/print/ReciboTermico58mm";
@@ -19,9 +20,9 @@ const meses = [
 
 const metodoLabels = {
     dinheiro: "Dinheiro",
-    banco: "Transferência bancária",
+    banco: "Banco",
     mpesa: "M-Pesa",
-    "e-mola": "e-Mola",
+    "e-mola": "E-Mola",
 };
 
 const estadoFacturaConfig = {
@@ -32,7 +33,9 @@ const estadoFacturaConfig = {
 };
 
 export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
-    const { empresa } = usePage().props;
+    const { empresa, flash } = usePage().props;
+    // Acabou de ser emitido (vem do Caixa): mostra o sucesso e os próximos passos.
+    const acabadoDeEmitir = Boolean(flash?.status) && !flash?.error;
     const [formato, setFormato] = useFormatoImpressao();
     const conteudoRef = useRef(null);
     const factura = pagamento.factura;
@@ -45,10 +48,28 @@ export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
             <Head title={`Recibo ${pagamento.numero_recibo}`} />
             <EstiloPagina formato={formato} />
 
+            {acabadoDeEmitir && (
+                <div className="mx-auto mb-5 flex max-w-3xl flex-wrap items-center gap-4 rounded-[18px] border border-[#E1E7F3] bg-white px-5 py-4 shadow-sm print:hidden">
+                    <Ilustracao nome="sucesso" largura={96} />
+                    <div className="flex min-w-[220px] flex-1 flex-col gap-1">
+                        <strong className="text-lg text-ink">Pagamento registado</strong>
+                        <span className="text-sm text-slate-600">{flash.status}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => window.print()} className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-brand px-5 text-sm font-bold text-white hover:bg-brand-hover">
+                            <Printer className="h-4 w-4" aria-hidden="true" /> Imprimir recibo
+                        </button>
+                        <Link href="/pagamentos?novo=1" className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[#DDE2EE] bg-white px-5 text-sm font-bold text-ink hover:bg-slate-50">
+                            Receber outro
+                        </Link>
+                    </div>
+                </div>
+            )}
+
             <div className="mx-auto mb-4 flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 print:hidden">
                 <Link
                     href="/pagamentos"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-ink"
                 >
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                     Voltar
@@ -77,9 +98,9 @@ export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
             ) : (
             <div
                 ref={conteudoRef}
-                className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm print:border-0 print:shadow-none"
+                className="mx-auto max-w-3xl border border-slate-200 bg-white p-8 text-ink shadow-sm print:border-0 print:shadow-none"
             >
-                <CabecalhoDocumento empresa={empresa} titulo="Recibo de pagamento" numero={pagamento.numero_recibo} />
+                <CabecalhoDocumento empresa={empresa} titulo="Recibo" numero={pagamento.numero_recibo} />
 
                 <div className="mt-6 grid grid-cols-2 gap-6 text-sm">
                     <div>
@@ -158,9 +179,9 @@ export default function Imprimir({ pagamento, primeiraLeitura, qrUrl }) {
                     </div>
                 )}
 
-                <div className="mt-8 flex items-center justify-between rounded-md bg-cyan-50 px-4 py-4">
-                    <span className="text-sm font-semibold text-cyan-900">Valor pago</span>
-                    <span className="text-xl font-bold text-cyan-900">{formatCurrency(pagamento.valor_pago)}</span>
+                <div className="mt-8 flex items-center justify-between rounded-[12px] border-2 border-emerald-700 px-5 py-4">
+                    <span className="text-[12px] font-bold uppercase tracking-wide text-emerald-700">Valor recebido</span>
+                    <span className="text-[28px] font-extrabold tabular-nums text-ink">{formatCurrency(pagamento.valor_pago)}</span>
                 </div>
                 <DiscriminacaoRecibo pagamento={pagamento} />
 

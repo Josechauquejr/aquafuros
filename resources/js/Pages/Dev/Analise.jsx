@@ -63,7 +63,7 @@ function Crescimento({ dados }) {
                         const max = Math.max(1, ...t.meses);
                         return (
                             <tr key={t.tabela}>
-                                <td className="px-4 py-2 font-mono text-xs text-slate-900 dark:text-white">{t.tabela}</td>
+                                <td className="px-4 py-2 font-mono text-xs text-ink dark:text-white">{t.tabela}</td>
                                 <td className="px-4 py-2 text-right font-semibold tabular-nums">{t.total}</td>
                                 {t.meses.map((n, i) => (
                                     <td key={i} className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300" style={{ background: n ? `rgba(6,182,212,${0.08 + (n / max) * 0.3})` : undefined }}>{n || "·"}</td>
@@ -94,7 +94,7 @@ function Indices({ dados }) {
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {dados.sugestoes.map((s) => (
                             <tr key={`${s.tabela}.${s.coluna}`} {...cartao.propsLinha(s)} className={cn("align-top", linhaClicavel)}>
-                                <td className="px-4 py-3 font-mono text-xs text-slate-900 dark:text-white">{s.tabela}.{s.coluna}</td>
+                                <td className="px-4 py-3 font-mono text-xs text-ink dark:text-white">{s.tabela}.{s.coluna}</td>
                                 <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">{s.motivo}{s.nota && <span className="block text-slate-400">{s.nota}</span>}</td>
                                 <td className="px-4 py-3 text-right tabular-nums">{s.registos}</td>
                                 <td className="px-4 py-3"><button type="button" aria-label="Copiar SQL" title="Copiar SQL" onClick={() => navigator.clipboard?.writeText(s.sql)} className="flex items-center gap-2 text-left font-mono text-xs text-slate-700 hover:text-cyan-700 dark:text-slate-300"><Copy className="h-3 w-3 shrink-0" aria-hidden="true" />{s.sql}</button></td>
@@ -143,14 +143,14 @@ function Lentidao({ dados }) {
     return (
         <div className="space-y-6">
             <AnimatedPanel className="overflow-x-auto">
-                <p className="px-4 pt-4 text-sm font-semibold text-slate-950 dark:text-white">Rotas mais lentas (últimos 7 dias, {dados.amostra} pedidos analisados)</p>
+                <p className="px-4 pt-4 text-sm font-semibold text-ink dark:text-white">Rotas mais lentas (últimos 7 dias, {dados.amostra} pedidos analisados)</p>
                 {dados.rotas.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Ainda sem pedidos suficientes.</p> : (
                     <table className="mt-2 min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
                         <thead className="bg-slate-50 text-left dark:bg-slate-900"><tr><th className={th}>Rota</th><th className={cn(th, "text-right")}>Pedidos</th><th className={cn(th, "text-right")}>Média</th><th className={cn(th, "text-right")}>p95</th><th className={cn(th, "text-right")}>Máx.</th><th className={cn(th, "text-right")}>BD (média)</th><th className={cn(th, "text-right")}>Consultas (média / p95)</th></tr></thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {dados.rotas.map((r) => (
                                 <tr key={r.rota}>
-                                    <td className="px-4 py-2 font-mono text-xs text-slate-900 dark:text-white">{r.rota}</td>
+                                    <td className="px-4 py-2 font-mono text-xs text-ink dark:text-white">{r.rota}</td>
                                     <td className="px-4 py-2 text-right tabular-nums">{r.pedidos}</td>
                                     <td className="px-4 py-2 text-right tabular-nums">{r.media_ms} ms</td>
                                     <td className="px-4 py-2 text-right"><StatusBadge tone={tom(r.p95_ms)}>{r.p95_ms} ms</StatusBadge></td>
@@ -165,7 +165,7 @@ function Lentidao({ dados }) {
             </AnimatedPanel>
 
             <AnimatedPanel className="overflow-x-auto">
-                <p className="px-4 pt-4 text-sm font-semibold text-slate-950 dark:text-white">Consultas SQL mais pesadas</p>
+                <p className="px-4 pt-4 text-sm font-semibold text-ink dark:text-white">Consultas SQL mais pesadas</p>
                 {!consultas.disponivel ? <p className="p-6 text-sm text-slate-500">{consultas.motivo}</p> : (
                     <table className="mt-2 min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
                         <thead className="bg-slate-50 text-left dark:bg-slate-900"><tr><th className={th}>Consulta (valores normalizados)</th><th className={cn(th, "text-right")}>Chamadas</th><th className={cn(th, "text-right")}>Média</th><th className={cn(th, "text-right")}>Total</th></tr></thead>
@@ -186,8 +186,7 @@ export default function Analise({ aba, dados }) {
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Análise de dados</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Análise de dados</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Qualidade, crescimento, índices e lentidão. Só leitura.</p>
                 </div>
             }

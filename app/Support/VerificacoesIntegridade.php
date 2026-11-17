@@ -23,7 +23,7 @@ class VerificacoesIntegridade
     /** @return array<string, array{titulo: string, descricao: string, gravidade: string, tabela: string, consulta: \Closure, formato: \Closure}> */
     public static function todas(): array
     {
-        $dinheiro = fn ($v) => number_format((float) $v, 2, ',', ' ').' MZN';
+        $dinheiro = fn ($v) => number_format((float) $v, 2, ',', ' ').' MT';
 
         return [
             'pagamentos_sem_factura' => [

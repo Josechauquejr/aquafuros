@@ -3,8 +3,11 @@
 namespace App\Http\Middleware;
 
 use App\Models\EmpresaPerfil;
+use App\Support\Alertas;
+use App\Support\CicloMes;
 use App\Support\Novidades;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -52,6 +55,13 @@ class HandleInertiaRequests extends Middleware
             'empresa' => fn () => EmpresaPerfil::atual()->toArray(),
             // Novidade do sistema por ver (aparece uma só vez a cada utilizador).
             'novidade' => fn () => Novidades::pendente($user),
+            // Bloco "Ciclo de Novembro · dia 7 de 30" do menu lateral e contadores
+            // dos itens (Leituras 0/277, Painel 2). Não se aplica ao desenvolvedor.
+            'ciclo' => fn () => $user && ! $user->hasRole('desenvolvedor') ? CicloMes::resumo() : null,
+            'alertasPendentes' => fn () => $user && $user->hasAnyRole(['administrador', 'gestor'])
+                ? Cache::remember('alertas-pendentes.'.($user->hasRole('administrador') ? 'admin' : 'gestor'), 120,
+                    fn () => count(Alertas::para($user->hasRole('administrador'))))
+                : 0,
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
                 'error' => fn () => $request->session()->get('error'),

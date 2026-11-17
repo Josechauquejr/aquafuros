@@ -29,7 +29,7 @@ export default function AcessoBloqueado({ motivo, janela }) {
             >
                 <div className="flex items-center justify-center gap-3 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
                     <ApplicationLogo className="h-10 w-10" />
-                    <p className="font-bold text-slate-950 dark:text-white">{empresa?.nome ?? "Aquafuros"}</p>
+                    <p className="font-bold text-ink dark:text-white">{empresa?.nome ?? "Aquafuros"}</p>
                 </div>
 
                 <div className="px-6 py-8">
@@ -39,7 +39,7 @@ export default function AcessoBloqueado({ motivo, janela }) {
 
                     {ehHorario ? (
                         <>
-                            <h1 className="mt-4 text-lg font-bold text-slate-950 dark:text-white">
+                            <h1 className="mt-4 text-lg font-bold text-ink dark:text-white">
                                 Fora do horário de funcionamento
                             </h1>
                             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -57,7 +57,7 @@ export default function AcessoBloqueado({ motivo, janela }) {
                         </>
                     ) : motivo === "sem_papel" ? (
                         <>
-                            <h1 className="mt-4 text-lg font-bold text-slate-950 dark:text-white">
+                            <h1 className="mt-4 text-lg font-bold text-ink dark:text-white">
                                 Conta sem perfil atribuído
                             </h1>
                             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -67,7 +67,7 @@ export default function AcessoBloqueado({ motivo, janela }) {
                         </>
                     ) : ehPermissao ? (
                         <>
-                            <h1 className="mt-4 text-lg font-bold text-slate-950 dark:text-white">
+                            <h1 className="mt-4 text-lg font-bold text-ink dark:text-white">
                                 Sem permissão para aceder
                             </h1>
                             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -77,7 +77,7 @@ export default function AcessoBloqueado({ motivo, janela }) {
                         </>
                     ) : (
                         <>
-                            <h1 className="mt-4 text-lg font-bold text-slate-950 dark:text-white">
+                            <h1 className="mt-4 text-lg font-bold text-ink dark:text-white">
                                 Secção temporariamente desactivada
                             </h1>
                             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">

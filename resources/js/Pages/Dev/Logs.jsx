@@ -1,5 +1,5 @@
 import { Head, router } from "@inertiajs/react";
-import { AlertTriangle, Check, MonitorSmartphone, RotateCcw, Search } from "lucide-react";
+import { AlertTriangle, Check, Loader2, MonitorSmartphone, RotateCcw, Search, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import DevLayout from "@/Layouts/DevLayout";
@@ -17,7 +17,85 @@ import { itemVariants, listVariants } from "@/lib/motion";
 import AbasPagina, { ABAS_REGISTOS } from "@/Components/AbasPagina";
 
 
-export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }) {
+const GRAVIDADE = {
+    baixa: { tom: "emerald", texto: "Gravidade baixa" },
+    media: { tom: "amber", texto: "Gravidade média" },
+    alta: { tom: "rose", texto: "Gravidade alta" },
+};
+
+function ExplicacaoIa({ erro, disponivel }) {
+    const [aGerar, setAGerar] = useState(false);
+    const explicacao = erro.explicacao_ia;
+
+    const gerar = () => {
+        router.post(`/dev/logs/erros/${erro.id}/explicar`, {}, {
+            preserveScroll: true,
+            preserveState: true,
+            onStart: () => setAGerar(true),
+            onFinish: () => setAGerar(false),
+        });
+    };
+
+    if (!disponivel && !explicacao) return null;
+
+    return (
+        <section className="mt-5 rounded-lg border border-slate-200 p-4 dark:border-slate-700" aria-busy={aGerar}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-ink dark:text-white">
+                    <Sparkles className="h-4 w-4 text-sky-600 dark:text-sky-400" aria-hidden="true" />
+                    Explicação da IA
+                </h3>
+                {disponivel && (
+                    <button
+                        type="button"
+                        onClick={gerar}
+                        disabled={aGerar}
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                        {aGerar ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />}
+                        {aGerar ? "A analisar…" : explicacao ? "Explicar de novo" : "Explicar com IA"}
+                    </button>
+                )}
+            </div>
+
+            {!explicacao && !aGerar && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                    A IA lê o erro, o rasto e o código à volta da linha, e explica a causa provável e como resolver.
+                </p>
+            )}
+
+            {explicacao && (
+                <div className={cn("mt-3 space-y-3 text-sm text-slate-700 dark:text-slate-300", aGerar && "opacity-50")}>
+                    <div className="flex flex-wrap gap-2">
+                        {GRAVIDADE[explicacao.gravidade] && <StatusBadge tone={GRAVIDADE[explicacao.gravidade].tom}>{GRAVIDADE[explicacao.gravidade].texto}</StatusBadge>}
+                        {explicacao.afecta_dados && <StatusBadge tone="rose">Pode ter afectado dados</StatusBadge>}
+                    </div>
+                    <div>
+                        <p className="font-medium text-ink dark:text-white">O que aconteceu</p>
+                        <p className="mt-1 whitespace-pre-wrap">{explicacao.o_que_aconteceu}</p>
+                    </div>
+                    <div>
+                        <p className="font-medium text-ink dark:text-white">Causa provável</p>
+                        <p className="mt-1 whitespace-pre-wrap">{explicacao.causa_provavel}</p>
+                    </div>
+                    {explicacao.como_resolver?.length > 0 && (
+                        <div>
+                            <p className="font-medium text-ink dark:text-white">Como resolver</p>
+                            <ol className="mt-1 list-decimal space-y-1 pl-5">
+                                {explicacao.como_resolver.map((passo, i) => <li key={i} className="whitespace-pre-wrap break-words">{passo}</li>)}
+                            </ol>
+                        </div>
+                    )}
+                    {erro.explicacao_ia_em && (
+                        <p className="text-xs text-muted-foreground">Gerada em {formatDateTime(erro.explicacao_ia_em)}. Confirme no código antes de aplicar.</p>
+                    )}
+                </div>
+            )}
+        </section>
+    );
+}
+
+export default function Logs({ aba, acessos, erros, utilizadores = [], filtros, iaDisponivel = false }) {
     const [search, setSearch] = useState(filtros.search ?? "");
     const cartaoAcesso = useCartaoDeLinha(acessos?.data ?? []);
     const cartaoErro = useCartaoDeLinha(erros?.data ?? []);
@@ -45,8 +123,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
         <DevLayout
             header={
                 <div>
-                    <p className="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">Desenvolvedor</p>
-                    <h2 className="text-2xl font-bold leading-tight text-slate-950 dark:text-white">Logs Técnicos</h2>
+                    <h2 className="text-[28px] font-bold leading-tight tracking-[-0.6px] text-ink sm:text-4xl dark:text-[#F2F5FB]">Logs Técnicos</h2>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         Acessos ao sistema (quem, quando, IP/dispositivo) e erros da aplicação.
                     </p>
@@ -76,7 +153,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
                                     <select
                                         value={filtros.utilizador_id}
                                         onChange={(event) => aplicarFiltros({ utilizador_id: event.target.value })}
-                                        className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                        className="rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                                     >
                                         <option value="todos">Todos os utilizadores</option>
                                         {utilizadores.map((u) => (
@@ -110,7 +187,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
                                                 <motion.tbody variants={listVariants} initial="hidden" animate="show" className="divide-y divide-slate-100 dark:divide-slate-800">
                                                     {acessos.data.map((linha) => (
                                                         <motion.tr key={linha.id} variants={itemVariants} {...cartaoAcesso.propsLinha(linha)} className={linhaClicavel}>
-                                                            <td className="px-6 py-3 font-medium text-slate-900 dark:text-white">
+                                                            <td className="px-6 py-3 font-medium text-ink dark:text-white">
                                                                 {linha.user?.name ?? "—"}
                                                             </td>
                                                             <td className="px-6 py-3 text-slate-500 dark:text-slate-400">
@@ -157,7 +234,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
                                     <select
                                         value={filtros.estado}
                                         onChange={(event) => aplicarFiltros({ estado: event.target.value })}
-                                        className="rounded-md border-slate-300 bg-white text-base text-slate-950 sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                        className="rounded-md border-slate-300 bg-white text-base text-ink sm:text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                                     >
                                         <option value="todos">Todos os estados</option>
                                         <option value="pendente">Pendente</option>
@@ -184,7 +261,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
                                                                 <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                                                             </div>
                                                             <div>
-                                                                <p className="text-sm font-medium text-slate-900 dark:text-white">{erro.mensagem}</p>
+                                                                <p className="text-sm font-medium text-ink dark:text-white">{erro.mensagem}</p>
                                                                 <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                                                                     {erro.excepcao} &middot; {erro.ficheiro}:{erro.linha}
                                                                 </p>
@@ -272,6 +349,7 @@ export default function Logs({ aba, acessos, erros, utilizadores = [], filtros }
                         <Campo rotulo="Pedido" largo>{erroAberto.metodo} {erroAberto.url}</Campo>
                         <Campo rotulo="Utilizador">{erroAberto.user?.name}</Campo>
                     </Campos>
+                    <ExplicacaoIa erro={erroAberto} disponivel={iaDisponivel} />
                     {erroAberto.trace && (
                         <MaisDetalhes titulo="Rasto da pilha (trace)">
                             <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{erroAberto.trace}</pre>

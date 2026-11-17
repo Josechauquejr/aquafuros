@@ -130,7 +130,7 @@ class LixeiraController extends Controller
                 'titulo' => $linha->numero_recibo,
                 'subtitulo' => $linha->cliente?->nome ?? 'Cliente removido',
                 'detalhe' => collect([
-                    'MZN '.number_format((float) $linha->valor_pago, 2, ',', ' '),
+                    number_format((float) $linha->valor_pago, 2, ',', ' ').' MT',
                     $linha->metodo_pagamento,
                     $linha->factura?->numero_factura,
                 ])->filter()->implode(' · '),

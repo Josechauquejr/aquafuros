@@ -25,6 +25,32 @@ class AnaliseRisco
      * quem está a ponto de ser cortado (dívida em atraso ≥ limiar da tarifa)
      * e quem deixou de pagar há 3 meses. Situação de agora.
      */
+    /**
+     * Ids dos clientes activos em risco de corte (dívida em atraso igual ou
+     * acima do limiar de corte da tarifa) — filtro "Risco de corte" em Clientes.
+     *
+     * @return list<int>
+     */
+    public static function idsEmRiscoCorte(): array
+    {
+        return \Illuminate\Support\Facades\Cache::remember('ids-em-risco-corte', 60, fn () => self::calcularIdsEmRiscoCorte());
+    }
+
+    /** @return list<int> */
+    private static function calcularIdsEmRiscoCorte(): array
+    {
+        $porCliente = Factura::whereIn('estado', ['pendente', 'parcial'])
+            ->where('data_vencimento', '<', now()->toDateString())
+            ->withSum('pagamentos', 'valor_pago')
+            ->get(['id', 'cliente_id', 'total_pagar'])
+            ->groupBy('cliente_id')
+            ->map(fn ($facturas) => (float) $facturas->sum(fn ($f) => max(0, (float) $f->total_pagar - (float) ($f->pagamentos_sum_valor_pago ?? 0))));
+
+        return Cliente::with('tarifa')->where('estado', 'ativo')->whereIn('id', $porCliente->keys())->get()
+            ->filter(fn ($c) => $c->tarifa && $porCliente[$c->id] >= (float) $c->tarifa->limiar_corte)
+            ->pluck('id')->values()->all();
+    }
+
     public static function risco(): array
     {
         $vencidas = Factura::whereIn('estado', ['pendente', 'parcial'])

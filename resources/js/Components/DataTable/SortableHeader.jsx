@@ -27,7 +27,7 @@ export default function SortableHeader({ coluna, sort, dir, onOrdenar, className
             scope="col"
             aria-sort={aria}
             className={cn(
-                "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400",
+                "px-5 py-3 text-xs font-bold uppercase tracking-[0.6px] text-slate-500 dark:text-slate-400",
                 direita ? "text-right" : "text-left",
                 className,
             )}
@@ -37,8 +37,8 @@ export default function SortableHeader({ coluna, sort, dir, onOrdenar, className
                     type="button"
                     onClick={() => onOrdenar(coluna.chave)}
                     className={cn(
-                        "inline-flex items-center gap-1 whitespace-nowrap uppercase tracking-wide transition hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:hover:text-white",
-                        activo && "text-slate-900 dark:text-white",
+                        "inline-flex items-center gap-1 whitespace-nowrap uppercase tracking-[0.6px] transition hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:hover:text-white",
+                        activo && "text-ink dark:text-white",
                     )}
                     title={`Ordenar por ${coluna.titulo}`}
                 >

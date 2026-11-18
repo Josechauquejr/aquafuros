@@ -23,6 +23,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useInstalarApp } from "@/lib/pwa";
 import { cn } from "@/lib/utils";
 import BarraProgresso from "@/Components/BarraProgresso";
+import PageLoadingSkeleton from "@/Components/PageLoadingSkeleton";
 
 function activo(url, href) {
     const caminho = url.split("?")[0];
@@ -438,7 +439,26 @@ function AvisoSemLigacao() {
 export default function AppShell({ groups, casa, header, children, accoesNovo = [], pesquisa = null, lerQr = false }) {
     const pagina = usePage();
     const [cabecalho, setCabecalho] = useState(null);
+    const [urlCarregamento, setUrlCarregamento] = useState(null);
     const url = pagina.url;
+
+    useEffect(() => {
+        const pararInicio = router.on("start", (evento) => {
+            const visita = evento.detail.visit;
+            if (visita.method === "get" && visita.showProgress !== false) {
+                setUrlCarregamento(visita.url?.toString?.() ?? String(visita.url));
+            }
+        });
+        const pararFim = router.on("finish", () => setUrlCarregamento(null));
+        const pararCancelamento = router.on("cancel", () => setUrlCarregamento(null));
+        const pararExcepcao = router.on("exception", () => setUrlCarregamento(null));
+        return () => {
+            pararInicio();
+            pararFim();
+            pararCancelamento();
+            pararExcepcao();
+        };
+    }, []);
     return (
         <SidebarProvider open={true} onOpenChange={() => {}}>
             <a
@@ -454,9 +474,9 @@ export default function AppShell({ groups, casa, header, children, accoesNovo = 
             <SidebarInset
                 id="conteudo-principal"
                 tabIndex={-1}
-                className="min-w-0 bg-slate-100 text-ink focus-visible:outline-none dark:bg-slate-950 dark:text-slate-100"
+                className="min-w-0 bg-slate-100 text-ink focus-visible:outline-none dark:bg-[#000000] dark:text-slate-100"
             >
-                <div className="shell-topo sticky top-0 z-40 flex flex-wrap items-center gap-3 border-b border-[#DDE2EE] bg-white px-4 py-3 sm:px-8 sm:py-4 dark:border-slate-800 dark:bg-[#12151C]">
+                <div className="shell-topo sticky top-0 z-40 flex flex-wrap items-center gap-3 border-b border-[#DDE2EE] bg-white px-4 py-3 sm:px-8 sm:py-4 dark:border-[#263650] dark:bg-[#000000]">
                     <SidebarTrigger
                         className="size-11 shrink-0 rounded-md border border-[#DDE2EE] dark:border-slate-800 md:hidden"
                         aria-label="Abrir menu"
@@ -483,12 +503,14 @@ export default function AppShell({ groups, casa, header, children, accoesNovo = 
                 {/* Título da página (vem de cada página). Escondido enquanto vazio. */}
                 <header className="has-[>div:empty]:hidden">
                     <div ref={setCabecalho} className="mx-auto max-w-7xl px-4 pb-2 pt-8 sm:px-6 lg:px-8">
-                        {header}
+                        {urlCarregamento ? <PageLoadingSkeleton url={urlCarregamento} headerOnly /> : header}
                     </div>
                 </header>
 
                 <div className="flex-1 pb-10 pt-4">
-                    <CabecalhoContext.Provider value={cabecalho}>{children}</CabecalhoContext.Provider>
+                    <CabecalhoContext.Provider value={cabecalho}>
+                        {urlCarregamento ? <PageLoadingSkeleton url={urlCarregamento} bodyOnly /> : children}
+                    </CabecalhoContext.Provider>
                 </div>
             </SidebarInset>
             <AquaGuia />

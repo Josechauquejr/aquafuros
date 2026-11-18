@@ -16,6 +16,7 @@ import StatusBadge from "@/Components/StatusBadge";
 import { cn, formatDateTime } from "@/lib/utils";
 import Dropdown from "@/Components/DataTable/Dropdown";
 import { PainelFiltros } from "@/Components/DataTable/Toolbar";
+import useAbrirNovo from "@/hooks/useAbrirNovo";
 
 const tipos = { sem_agua: "Sem água", fuga: "Fuga", avaria: "Avaria", contador: "Contador", reclamacao: "Reclamação", outro: "Outro" };
 const estados = { aberta: ["Aberta", "rose"], em_curso: ["Em curso", "amber"], resolvida: ["Resolvida", "emerald"] };
@@ -58,6 +59,7 @@ export default function Index({ ocorrencias, zonas, clientes, totais, filtros })
     const [paraApagar, setParaApagar] = useState(null);
     const form = useForm({ tipo: "sem_agua", descricao: "", cliente_id: "", zona_id: "" });
     const resolver = useForm({ accao: "resolver", resolucao: "" });
+    useAbrirNovo(() => setNovaAberta(true));
 
     const navegar = (extra) =>
         router.get(

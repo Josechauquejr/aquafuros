@@ -1,6 +1,6 @@
 import { Head, router, useForm } from "@inertiajs/react";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import CabecalhoLista from "@/Components/CabecalhoLista";
@@ -15,6 +15,7 @@ import PrimaryButton from "@/Components/PrimaryButton";
 import SecondaryButton from "@/Components/SecondaryButton";
 import TextInput from "@/Components/TextInput";
 import BarraProgresso from "@/Components/BarraProgresso";
+import useAbrirNovo from "@/hooks/useAbrirNovo";
 
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
@@ -30,6 +31,16 @@ export default function Index({ zonas, semZona, mesCiclo }) {
         form.clearErrors();
         setEditando(zona);
     };
+    useAbrirNovo(() => abrir());
+    useEffect(() => {
+        const zonaId = new URLSearchParams(window.location.search).get("editar");
+        if (!zonaId) return;
+        const zona = zonas.find((item) => String(item.id) === zonaId);
+        if (zona) {
+            abrir(zona);
+            window.history.replaceState({}, "", window.location.pathname);
+        }
+    }, [zonas]);
 
     const guardar = (evento) => {
         evento.preventDefault();

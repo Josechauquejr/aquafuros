@@ -39,7 +39,7 @@ import { ExpandableCard } from "@/Components/ui/expandable-card";
 import SeletorMesGrelha from "@/Components/SeletorMesGrelha";
 import { cn, formatCurrency, formatDateTime } from "@/lib/utils";
 
-const regras = [
+const regrasGerais = [
     {
         titulo: "Prazo de pagamento",
         descricao: "A factura vence no dia 10 do mês seguinte à emissão. As emitidas entre os dias 20 e 29 vencem no dia 10 imediatamente seguinte.",
@@ -224,7 +224,7 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
     const paga = simulada ? (noMinimo ? n(simulada.taxa_minima) : m3 * n(simulada.preco_m3)) : 0;
     const multa = simulada ? paga * n(simulada.percentagem_multa) : 0;
 
-    const regras = (t) => [
+    const linhasDaTarifa = (t) => [
         [dinheiro(t.preco_m3), "por cada m³ gasto acima do mínimo"],
         [dinheiro(t.taxa_minima), `é o mínimo do mês (quem gasta até ${n(t.consumo_minimo_m3)} m³ paga isto)`],
         [`${(n(t.percentagem_multa) * 100).toFixed(0)}%`, "de multa se pagar depois do dia 10"],
@@ -267,7 +267,7 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
                                     </div>
                                 </div>
                                 <ul className="grid gap-3 p-6 sm:grid-cols-2">
-                                    {regras(tarifa).map(([valor, texto]) => (
+                                    {linhasDaTarifa(tarifa).map(([valor, texto]) => (
                                         <li key={texto} className="flex flex-col gap-1 rounded-[14px] bg-slate-50 px-4 py-3.5 dark:bg-[#1E232D]">
                                             <strong className="text-xl tabular-nums text-ink dark:text-[#F2F5FB]">{valor}</strong>
                                             <span className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{texto}</span>
@@ -567,7 +567,7 @@ export default function Index({ tarifas, taxaLigacao, regrasConfig, mesesMulta, 
                             </p>
                         </div>
                         <div className="grid gap-4 p-6 sm:grid-cols-2">
-                            {regras.map((regra) => {
+                            {regrasGerais.map((regra) => {
                                 const Icon = regra.icon;
 
                                 return (

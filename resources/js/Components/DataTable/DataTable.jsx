@@ -340,7 +340,7 @@ export default function DataTable({
                                                 {selecao && <td className="px-5 py-4"><span className="block h-[18px] w-[18px] animate-pulse rounded bg-[#E8ECF4] dark:bg-slate-800" /></td>}
                                                 {colunas.map((coluna, j) => (
                                                     <td key={coluna.chave} className="px-5 py-4">
-                                                        <span className={cn("block h-3.5 animate-pulse rounded-full bg-[#E8ECF4] dark:bg-slate-800", j === 0 ? "w-40" : "w-20", coluna.direita && "ml-auto")} />
+                                                        <span className={cn("block h-3.5 animate-pulse rounded-full bg-[#E8ECF4] dark:bg-slate-800", coluna.skeletonWidth ?? (j === 0 ? "w-40" : "w-20"), coluna.direita && "ml-auto", "motion-reduce:animate-none")} />
                                                         {j === 0 && <span className="mt-2 block h-3 w-24 animate-pulse rounded-full bg-[#EEF1F7] dark:bg-slate-800/60" />}
                                                     </td>
                                                 ))}

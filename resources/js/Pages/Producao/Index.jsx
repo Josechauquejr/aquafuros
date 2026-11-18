@@ -1,6 +1,6 @@
 import { Head, router, useForm } from "@inertiajs/react";
 import { Droplets, Gauge, Layers, MapPin, Save, Search, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
 import CabecalhoLista from "@/Components/CabecalhoLista";
@@ -12,6 +12,7 @@ import SeletorMes from "@/Components/SeletorMes";
 import StatusBadge from "@/Components/StatusBadge";
 import GraficoSerie, { formatarCompacto } from "@/Components/charts/GraficoSerie";
 import { cn, formatVolume } from "@/lib/utils";
+import useAbrirNovo from "@/hooks/useAbrirNovo";
 
 const pct = (v) => (v === null || v === undefined ? "—" : `${Number(v).toLocaleString("pt-PT", { maximumFractionDigits: 1 })}%`);
 const LIMITE = 30;
@@ -33,6 +34,8 @@ export default function Index({ mesReferencia, registos, perdas, zonas, historic
     const sistema = useForm({ mes, ano, zona_id: "", volume_m3: "" });
     const [aGuardar, setAGuardar] = useState(false);
     const [erros, setErros] = useState({});
+    const registoRef = useRef(null);
+    useAbrirNovo(() => registoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
 
     const termo = texto.trim().toLowerCase();
     const linhas = zonas
@@ -105,7 +108,7 @@ export default function Index({ mesReferencia, registos, perdas, zonas, historic
                     </span>
                 </AnimatedPanel>
 
-                <AnimatedPanel className="overflow-hidden">
+                <AnimatedPanel ref={registoRef} id="formulario-producao" className="overflow-hidden">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8ECF4] px-6 py-5 dark:border-slate-800">
                         <h2 className="text-lg font-bold text-ink dark:text-[#F2F5FB]">Registar a água captada</h2>
                         <div role="radiogroup" aria-label="Registar por" className="inline-flex gap-1.5 rounded-[14px] border border-slate-200 p-1.5 dark:border-slate-800">

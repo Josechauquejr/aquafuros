@@ -324,6 +324,7 @@ const colunasPara = (mesCiclo) => [
         chave: "nome",
         titulo: "Cliente",
         ordenavel: true,
+        skeletonWidth: "w-40",
         render: (cliente) => (
             <Link href={`/clientes/${cliente.numero_cliente}`} className="flex flex-col text-ink no-underline dark:text-[#F2F5FB]">
                 <strong className="text-[15px]">{cliente.nome}</strong>
@@ -331,10 +332,10 @@ const colunasPara = (mesCiclo) => [
             </Link>
         ),
     },
-    { chave: "zona", titulo: "Zona", render: (cliente) => cliente.zona?.nome ?? cliente.bairro ?? <span className="text-slate-400">—</span> },
-    { chave: "divida", titulo: "Saldo", ordenavel: true, render: (cliente) => <Divida cliente={cliente} /> },
-    { chave: "leitura", titulo: `Leitura de ${MESES_LONGOS[(mesCiclo?.mes ?? 1) - 1]}`, render: (cliente) => <LeituraDoMes cliente={cliente} /> },
-    { chave: "estado", titulo: "Estado", ordenavel: true, render: (cliente) => <EstadoCliente cliente={cliente} /> },
+    { chave: "zona", titulo: "Zona", skeletonWidth: "w-24", render: (cliente) => cliente.zona?.nome ?? cliente.bairro ?? <span className="text-slate-400">—</span> },
+    { chave: "divida", titulo: "Saldo", ordenavel: true, skeletonWidth: "w-20", render: (cliente) => <Divida cliente={cliente} /> },
+    { chave: "leitura", titulo: `Leitura de ${MESES_LONGOS[(mesCiclo?.mes ?? 1) - 1]}`, skeletonWidth: "w-16", render: (cliente) => <LeituraDoMes cliente={cliente} /> },
+    { chave: "estado", titulo: "Estado", ordenavel: true, skeletonWidth: "w-20", render: (cliente) => <EstadoCliente cliente={cliente} /> },
 ];
 
 const cartaoCliente = (cliente) => (

@@ -4,7 +4,11 @@
 
 @layer base {
     html {
-        @apply bg-slate-100 text-ink dark:bg-slate-950 dark:text-slate-100;
+        @apply bg-slate-100 text-ink dark:text-slate-100;
+    }
+
+    html.dark {
+        background-color: #000000;
     }
 
     /* Trava o scroll horizontal da página inteira — qualquer tabela ou
@@ -16,14 +20,17 @@
     }
 
     body {
-        @apply bg-slate-100 text-ink antialiased transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100;
+        @apply bg-slate-100 text-ink antialiased transition-colors duration-300 dark:text-slate-100;
+    }
+
+    html.dark body {
+        background-color: #000000;
     }
 }
 
 /* Tokens do shadcn ligados à paleta do redesenho (ver tailwind.config.js):
    claro = página #EDF1F8, cartões brancos, primária #041A53, secundária #0059FF;
-   escuro = página #0B0D12 → menu #12151C → cartões #161A22 → campos #1E232D
-   → menus/diálogos #262C38, bordas #2A3140. */
+   escuro = página #000000 → cartões e campos #030303. */
 @layer base {
     :root {
         --background: 218 44% 95%;
@@ -62,37 +69,37 @@
     }
 
     .dark {
-        --background: 223 24% 6%;
+        --background: 0 0% 0%;
         --foreground: 220 53% 97%;
-        --card: 220 21% 11%;
+        --card: 0 0% 1.2%;
         --card-foreground: 220 53% 97%;
-        --popover: 220 19% 18%;
+        --popover: 0 0% 1.2%;
         --popover-foreground: 220 53% 97%;
         --primary: 219 100% 50%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 220 20% 15%;
+        --secondary: 0 0% 1.2%;
         --secondary-foreground: 220 53% 97%;
-        --muted: 220 20% 15%;
+        --muted: 0 0% 1.2%;
         --muted-foreground: 222 26% 73%;
         --accent: 220 64% 16%;
         --accent-foreground: 220 53% 97%;
         --destructive: 6 80% 78%;
         --destructive-foreground: 223 24% 6%;
-        --border: 221 21% 21%;
-        --input: 221 21% 21%;
+        --border: 0 0% 10%;
+        --input: 0 0% 1.2%;
         --ring: 218 100% 72%;
         --chart-1: 218 100% 72%;
         --chart-2: 147 49% 66%;
         --chart-3: 38 83% 72%;
         --chart-4: 6 80% 78%;
         --chart-5: 222 100% 81%;
-        --sidebar-background: 222 22% 9%;
+        --sidebar-background: 0 0% 0%;
         --sidebar-foreground: 219 37% 85%;
         --sidebar-primary: 219 100% 50%;
         --sidebar-primary-foreground: 0 0% 100%;
         --sidebar-accent: 220 64% 16%;
         --sidebar-accent-foreground: 0 0% 100%;
-        --sidebar-border: 221 21% 21%;
+        --sidebar-border: 0 0% 10%;
         --sidebar-ring: 218 100% 72%;
     }
 
@@ -113,9 +120,9 @@
 
     .dark {
         --ilu-ink: #9DBBFF;
-        --ilu-paper: #1E232D;
-        --ilu-tint: #262C38;
-        --ilu-tint2: #1B3A85;
+        --ilu-paper: #030303;
+        --ilu-tint: #030303;
+        --ilu-tint2: #030303;
         --ilu-accent: #5C9BFF;
         --ilu-risk: #F4A39A;
         --ilu-risk-tint: rgba(244, 163, 154, 0.14);
@@ -134,10 +141,22 @@
         box-shadow: 0 0 0 4px rgb(0 89 255 / 0.18) !important;
     }
 
+    html.dark input:not([type="checkbox"]):not([type="radio"]):focus,
+    html.dark select:focus,
+    html.dark textarea:focus {
+        border-color: #6EA2FF !important;
+        box-shadow: 0 0 0 4px rgb(110 162 255 / 0.24) !important;
+    }
+
     button:focus-visible,
     a:focus-visible {
         outline: 3px solid rgb(0 89 255 / 0.45);
         outline-offset: 2px;
+    }
+
+    html.dark button:focus-visible,
+    html.dark a:focus-visible {
+        outline-color: #6EA2FF;
     }
 
     input[type="checkbox"],
@@ -158,6 +177,49 @@
 
 /* Formulários dentro de modais: campos mais altos e texto maior. */
 @layer components {
+    /* Adapta superfícies claras sem alterar a estrutura partilhada dos componentes. */
+    html.dark [class~="bg-white"] {
+        background-color: #030303 !important;
+    }
+
+    html.dark [class~="bg-slate-50"],
+    html.dark [class~="bg-slate-100"],
+    html.dark [class~="bg-[#F7F9FD]"],
+    html.dark [class~="bg-[#F7F9FF]"],
+    html.dark [class~="bg-[#EEF2FA]"],
+    html.dark [class~="bg-[#EEF3FF]"] {
+        background-color: #060606 !important;
+    }
+
+    html.dark [class~="hover:bg-slate-50"]:hover,
+    html.dark [class~="hover:bg-slate-100"]:hover,
+    html.dark [class~="focus-visible:bg-slate-50"]:focus-visible {
+        background-color: #101010 !important;
+    }
+
+    html.dark [class~="border-slate-200"],
+    html.dark [class~="border-slate-100"],
+    html.dark [class~="border-[#DDE2EE]"],
+    html.dark [class~="border-[#E8ECF4]"] {
+        border-color: #161616 !important;
+    }
+
+    /* Tons exactos do tema escuro para a página e superfícies interactivas. */
+    html.dark [class~="dark:bg-slate-950"],
+    html.dark [class~="dark:bg-[#070D1B]"],
+    html.dark [class~="dark:bg-[#0B1220]"],
+    html.dark [class~="dark:bg-[#12151C]"] {
+        background-color: #000000 !important;
+    }
+
+    html.dark [class~="dark:bg-slate-900"],
+    html.dark [class~="dark:bg-[#1E232D]"],
+    html.dark [class~="dark:bg-[#161A22]"],
+    html.dark [class~="dark:bg-[#262C38]"],
+    html.dark [class~="dark:bg-[#252B36]"] {
+        background-color: #030303 !important;
+    }
+
     /* Mantém o scroll da navegação sem mostrar a barra. */
     [data-sidebar="content"] {
         scrollbar-width: none;

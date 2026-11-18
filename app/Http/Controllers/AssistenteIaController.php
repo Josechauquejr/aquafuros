@@ -12,6 +12,7 @@ use Illuminate\Validation\ValidationException;
 class AssistenteIaController extends Controller
 {
     private const INSTRUCOES = <<<'TXT'
+        Sê breve e objectiva: responde em uma ou duas frases curtas. Não repitas a pergunta nem acrescentes instruções genéricas. Não digas para abrir uma página quando já houver um botão para isso. Só apresenta passos quando a pessoa pedir um procedimento.
         És a Aqua, uma assistente de operações da plataforma Aquafuros, usada por equipas de abastecimento de água em Moçambique.
         Responde sempre em português de Moçambique, de forma clara, humana, directa e sem jargão desnecessário.
 
@@ -110,12 +111,23 @@ class AssistenteIaController extends Controller
                 $conteudoFinal = json_encode($payloadFinal, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
                 try {
                     $respostaFinal = Gemini::json('chat_assistente_resultado', self::INSTRUCOES, $conteudoFinal, self::ESQUEMA, $request->user()?->id);
-                    $resposta = array_merge($respostaFinal, ['consulta_card' => $consultaExecutada['consulta_card'] ?? null]);
+                    if (empty($consultaExecutada['consulta_card']['registos'])) {
+                        $consultaCard = null;
+                    } else {
+                        $consultaCard = $consultaExecutada['consulta_card'];
+                    }
+                    $resposta = array_merge($respostaFinal, ['consulta_card' => $consultaCard]);
+                    if (empty($consultaCard)) $resposta['mensagem'] = self::mensagemSemResultados($consultaExecutada['contexto_consulta'] ?? []);
+                    $resposta['passos'] = [];
+                    $resposta['evidencias'] = [];
                 } catch (IaIndisponivel) {
-                    $resposta['mensagem'] = self::mensagemConsultaFallback($consultaExecutada['contexto_consulta'] ?? []);
+                    $semResultados = empty($consultaExecutada['consulta_card']['registos']);
+                    $resposta['mensagem'] = $semResultados
+                        ? self::mensagemSemResultados($consultaExecutada['contexto_consulta'] ?? [])
+                        : self::mensagemConsultaFallback($consultaExecutada['contexto_consulta'] ?? []);
                     $resposta['evidencias'] = [];
                     $resposta['passos'] = [];
-                    $resposta['consulta_card'] = $consultaExecutada['consulta_card'] ?? null;
+                    $resposta['consulta_card'] = $semResultados ? null : ($consultaExecutada['consulta_card'] ?? null);
                 }
             }
         } catch (IaIndisponivel $e) {
@@ -129,7 +141,11 @@ class AssistenteIaController extends Controller
             $mensagem = 'Não consegui responder com os indicadores disponíveis. Confirma os dados na página actual.';
         }
 
-        $acoesPedidas = $resposta['acoes'] ?? [];
+        $acoesPedidas = is_array($resposta['acoes'] ?? null) ? $resposta['acoes'] : [];
+        $entidadeConsultada = $consultaExecutada['contexto_consulta']['entidade'] ?? null;
+        if ($entidadeConsultada) {
+            array_unshift($acoesPedidas, $entidadeConsultada);
+        }
 
         return response()->json([
             'resposta' => [
@@ -211,10 +227,23 @@ class AssistenteIaController extends Controller
     {
         $resumo = $consulta['resumo'] ?? [];
         $total = $resumo['clientes'] ?? $resumo['facturas'] ?? $resumo['pagamentos'] ?? $resumo['leituras'] ?? $resumo['ocorrencias'] ?? $resumo['zonas'] ?? $resumo['registos'] ?? 0;
-        $entidade = $consulta['entidade'] ?? 'registos';
         if ($total === 0) return 'Não encontrei registos que correspondam ao pedido.';
-        if ($entidade === 'cobranca') return sprintf('Encontrei %d clientes com facturas vencidas, %d facturas e saldo vencido total de %s MT.', $resumo['clientes'] ?? 0, $resumo['facturas'] ?? 0, number_format((float) ($resumo['saldo_vencido'] ?? 0), 2, ',', ' '));
-        return "Encontrei {$total} registos de {$entidade}. Consulte a lista abaixo.";
+        return "Encontrei {$total} registos.";
+    }
+
+    private static function mensagemSemResultados(array $consulta): string
+    {
+        $nomes = [
+            'clientes' => 'clientes', 'facturas' => 'facturas', 'cobranca' => 'devedores',
+            'pagamentos' => 'pagamentos', 'leituras' => 'leituras', 'ocorrencias' => 'ocorrências',
+            'zonas' => 'zonas', 'producao' => 'registos de produção',
+        ];
+        $nome = $nomes[$consulta['entidade'] ?? ''] ?? 'registos';
+        $periodo = $consulta['periodo'] ?? null;
+
+        return $periodo
+            ? "Não encontrei {$nome} para {$periodo}."
+            : "Não encontrei {$nome} com esses critérios.";
     }
 
     private static function listaTexto(mixed $valor): array

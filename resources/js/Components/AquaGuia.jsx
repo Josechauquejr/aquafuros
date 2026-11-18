@@ -62,7 +62,7 @@ const SUGESTOES = [
     "Quantos clientes estão cortados?",
 ];
 const BOAS_VINDAS =
-    "Olá! Sou a Aqua. Posso ajudar com indicadores de várias áreas. A conversa acompanha-o enquanto navega.";
+    "Aqua aqui. Como posso ajudar?";
 
 function mensagensIniciais() {
     return [{ id: "boas-vindas", papel: "assistant", texto: BOAS_VINDAS }];
@@ -1562,9 +1562,13 @@ export default function AquaGuia() {
                                             (() => {
                                                 const card =
                                                     item.resposta.consulta_card;
+                                                const temAccaoAbrir = item.resposta.acoes?.some(
+                                                    (acao) => acao.url?.split("?")[0] === card.url,
+                                                );
                                                 const resumo = Object.entries(
                                                     card.resumo ?? {},
                                                 )
+                                                    .filter(([, valor]) => valor !== 0 && valor !== null)
                                                     .map(
                                                         ([chave, valor]) =>
                                                             `${chave.replaceAll("_", " ")}: ${typeof valor === "number" ? new Intl.NumberFormat("pt-MZ", { maximumFractionDigits: 2 }).format(valor) : valor}`,
@@ -1625,7 +1629,8 @@ export default function AquaGuia() {
                                                                 estes critérios.
                                                             </p>
                                                         )}
-                                                        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
+                                                        {card.total_paginas > 1 && (
+                                                            <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
                                                             <SecondaryButton
                                                                 type="button"
                                                                 disabled={
@@ -1671,8 +1676,9 @@ export default function AquaGuia() {
                                                                 Seguinte
                                                                 <ChevronRight className="h-3.5 w-3.5" />
                                                             </SecondaryButton>
-                                                        </div>
-                                                        <PrimaryButton
+                                                            </div>
+                                                        )}
+                                                        {!temAccaoAbrir && <PrimaryButton
                                                             type="button"
                                                             onClick={() =>
                                                                 router.visit(
@@ -1687,7 +1693,7 @@ export default function AquaGuia() {
                                                             />
                                                             Abrir{" "}
                                                             {card.titulo.toLocaleLowerCase()}
-                                                        </PrimaryButton>
+                                                        </PrimaryButton>}
                                                     </div>
                                                 );
                                             })()}

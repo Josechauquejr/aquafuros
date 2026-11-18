@@ -649,7 +649,11 @@ export default function Index({
             {
                 rotulo: "Imprimir / PDF",
                 icone: Printer,
-                href: (ids) => `/facturas/imprimir-lote?ids=${ids.join(",")}`,
+                href: (ids) => {
+                    const params = new URLSearchParams();
+                    params.set("ids", ids.map((id) => String(id)).join(","));
+                    return `/facturas/imprimir-lote?${params.toString()}`;
+                },
                 target: "_blank",
             },
         ],

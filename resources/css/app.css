@@ -8,7 +8,7 @@
     }
 
     html.dark {
-        background-color: #000000;
+        background-color: #0B0D12;
     }
 
     /* Trava o scroll horizontal da página inteira — qualquer tabela ou
@@ -24,13 +24,14 @@
     }
 
     html.dark body {
-        background-color: #000000;
+        background-color: #0B0D12;
     }
 }
 
 /* Tokens do shadcn ligados à paleta do redesenho (ver tailwind.config.js):
    claro = página #EDF1F8, cartões brancos, primária #041A53, secundária #0059FF;
-   escuro = página #000000 → cartões e campos #030303. */
+   escuro = página #0B0D12 → menu #12151C → cartões #161A22
+   → campos #1E232D → menus/diálogos #262C38. */
 @layer base {
     :root {
         --background: 218 44% 95%;
@@ -69,38 +70,38 @@
     }
 
     .dark {
-        --background: 0 0% 0%;
-        --foreground: 220 53% 97%;
-        --card: 0 0% 1.2%;
-        --card-foreground: 220 53% 97%;
-        --popover: 0 0% 1.2%;
-        --popover-foreground: 220 53% 97%;
-        --primary: 219 100% 50%;
+        --background: 222.8571 24.1379% 5.6863%;
+        --foreground: 220 52.9412% 96.6667%;
+        --card: 220 21.4286% 10.9804%;
+        --card-foreground: 220 52.9412% 96.6667%;
+        --popover: 220 19.1489% 18.4314%;
+        --popover-foreground: 220 52.9412% 96.6667%;
+        --primary: 219.0588 100% 50%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 0 0% 1.2%;
-        --secondary-foreground: 220 53% 97%;
-        --muted: 0 0% 1.2%;
-        --muted-foreground: 222 26% 73%;
-        --accent: 220 64% 16%;
-        --accent-foreground: 220 53% 97%;
+        --secondary: 222 21.7391% 9.0196%;
+        --secondary-foreground: 220 52.9412% 96.6667%;
+        --muted: 222 21.7391% 9.0196%;
+        --muted-foreground: 221.6667 26.087% 72.9412%;
+        --accent: 220 19.1489% 18.4314%;
+        --accent-foreground: 220 52.9412% 96.6667%;
         --destructive: 6 80% 78%;
-        --destructive-foreground: 223 24% 6%;
-        --border: 0 0% 10%;
-        --input: 0 0% 1.2%;
-        --ring: 218 100% 72%;
-        --chart-1: 218 100% 72%;
+        --destructive-foreground: 222.8571 24.1379% 5.6863%;
+        --border: 220.9091 20.7547% 20.7843%;
+        --input: 220 20% 14.7059%;
+        --ring: 218.4828 100% 71.5686%;
+        --chart-1: 219.0588 100% 50%;
         --chart-2: 147 49% 66%;
         --chart-3: 38 83% 72%;
         --chart-4: 6 80% 78%;
         --chart-5: 222 100% 81%;
-        --sidebar-background: 0 0% 0%;
+        --sidebar-background: 222 21.7391% 9.0196%;
         --sidebar-foreground: 219 37% 85%;
-        --sidebar-primary: 219 100% 50%;
+        --sidebar-primary: 219.0588 100% 50%;
         --sidebar-primary-foreground: 0 0% 100%;
-        --sidebar-accent: 220 64% 16%;
+        --sidebar-accent: 220 19.1489% 18.4314%;
         --sidebar-accent-foreground: 0 0% 100%;
-        --sidebar-border: 0 0% 10%;
-        --sidebar-ring: 218 100% 72%;
+        --sidebar-border: 220.9091 20.7547% 20.7843%;
+        --sidebar-ring: 218.4828 100% 71.5686%;
     }
 
     /* Cores das ilustrações (Components/Ilustracao.jsx). */
@@ -120,16 +121,16 @@
 
     .dark {
         --ilu-ink: #9DBBFF;
-        --ilu-paper: #030303;
-        --ilu-tint: #030303;
-        --ilu-tint2: #030303;
-        --ilu-accent: #5C9BFF;
+        --ilu-paper: #161A22;
+        --ilu-tint: #1E232D;
+        --ilu-tint2: #262C38;
+        --ilu-accent: #6EA2FF;
         --ilu-risk: #F4A39A;
-        --ilu-risk-tint: rgba(244, 163, 154, 0.14);
+        --ilu-risk-tint: transparent;
         --ilu-ok: #7DD3A3;
-        --ilu-ok-tint: rgba(46, 160, 99, 0.16);
+        --ilu-ok-tint: transparent;
         --ilu-warn: #F3C77A;
-        --ilu-warn-tint: rgba(243, 199, 122, 0.14);
+        --ilu-warn-tint: transparent;
     }
 
     /* Foco: borda azul + anel de 4px (campos); contorno de 3px (botões/links). */
@@ -169,17 +170,69 @@
         font-variant-numeric: tabular-nums;
     }
 
-    /* Sem sombras pretas no escuro: a elevação faz-se com luz. */
-    .dark .shadow-sm {
-        box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+    /* No escuro, a elevação vem de uma linha de luz subtil, sem sombra preta. */
+    .dark .shadow-sm,
+    .dark .shadow-md,
+    .dark .shadow-lg,
+    .dark .shadow-xl {
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
     }
 }
 
 /* Formulários dentro de modais: campos mais altos e texto maior. */
 @layer components {
-    /* Adapta superfícies claras sem alterar a estrutura partilhada dos componentes. */
+    /* Densidade compacta do conteúdo: reduz área vazia sem diminuir a leitura. */
+    .shell-cabecalho {
+        padding-top: 1.5rem !important;
+    }
+
+    .shell-conteudo [class~="gap-6"] {
+        gap: 1.25rem !important;
+    }
+
+    .shell-conteudo [class~="gap-[22px]"] {
+        gap: 1.125rem !important;
+    }
+
+    .shell-conteudo [class~="p-6"] {
+        padding: 1.25rem !important;
+    }
+
+    .shell-conteudo [class~="px-6"] {
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
+    }
+
+    .shell-conteudo [class~="py-5"] {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+
+    @media (min-width: 768px) {
+        .shell-conteudo [class~="min-h-[44px]"] {
+            min-height: 40px !important;
+        }
+
+        .shell-conteudo [class~="min-h-[48px]"] {
+            min-height: 44px !important;
+        }
+
+        .shell-conteudo [class~="text-[28px]"] {
+            font-size: 1.5rem !important;
+        }
+
+        .shell-conteudo [class~="sm:text-4xl"] {
+            font-size: 1.875rem !important;
+        }
+
+        .shell-conteudo [class~="px-5"][class~="py-3.5"] {
+            padding: 0.625rem 1rem !important;
+        }
+    }
+
+    /* Adapta as superfícies do light mode à escala neutra de grafite. */
     html.dark [class~="bg-white"] {
-        background-color: #030303 !important;
+        background-color: #161A22 !important;
     }
 
     html.dark [class~="bg-slate-50"],
@@ -188,28 +241,33 @@
     html.dark [class~="bg-[#F7F9FF]"],
     html.dark [class~="bg-[#EEF2FA]"],
     html.dark [class~="bg-[#EEF3FF]"] {
-        background-color: #060606 !important;
+        background-color: #12151C !important;
     }
 
     html.dark [class~="hover:bg-slate-50"]:hover,
     html.dark [class~="hover:bg-slate-100"]:hover,
     html.dark [class~="focus-visible:bg-slate-50"]:focus-visible {
-        background-color: #101010 !important;
+        background-color: #262C38 !important;
     }
 
     html.dark [class~="border-slate-200"],
     html.dark [class~="border-slate-100"],
     html.dark [class~="border-[#DDE2EE]"],
     html.dark [class~="border-[#E8ECF4]"] {
-        border-color: #161616 !important;
+        border-color: #2A3140 !important;
     }
 
-    /* Tons exactos do tema escuro para a página e superfícies interactivas. */
+    /* Classes escuras existentes passam a usar o nível correspondente da paleta. */
     html.dark [class~="dark:bg-slate-950"],
     html.dark [class~="dark:bg-[#070D1B]"],
     html.dark [class~="dark:bg-[#0B1220]"],
+    html.dark [class~="dark:bg-[#000000]"],
+    html.dark [class~="dark:bg-[#0B0D12]"] {
+        background-color: #0B0D12 !important;
+    }
+
     html.dark [class~="dark:bg-[#12151C]"] {
-        background-color: #000000 !important;
+        background-color: #12151C !important;
     }
 
     html.dark [class~="dark:bg-slate-900"],
@@ -217,7 +275,62 @@
     html.dark [class~="dark:bg-[#161A22]"],
     html.dark [class~="dark:bg-[#262C38]"],
     html.dark [class~="dark:bg-[#252B36]"] {
-        background-color: #030303 !important;
+        background-color: #161A22 !important;
+    }
+
+    html.dark [class~="dark:bg-[#1E232D]"] {
+        background-color: #1E232D !important;
+    }
+
+    html.dark [class~="dark:bg-[#262C38]"],
+    html.dark [class~="dark:bg-[#252B36]"],
+    html.dark [class~="dark:bg-slate-800"],
+    html.dark [class~="dark:bg-white/[0.06]"] {
+        background-color: #262C38 !important;
+    }
+
+    html.dark [class~="dark:bg-white/[0.02]"],
+    html.dark [class~="dark:bg-white/[0.03]"],
+    html.dark [class~="dark:bg-white/[0.04]"] {
+        background-color: #12151C !important;
+    }
+
+    html.dark [class~="dark:bg-cyan-500"] {
+        background-color: #0059FF !important;
+    }
+
+    html.dark [class~="dark:hover:bg-cyan-600"]:hover {
+        background-color: #0047CC !important;
+    }
+
+    html.dark [class~="dark:hover:bg-cyan-400"]:hover {
+        background-color: #0047CC !important;
+    }
+
+    html.dark [class~="dark:border-slate-800"],
+    html.dark [class~="dark:border-slate-700"] {
+        border-color: #2A3140 !important;
+    }
+
+    html.dark input:not([type="checkbox"]):not([type="radio"]),
+    html.dark select,
+    html.dark textarea {
+        background-color: #1E232D;
+        border-color: #2A3140;
+        color: #F2F5FB;
+    }
+
+    html.dark [class~="dark:text-slate-400"] {
+        color: #A8B3CC !important;
+    }
+
+    html.dark [class~="dark:text-cyan-300"],
+    html.dark [class~="dark:text-cyan-400"] {
+        color: #6EA2FF !important;
+    }
+
+    html.dark [class~="dark:text-slate-950"] {
+        color: #FFFFFF !important;
     }
 
     /* Mantém o scroll da navegação sem mostrar a barra. */
@@ -275,7 +388,39 @@
         display: none !important;
     }
 
+    .a4-preview-size {
+        width: auto !important;
+        height: auto !important;
+        margin: 0 !important;
+    }
+
+    .documento-a4 {
+        transform: none !important;
+    }
+
     [data-slot="sidebar-inset"] {
         background: #fff !important;
     }
+}
+
+/* A factura A4 é papel de saída: mantém as cores claras mesmo dentro do tema escuro. */
+html.dark .documento-papel {
+    color-scheme: light;
+    background-color: #FFFFFF !important;
+    color: #030923;
+    border-color: #DDE2EE !important;
+}
+
+html.dark .documento-papel [class~="bg-white"] {
+    background-color: #FFFFFF !important;
+}
+
+html.dark .documento-papel [class~="border-slate-200"],
+html.dark .documento-papel [class~="border-[#DDE2EE]"],
+html.dark .documento-papel [class~="border-[#E8ECF4]"] {
+    border-color: #DDE2EE !important;
+}
+
+html.dark .documento-papel [class~="text-slate-600"] {
+    color: #475569 !important;
 }

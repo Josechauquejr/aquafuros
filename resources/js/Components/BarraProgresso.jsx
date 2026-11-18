@@ -11,12 +11,12 @@ export default function BarraProgresso({ pct = 0, cor = "azul", className = "h-1
     const valor = Math.max(0, Math.min(100, Number(pct) || 0));
     return (
         <div
-            className={cn("overflow-hidden rounded-full", fundo, className)}
+            className={cn("overflow-hidden rounded-[10px]", fundo, className)}
             role={rotulo ? "img" : undefined}
             aria-label={rotulo}
             aria-hidden={rotulo ? undefined : true}
         >
-            <div className={cn("h-full w-full rounded-full", GRADIENTES[cor] ?? GRADIENTES.azul)} style={{ clipPath: `inset(0 calc(100% - ${valor}%) 0 0 round 99px)` }} />
+            <div className={cn("h-full w-full rounded-[10px]", GRADIENTES[cor] ?? GRADIENTES.azul)} style={{ clipPath: `inset(0 calc(100% - ${valor}%) 0 0 round 10px)` }} />
         </div>
     );
 }

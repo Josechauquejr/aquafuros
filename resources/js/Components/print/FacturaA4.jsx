@@ -13,7 +13,7 @@ function LinhaValor({ descricao, valor, destaque = false }) {
     </tr>;
 }
 
-export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, qrUrl }) {
+export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, qrUrl, paperRef, style }) {
     const { empresa } = usePage().props;
     const estado = estadoDocumento(factura);
     const resumo = resumoDocumento(factura);
@@ -21,10 +21,10 @@ export default function FacturaA4({ factura, primeiraLeitura, consumoAnterior, q
     const estimada = factura.tipo === "consumo_estimado";
     const tarifa = factura.cliente?.tarifa;
     const ligacao = factura.tipo === "ligacao";
-    const prazo = factura.data_vencimento ? new Date(factura.data_vencimento).toLocaleDateString("pt-PT", { day: "2-digit", month: "long", year: "numeric" }) : null;
+    const prazo = factura.data_vencimento ? formatDate(factura.data_vencimento) : null;
 
     return (
-        <article className="mx-auto w-full max-w-[210mm] space-y-2.5 border border-slate-200 bg-white p-[12mm] text-[14px] leading-snug text-ink shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+        <article ref={paperRef} className="documento-papel documento-a4 mx-auto w-[210mm] max-w-none space-y-2.5 border border-slate-200 bg-white p-[12mm] text-[14px] leading-snug text-ink shadow-sm print:w-full print:max-w-none print:border-0 print:p-0 print:shadow-none" style={{ ...style, printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
             <CabecalhoDocumento textoMaior empresa={empresa} titulo="Factura" numero={factura.numero_factura} estado={estado.label} estadoClasses={estado.classes} />
             <section className="grid grid-cols-[1.2fr_1fr] gap-[18px]" style={{ breakInside: "avoid" }}>
                 <div className="rounded-[12px] border border-[#DDE2EE] px-4 py-3">

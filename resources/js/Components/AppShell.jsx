@@ -243,14 +243,14 @@ function MenuLateral({ groups, casa }) {
     const activa = paginaActiva(groups, url);
 
     return (
-        <Sidebar collapsible="icon" animateOnHover={false} className="border-r-0 shadow-[1px_0_0_#E1E7F3,10px_0_30px_rgba(4,26,83,0.06)] dark:shadow-[1px_0_0_#2A3140]">
+        <Sidebar collapsible="icon" animateOnHover={false} className="!border-r-0 !shadow-none">
             <SidebarHeader className="px-3.5 pb-0 pt-5">
-                <Link href={casa} className="flex items-center gap-3 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+                <Link href={casa} className="flex items-start gap-3 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
                     <MarcaAquafuros className="h-[38px] w-[38px]" />
-                    <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-                        <span className="truncate text-xl font-bold leading-tight text-ink dark:text-[#F2F5FB]">{empresa?.nome ?? "Aquafuros"}</span>
+                    <span className="flex min-w-0 flex-1 flex-col whitespace-normal group-data-[collapsible=icon]:hidden">
+                        <span className="break-words text-lg font-bold leading-tight text-ink dark:text-[#F2F5FB]">{empresa?.nome ?? "Aquafuros"}</span>
                         {empresa?.localizacao ? (
-                            <span className="truncate text-xs text-slate-500 dark:text-slate-400">{empresa.localizacao}</span>
+                            <span className="break-words text-xs leading-snug text-slate-500 dark:text-slate-400">{empresa.localizacao}</span>
                         ) : null}
                     </span>
                 </Link>
@@ -272,7 +272,7 @@ function MenuLateral({ groups, casa }) {
                 </nav>
             </SidebarContent>
 
-            <SidebarFooter className="mx-3.5 mb-2 border-t border-[#E8ECF4] px-0 pt-3 dark:border-slate-800">
+            <SidebarFooter className="mx-3.5 mb-2 !border-t-0 px-0 pt-3">
                 <MenuConta />
             </SidebarFooter>
         </Sidebar>
@@ -441,6 +441,7 @@ export default function AppShell({ groups, casa, header, children, accoesNovo = 
     const [cabecalho, setCabecalho] = useState(null);
     const [urlCarregamento, setUrlCarregamento] = useState(null);
     const url = pagina.url;
+    const mostrarNavbarPainel = url.split(/[?#]/, 1)[0] === "/dashboard";
 
     useEffect(() => {
         const pararInicio = router.on("start", (evento) => {
@@ -474,40 +475,49 @@ export default function AppShell({ groups, casa, header, children, accoesNovo = 
             <SidebarInset
                 id="conteudo-principal"
                 tabIndex={-1}
-                className="min-w-0 bg-slate-100 text-ink focus-visible:outline-none dark:bg-[#000000] dark:text-slate-100"
+                className="min-w-0 bg-slate-100 text-ink focus-visible:outline-none dark:bg-[#0B0D12] dark:text-slate-100"
             >
-                <div className="shell-topo sticky top-0 z-40 flex flex-wrap items-center gap-3 border-b border-[#DDE2EE] bg-white px-4 py-3 sm:px-8 sm:py-4 dark:border-[#263650] dark:bg-[#000000]">
-                    <SidebarTrigger
-                        className="size-11 shrink-0 rounded-md border border-[#DDE2EE] dark:border-slate-800 md:hidden"
-                        aria-label="Abrir menu"
-                    />
-                    {pesquisa ? <Pesquisa pesquisa={pesquisa} /> : <div className="flex-1" />}
-                    <div className="flex shrink-0 items-center gap-2">
-                        {lerQr && (
-                            <Link
-                                href="/ler-qr"
-                                aria-label="Ler QR code"
-                                title="Ler QR code"
-                                className="flex h-11 w-11 items-center justify-center rounded-md border border-[#DDE2EE] bg-white text-ink hover:bg-slate-50 dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB] dark:hover:bg-[#262C38]"
-                            >
-                                <QrCode className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
-                            </Link>
-                        )}
-                        <PageHelp url={url} />
-                        <MenuNovo accoes={accoesNovo} />
+                {mostrarNavbarPainel ? (
+                    <div className="shell-topo sticky top-0 z-40 flex flex-wrap items-center gap-3 border-b border-[#DDE2EE] bg-white px-4 py-3 sm:px-8 sm:py-4 dark:border-[#2A3140] dark:bg-[#161A22]">
+                        <SidebarTrigger
+                            className="size-11 shrink-0 rounded-md border border-[#DDE2EE] dark:border-slate-800 md:hidden"
+                            aria-label="Abrir menu"
+                        />
+                        {pesquisa ? <Pesquisa pesquisa={pesquisa} /> : <div className="flex-1" />}
+                        <div className="flex shrink-0 items-center gap-2">
+                            {lerQr && (
+                                <Link
+                                    href="/ler-qr"
+                                    aria-label="Ler QR code"
+                                    title="Ler QR code"
+                                    className="flex h-11 w-11 items-center justify-center rounded-md border border-[#DDE2EE] bg-white text-ink hover:bg-slate-50 dark:border-slate-800 dark:bg-[#1E232D] dark:text-[#F2F5FB] dark:hover:bg-[#262C38]"
+                                >
+                                    <QrCode className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+                                </Link>
+                            )}
+                            <PageHelp url={url} />
+                            <MenuNovo accoes={accoesNovo} />
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="flex px-4 pt-3 md:hidden">
+                        <SidebarTrigger
+                            className="size-10 shrink-0 rounded-md border border-[#DDE2EE] bg-white dark:border-[#2A3140] dark:bg-[#161A22]"
+                            aria-label="Abrir menu"
+                        />
+                    </div>
+                )}
 
                 <AvisoSemLigacao />
 
                 {/* Título da página (vem de cada página). Escondido enquanto vazio. */}
                 <header className="has-[>div:empty]:hidden">
-                    <div ref={setCabecalho} className="mx-auto max-w-7xl px-4 pb-2 pt-8 sm:px-6 lg:px-8">
+                    <div ref={setCabecalho} className="shell-cabecalho mx-auto max-w-7xl px-4 pb-2 pt-8 sm:px-6 lg:px-8">
                         {urlCarregamento ? <PageLoadingSkeleton url={urlCarregamento} headerOnly /> : header}
                     </div>
                 </header>
 
-                <div className="flex-1 pb-10 pt-4">
+                <div className="shell-conteudo flex-1 pb-10 pt-8">
                     <CabecalhoContext.Provider value={cabecalho}>
                         {urlCarregamento ? <PageLoadingSkeleton url={urlCarregamento} bodyOnly /> : children}
                     </CabecalhoContext.Provider>

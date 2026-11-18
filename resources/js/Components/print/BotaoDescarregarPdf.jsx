@@ -15,11 +15,17 @@ export default function BotaoDescarregarPdf({ alvoRef, nomeFicheiro, formato }) 
         if (!alvoRef.current || aGerar) return;
 
         setAGerar(true);
+        const transformOriginal = alvoRef.current.style.transform;
         try {
+            // A pré-visualização A4 usa escala visual; o PDF deve capturar a
+            // folha na dimensão original para conservar nitidez e paginação.
+            alvoRef.current.style.transform = "none";
+            await new Promise((resolver) => requestAnimationFrame(resolver));
             await baixarElementoComoPdf(alvoRef.current, nomeFicheiro, formato);
         } catch (erro) {
             console.error("Falha ao gerar o PDF:", erro);
         } finally {
+            if (alvoRef.current) alvoRef.current.style.transform = transformOriginal;
             setAGerar(false);
         }
     };

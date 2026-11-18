@@ -65,7 +65,7 @@ export default function BulkBar({ total, acoes, ids, onCancelar }) {
                                     <Componente
                                         key={accao.rotulo}
                                         whileTap={{ scale: 0.975 }}
-                                        className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-white px-3.5 text-sm font-bold text-brand transition-colors hover:bg-cyan-50"
+                                        className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-white px-3.5 text-sm font-bold text-brand transition-colors hover:bg-cyan-50 dark:bg-[#1E232D] dark:text-[#F2F5FB] dark:hover:bg-[#262C38]"
                                         {...props}
                                     >
                                         {Icone && <Icone className="h-4 w-4" aria-hidden="true" />}

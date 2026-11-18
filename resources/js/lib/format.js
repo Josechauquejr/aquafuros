@@ -27,20 +27,24 @@ export function formatVolume(value) {
     return `${formatNumero(value, 2)}${NBSP}m³`;
 }
 
-const opcoesData = { day: "2-digit", month: "2-digit", year: "numeric" };
+const mesesAbreviados = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+function partesData(data) {
+    return `${data.getDate()} ${mesesAbreviados[data.getMonth()]} ${data.getFullYear()}`;
+}
 
 export function formatDate(value) {
     if (!value) return "—";
     const data = new Date(value);
     if (Number.isNaN(data.getTime())) return "—";
-    return data.toLocaleDateString("pt-PT", opcoesData);
+    return partesData(data);
 }
 
 export function formatDateTime(value) {
     if (!value) return "—";
     const data = new Date(value);
     if (Number.isNaN(data.getTime())) return "—";
-    return `${data.toLocaleDateString("pt-PT", opcoesData)} às ${data.toLocaleTimeString("pt-PT", {
+    return `${partesData(data)} às ${data.toLocaleTimeString("pt-PT", {
         hour: "2-digit",
         minute: "2-digit",
     })}`;

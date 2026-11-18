@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\LixeiraController;
 use App\Http\Controllers\Admin\LogController;
+use App\Http\Controllers\AssistenteIaController;
 use App\Http\Controllers\AjusteLeituraController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CaixaDashboardController;
@@ -64,6 +65,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::post('/novidades/vista', [NovidadeController::class, 'vista'])->name('novidades.vista');
+
+    // Assistente consultivo contextual: apenas papéis que operam o ciclo da água.
+    Route::post('/assistente/perguntar', [AssistenteIaController::class, 'perguntar'])
+        ->middleware(['role:administrador|gestor|caixa|tecnico', 'throttle:10,1'])
+        ->name('assistente.perguntar');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

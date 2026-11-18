@@ -158,6 +158,16 @@
 
 /* Formulários dentro de modais: campos mais altos e texto maior. */
 @layer components {
+    /* Mantém o scroll da navegação sem mostrar a barra. */
+    [data-sidebar="content"] {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    [data-sidebar="content"]::-webkit-scrollbar {
+        display: none;
+    }
+
     .page-help-card {
         transition: transform 160ms ease, box-shadow 160ms ease;
     }

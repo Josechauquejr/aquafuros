@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import PageHelp from "@/Components/PageHelp";
+import AquaGuia from "@/Components/AquaGuia";
 import {
     Sidebar,
     SidebarContent,
@@ -11,7 +12,6 @@ import {
     SidebarHeader,
     SidebarInset,
     SidebarProvider,
-    SidebarRail,
     SidebarTrigger,
     useSidebar,
 } from "@/Components/animate-ui/components/radix/sidebar";
@@ -274,7 +274,6 @@ function MenuLateral({ groups, casa }) {
             <SidebarFooter className="mx-3.5 mb-2 border-t border-[#E8ECF4] px-0 pt-3 dark:border-slate-800">
                 <MenuConta />
             </SidebarFooter>
-            <SidebarRail />
         </Sidebar>
     );
 }
@@ -436,29 +435,12 @@ function AvisoSemLigacao() {
     );
 }
 
-export default function AppShell({ groups, casa, chaveRecolhido, header, children, accoesNovo = [], pesquisa = null, lerQr = false }) {
+export default function AppShell({ groups, casa, header, children, accoesNovo = [], pesquisa = null, lerQr = false }) {
     const pagina = usePage();
     const [cabecalho, setCabecalho] = useState(null);
     const url = pagina.url;
-    const [aberta, setAberta] = useState(() => {
-        try {
-            return localStorage.getItem(chaveRecolhido) !== "1";
-        } catch {
-            return true;
-        }
-    });
-
-    const alterar = (valor) => {
-        setAberta(valor);
-        try {
-            localStorage.setItem(chaveRecolhido, valor ? "0" : "1");
-        } catch {
-            // ignora falha ao persistir a preferência
-        }
-    };
-
     return (
-        <SidebarProvider open={aberta} onOpenChange={alterar}>
+        <SidebarProvider open={true} onOpenChange={() => {}}>
             <a
                 href="#conteudo-principal"
                 className="fixed left-4 top-[-4rem] z-[100] rounded-md bg-brand px-4 py-3 text-sm font-semibold text-white shadow-lg transition-[top] focus:top-4"
@@ -476,8 +458,8 @@ export default function AppShell({ groups, casa, chaveRecolhido, header, childre
             >
                 <div className="shell-topo sticky top-0 z-40 flex flex-wrap items-center gap-3 border-b border-[#DDE2EE] bg-white px-4 py-3 sm:px-8 sm:py-4 dark:border-slate-800 dark:bg-[#12151C]">
                     <SidebarTrigger
-                        className="size-11 shrink-0 rounded-md border border-[#DDE2EE] dark:border-slate-800"
-                        aria-label="Abrir ou recolher o menu"
+                        className="size-11 shrink-0 rounded-md border border-[#DDE2EE] dark:border-slate-800 md:hidden"
+                        aria-label="Abrir menu"
                     />
                     {pesquisa ? <Pesquisa pesquisa={pesquisa} /> : <div className="flex-1" />}
                     <div className="flex shrink-0 items-center gap-2">
@@ -509,6 +491,7 @@ export default function AppShell({ groups, casa, chaveRecolhido, header, childre
                     <CabecalhoContext.Provider value={cabecalho}>{children}</CabecalhoContext.Provider>
                 </div>
             </SidebarInset>
+            <AquaGuia />
         </SidebarProvider>
     );
 }

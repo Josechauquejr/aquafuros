@@ -66,23 +66,41 @@ class Gemini
             throw new IaIndisponivel("Atingiu o limite de {$limite} pedidos à IA por hoje.");
         }
 
-        $modelo = config('services.gemini.model');
+        $modelos = array_values(array_unique(array_filter([
+            config('services.gemini.model'),
+            config('services.gemini.model_reserva'),
+        ])));
         $inicio = microtime(true);
-        $registo = ['user_id' => $userId, 'funcionalidade' => $funcionalidade, 'modelo' => $modelo];
+        $resposta = null;
+        $ultimoErro = null;
 
-        try {
-            $resposta = Http::withHeaders(['x-goog-api-key' => config('services.gemini.key')])
-                ->timeout(config('services.gemini.timeout'))
-                ->retry(2, 1000, fn ($e) => $e instanceof \Illuminate\Http\Client\ConnectionException
-                    || in_array($e->response?->status(), [429, 500, 503], true), throw: false)
-                ->post(sprintf(self::URL, $modelo), array_filter([
-                    'systemInstruction' => ['parts' => [['text' => $instrucoes]]],
-                    'contents' => [['role' => 'user', 'parts' => [['text' => $conteudo]]]],
-                    'generationConfig' => $config ?: null,
-                ]));
-        } catch (Throwable $e) {
-            self::registar($registo, $inicio, null, false, $e->getMessage());
-            throw new IaIndisponivel('Não foi possível contactar a IA. Verifique a ligação e tente novamente.', previous: $e);
+        foreach ($modelos as $indice => $modelo) {
+            $registo = ['user_id' => $userId, 'funcionalidade' => $funcionalidade, 'modelo' => $modelo];
+
+            try {
+                $resposta = Http::withHeaders(['x-goog-api-key' => config('services.gemini.key')])
+                    ->timeout(config('services.gemini.timeout'))
+                    ->retry(2, 1000, fn ($e) => $e instanceof \Illuminate\Http\Client\ConnectionException
+                        || in_array($e->response?->status(), [429, 500, 503], true), throw: false)
+                    ->post(sprintf(self::URL, $modelo), array_filter([
+                        'systemInstruction' => ['parts' => [['text' => $instrucoes]]],
+                        'contents' => [['role' => 'user', 'parts' => [['text' => $conteudo]]]],
+                        'generationConfig' => $config ?: null,
+                    ]));
+            } catch (Throwable $e) {
+                $ultimoErro = $e;
+                if (isset($modelos[$indice + 1])) {
+                    continue;
+                }
+                self::registar($registo, $inicio, null, false, $e->getMessage());
+                throw new IaIndisponivel('Não foi possível contactar a IA. Verifique a ligação e tente novamente.', previous: $e);
+            }
+
+            if ($resposta->failed() && in_array($resposta->status(), [404, 429, 500, 503], true) && isset($modelos[$indice + 1])) {
+                continue;
+            }
+
+            break;
         }
 
         if ($resposta->failed()) {

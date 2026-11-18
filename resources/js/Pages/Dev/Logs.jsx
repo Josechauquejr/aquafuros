@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import DevLayout from "@/Layouts/DevLayout";
 import AnimatedPanel from "@/Components/AnimatedPanel";
+import MascoteAqua from "@/Components/MascoteAqua";
 import { Campo, Campos, Destaque, Destaques, MaisDetalhes } from "@/Components/DataTable/Detalhe";
 import useCartaoDeLinha, { linhaClicavel } from "@/Components/DataTable/useCartaoDeLinha";
 import IconButton from "@/Components/IconButton";
@@ -39,12 +40,13 @@ function ExplicacaoIa({ erro, disponivel }) {
     if (!disponivel && !explicacao) return null;
 
     return (
-        <section className="mt-5 rounded-lg border border-slate-200 p-4 dark:border-slate-700" aria-busy={aGerar}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-ink dark:text-white">
-                    <Sparkles className="h-4 w-4 text-sky-600 dark:text-sky-400" aria-hidden="true" />
-                    Explicação da IA
-                </h3>
+        <section className="mt-5 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700" aria-busy={aGerar}>
+            <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-[#F7F9FD] p-4 dark:border-slate-700 dark:bg-[#1E232D]">
+                <MascoteAqua pequeno />
+                <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-ink dark:text-white">Aqua explica</h3>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Leitura do erro e do código associado. Sem executar alterações.</p>
+                </div>
                 {disponivel && (
                     <button
                         type="button"
@@ -53,19 +55,19 @@ function ExplicacaoIa({ erro, disponivel }) {
                         className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                         {aGerar ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />}
-                        {aGerar ? "A analisar…" : explicacao ? "Explicar de novo" : "Explicar com IA"}
+                        {aGerar ? "A analisar…" : explicacao ? "Analisar de novo" : "Analisar erro"}
                     </button>
                 )}
             </div>
 
             {!explicacao && !aGerar && (
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="p-4 text-sm text-muted-foreground">
                     A IA lê o erro, o rasto e o código à volta da linha, e explica a causa provável e como resolver.
                 </p>
             )}
 
             {explicacao && (
-                <div className={cn("mt-3 space-y-3 text-sm text-slate-700 dark:text-slate-300", aGerar && "opacity-50")}>
+                <div className={cn("space-y-3 p-4 text-sm text-slate-700 dark:text-slate-300", aGerar && "opacity-50")}>
                     <div className="flex flex-wrap gap-2">
                         {GRAVIDADE[explicacao.gravidade] && <StatusBadge tone={GRAVIDADE[explicacao.gravidade].tom}>{GRAVIDADE[explicacao.gravidade].texto}</StatusBadge>}
                         {explicacao.afecta_dados && <StatusBadge tone="rose">Pode ter afectado dados</StatusBadge>}

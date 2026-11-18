@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\EmpresaPerfil;
 use App\Support\Alertas;
 use App\Support\CicloMes;
+use App\Support\IA\Gemini;
 use App\Support\Novidades;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -48,6 +49,9 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'roles' => $user?->getRoleNames() ?? [],
             ],
+            'assistenteDisponivel' => fn () => $user
+                && $user->hasAnyRole(['administrador', 'gestor', 'caixa', 'tecnico'])
+                && Gemini::disponivel(),
             'emailAtivo' => (bool) config('services.email.enabled', false),
             // Identidade da empresa (nome/NUIT/localização/logotipo) — usada
             // como padrão do sistema (ex.: cabeçalho de facturas/recibos),

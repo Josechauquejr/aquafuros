@@ -138,15 +138,15 @@
     select:focus,
     textarea:focus {
         outline: none;
-        border-color: #0059FF !important;
-        box-shadow: 0 0 0 4px rgb(0 89 255 / 0.18) !important;
+        border-color: #0059FF;
+        box-shadow: 0 0 0 4px rgb(0 89 255 / 0.18);
     }
 
     html.dark input:not([type="checkbox"]):not([type="radio"]):focus,
     html.dark select:focus,
     html.dark textarea:focus {
-        border-color: #6EA2FF !important;
-        box-shadow: 0 0 0 4px rgb(110 162 255 / 0.24) !important;
+        border-color: #6EA2FF;
+        box-shadow: 0 0 0 4px rgb(110 162 255 / 0.24);
     }
 
     button:focus-visible,

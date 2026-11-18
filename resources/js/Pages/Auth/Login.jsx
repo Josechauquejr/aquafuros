@@ -34,7 +34,7 @@ export default function Login() {
     };
 
     const campo = cn(
-        "flex min-h-[52px] items-center gap-2.5 rounded-md border bg-white px-3.5 text-slate-500 focus-within:border-cyan-500 focus-within:shadow-[0_0_0_4px_rgba(0,89,255,0.18)] dark:bg-[#1E232D] dark:text-slate-400",
+        "flex min-h-[52px] items-center gap-2.5 rounded-md border bg-white px-3.5 text-slate-500 focus-within:border-cyan-500 focus-within:shadow-[0_0_0_4px_rgba(0,89,255,0.18)] dark:bg-[#1E232D] dark:text-slate-400 dark:focus-within:border-[#6EA2FF] dark:focus-within:shadow-[0_0_0_4px_rgba(110,162,255,0.24)]",
         comErro ? "border-rose-600 dark:border-rose-300" : "border-[#DDE2EE] dark:border-slate-800",
         processing && "opacity-60",
     );

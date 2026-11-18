@@ -47,7 +47,10 @@ class ClienteController extends Controller
             'tarifa',
             'zona:id,nome',
             'facturas' => fn ($q) => $q->orderByDesc('ano')->orderByDesc('mes')->with('pagamentos'),
-            'pagamentos' => fn ($q) => $q->orderByDesc('created_at'),
+            // O modelo Pagamento traz imputacoes.factura por omissão para recibos.
+            // A lista só precisa dos campos do recibo; carregar essa árvore aqui
+            // duplicava facturas e pagamentos em todos os clientes da página.
+            'pagamentos' => fn ($q) => $q->without('imputacoes.factura')->orderByDesc('created_at'),
         ]);
 
         // Pesquisa difusa: nome, nº, bairro e telefone.

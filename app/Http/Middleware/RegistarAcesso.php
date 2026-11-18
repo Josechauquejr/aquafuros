@@ -5,7 +5,6 @@ namespace App\Http\Middleware;
 use App\Models\AcessoSistema;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -22,8 +21,8 @@ class RegistarAcesso
     public function handle(Request $request, Closure $next): Response
     {
         $request->attributes->set('_inicio_pedido', microtime(true));
-        DB::flushQueryLog();
-        DB::enableQueryLog();
+        $request->attributes->set('_tempo_bd_ms', 0);
+        $request->attributes->set('_consultas', 0);
 
         return $next($request);
     }
@@ -34,7 +33,7 @@ class RegistarAcesso
             if ($request->user()) {
                 $inicio = $request->attributes->get('_inicio_pedido');
                 $duracaoMs = $inicio ? (int) round((microtime(true) - $inicio) * 1000) : null;
-                $tempoBdMs = (int) round(collect(DB::getQueryLog())->sum('time'));
+                $tempoBdMs = (int) round($request->attributes->get('_tempo_bd_ms', 0));
 
                 AcessoSistema::create([
                     'user_id' => $request->user()->id,
@@ -48,7 +47,7 @@ class RegistarAcesso
                     'status_code' => $response->getStatusCode(),
                     'duracao_ms' => $duracaoMs,
                     'tempo_bd_ms' => $tempoBdMs,
-                    'consultas' => count(DB::getQueryLog()),
+                    'consultas' => $request->attributes->get('_consultas', 0),
                     'created_at' => now(),
                 ]);
             }
@@ -56,8 +55,5 @@ class RegistarAcesso
             // Nunca deixar uma falha ao registar o acesso afectar o pedido —
             // a resposta já foi enviada ao browser a esta altura.
         }
-
-        DB::flushQueryLog();
-        DB::disableQueryLog();
     }
 }

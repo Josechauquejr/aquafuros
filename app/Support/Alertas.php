@@ -6,6 +6,7 @@ use App\Models\Leitura;
 use App\Models\Notificacao;
 use App\Models\Ocorrencia;
 use App\Models\PromessaPagamento;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Lista "A precisar de atenção" dos painéis: só aparece o que tem alguma
@@ -18,6 +19,7 @@ class Alertas
 {
     public static function para(bool $incluirControlo): array
     {
+        return Cache::remember('alertas-painel.'.($incluirControlo ? 'admin' : 'gestor'), 45, function () use ($incluirControlo) {
         $risco = AnaliseRisco::risco();
         // "Este mês" é o mês de referência (dia 11 a dia 10), não o de calendário:
         // entre os dias 1 e 10 ainda se está no mês anterior.
@@ -79,5 +81,6 @@ class Alertas
         usort($alertas, fn ($a, $b) => ($a['nivel'] === 'alto' ? 0 : 1) <=> ($b['nivel'] === 'alto' ? 0 : 1));
 
         return $alertas;
+        });
     }
 }

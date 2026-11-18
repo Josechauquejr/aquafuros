@@ -222,6 +222,24 @@ class PagamentoController extends Controller
             return $normal ?? $comCredito;
         });
 
+        if ($request->expectsJson()) {
+            $factura->refresh();
+            return response()->json([
+                'pagamento' => [
+                    'id' => $principal->id,
+                    'numero_recibo' => $principal->numero_recibo,
+                    'valor_pago' => (float) $principal->valor_pago,
+                    'metodo_pagamento' => $principal->metodo_pagamento,
+                ],
+                'factura' => [
+                    'numero_factura' => $factura->numero_factura,
+                    'estado' => $factura->estado,
+                    'em_falta' => $factura->emFalta(),
+                ],
+                'recibo_url' => route('pagamentos.imprimir', $principal),
+            ]);
+        }
+
         // Vai directo para o recibo — evita o passo extra de procurar o
         // pagamento acabado de registar na lista.
         return redirect()->route('pagamentos.imprimir', $principal)

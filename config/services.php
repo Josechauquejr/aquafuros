@@ -30,7 +30,7 @@ return [
     // Sem GEMINI_API_KEY as funcionalidades de IA ficam escondidas.
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
-        'model' => env('GEMINI_MODEL', 'gemini-3.5-flash'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.8-flash'),
         'model_reserva' => env('GEMINI_MODEL_RESERVA'),
         'timeout' => (int) env('GEMINI_TIMEOUT', 60),
         // Máximo de pedidos por utilizador por dia (controlo de custo).

@@ -55,7 +55,18 @@ class Gemini
         return self::gerar($funcionalidade, $instrucoes, $conteudo, $userId);
     }
 
-    private static function gerar(string $funcionalidade, string $instrucoes, string $conteudo, ?int $userId, array $config = []): string
+    /** Transcribes a short voice message using the configured Gemini models. */
+    public static function transcreverAudio(string $audio, string $mimeType, ?int $userId = null): string
+    {
+        $prompt = 'Transcreva fielmente o áudio para texto em português de Moçambique. Preserve nomes, números e valores como foram falados. Devolva apenas a transcrição, sem introdução, comentários ou tradução.';
+
+        return self::gerar('transcricao_audio', $prompt, '', $userId, [], [
+            ['text' => $prompt],
+            ['inlineData' => ['mimeType' => $mimeType, 'data' => base64_encode($audio)]],
+        ]);
+    }
+
+    private static function gerar(string $funcionalidade, string $instrucoes, string $conteudo, ?int $userId, array $config = [], ?array $partes = null): string
     {
         if (! self::disponivel()) {
             throw new IaIndisponivel('A IA não está configurada (falta GEMINI_API_KEY).');
@@ -84,7 +95,7 @@ class Gemini
                         || in_array($e->response?->status(), [429, 500, 503], true), throw: false)
                     ->post(sprintf(self::URL, $modelo), array_filter([
                         'systemInstruction' => ['parts' => [['text' => $instrucoes]]],
-                        'contents' => [['role' => 'user', 'parts' => [['text' => $conteudo]]]],
+                        'contents' => [['role' => 'user', 'parts' => $partes ?? [['text' => $conteudo]]]],
                         'generationConfig' => $config ?: null,
                     ]));
             } catch (Throwable $e) {
@@ -109,8 +120,9 @@ class Gemini
             throw new IaIndisponivel(match ($resposta->status()) {
                 400 => 'A IA recusou o pedido: '.$detalhe,
                 401, 403 => 'A chave do Gemini é inválida ou não tem acesso.',
-                404 => "O modelo \"{$modelo}\" não existe. Ajuste GEMINI_MODEL.",
+                404 => "O modelo \"{$modelo}\" não está disponível para esta chave ou não existe. Verifique GEMINI_MODEL e o acesso à API.",
                 429 => 'A IA está sobrecarregada ou a quota acabou. Tente daqui a pouco.',
+                500, 503 => 'Os modelos Gemini estão temporariamente sobrecarregados. Tente novamente daqui a pouco.',
                 default => 'A IA respondeu com um erro. Tente novamente.',
             });
         }

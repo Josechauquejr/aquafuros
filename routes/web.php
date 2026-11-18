@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\LixeiraController;
 use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\AssistenteIaController;
+use App\Http\Controllers\AssistenteTarefasController;
 use App\Http\Controllers\AjusteLeituraController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CaixaDashboardController;
@@ -70,6 +71,37 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/assistente/perguntar', [AssistenteIaController::class, 'perguntar'])
         ->middleware(['role:administrador|gestor|caixa|tecnico', 'throttle:10,1'])
         ->name('assistente.perguntar');
+    Route::post('/assistente/transcrever-audio', [AssistenteIaController::class, 'transcreverAudio'])
+        ->middleware(['role:administrador|gestor|caixa|tecnico', 'throttle:5,1'])
+        ->name('assistente.transcrever-audio');
+    Route::prefix('assistente/tarefas')->middleware('throttle:30,1')->group(function () {
+        Route::post('/registos/pesquisar', [AssistenteTarefasController::class, 'pesquisarRegistos'])
+            ->middleware('role:administrador|gestor|caixa|tecnico')->name('assistente.tarefas.registos');
+        Route::post('/consulta/pagina', [AssistenteTarefasController::class, 'paginaConsulta'])
+            ->middleware('role:administrador|gestor|caixa|tecnico')->name('assistente.tarefas.consulta.pagina');
+        Route::middleware('role:administrador|gestor|caixa')->group(function () {
+            Route::post('/clientes', [AssistenteTarefasController::class, 'pesquisarClientes'])->name('assistente.tarefas.clientes');
+            Route::post('/cliente/facturas', [AssistenteTarefasController::class, 'facturasDoCliente'])->name('assistente.tarefas.cliente.facturas');
+            Route::post('/pagamento/prever', [AssistenteTarefasController::class, 'preverPagamento'])->name('assistente.tarefas.pagamento.prever');
+        });
+        Route::post('/cliente/resumo', [AssistenteTarefasController::class, 'resumoCliente'])
+            ->middleware('role:administrador|gestor')->name('assistente.tarefas.cliente.resumo');
+        Route::post('/cobranca/devedores', [AssistenteTarefasController::class, 'listarDevedores'])
+            ->middleware('role:administrador|gestor')->name('assistente.tarefas.cobranca.devedores');
+        Route::middleware('role:administrador|gestor|tecnico')->group(function () {
+            Route::post('/zonas/listar', [AssistenteTarefasController::class, 'listarZonasProducao'])->name('assistente.tarefas.zonas.producao');
+            Route::post('/producao/prever', [AssistenteTarefasController::class, 'preverProducao'])->name('assistente.tarefas.producao.prever');
+            Route::post('/producao/confirmar', [AssistenteTarefasController::class, 'confirmarProducao'])->name('assistente.tarefas.producao.confirmar');
+            Route::post('/ocorrencia/confirmar', [AssistenteTarefasController::class, 'criarOcorrencia'])->name('assistente.tarefas.ocorrencia.confirmar');
+        });
+        Route::middleware('role:administrador')->group(function () {
+            Route::post('/zona/confirmar', [AssistenteTarefasController::class, 'criarZona'])->name('assistente.tarefas.zona.confirmar');
+        });
+        Route::middleware('role:administrador|gestor')->group(function () {
+            Route::post('/leitura/prever', [AssistenteTarefasController::class, 'preverLeitura'])->name('assistente.tarefas.leitura.prever');
+            Route::post('/leitura/confirmar', [AssistenteTarefasController::class, 'confirmarLeitura'])->name('assistente.tarefas.leitura.confirmar');
+        });
+    });
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

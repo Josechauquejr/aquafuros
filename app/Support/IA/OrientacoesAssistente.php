@@ -35,10 +35,40 @@ class OrientacoesAssistente
                 'passos' => ['Na página Clientes, seleccione Novo cliente.', 'Preencha os dados da ligação e escolha a zona e a tarifa.', 'Confira o contador inicial e os dados de contacto antes de guardar.'],
             ];
             $guias['facturas'] = [
-                'passos' => ['Na página Facturas, filtre pelo período ou estado.', 'Abra uma factura para consultar consumo, multas, total e pagamentos.', 'Para facturar leituras, use o fluxo de facturação disponível na página e reveja a pré-visualização antes de confirmar.'],
+                'passos' => ['Na página Facturas, filtre pelo período ou estado.', 'Abra uma factura para consultar consumo, multas, total e pagamentos.'],
+            ];
+            $guias['facturacao'] = [
+                'accao' => 'Emitir factura',
+                'passos' => [
+                    'Facturar uma leitura: na página Leituras, confirme a leitura. Se o sistema perguntar "Deseja emitir a factura agora?", seleccione Emitir factura.',
+                    'Ou, na página Facturas, use a opção de emitir factura e escolha a leitura confirmada por facturar.',
+                    'Facturar o mês: na página Facturas, use Facturar mês (no mês actual) e seleccione Emitir facturas do mês.',
+                    'Reveja a factura antes de emitir. Depois de emitida, ela aparece na página Facturas.',
+                ],
+                'nota' => 'Só se factura uma leitura já confirmada. Para corrigir uma leitura já facturada, o administrador usa Corrigir leitura na página Leituras; a factura é recalculada.',
+            ];
+            $guias['relatorios'] = [
+                'accao' => 'Abrir relatórios',
+                'passos' => [
+                    'Na página Indicadores (relatórios), escolha o mês com o seletor de mês.',
+                    'Veja os sinais vitais e os separadores de análise do mês; compare com o mês anterior nos cartões.',
+                    'Para levar os dados para fora do sistema, seleccione Exportar: é descarregado um ficheiro CSV com as mesmas secções, pronto a abrir no Excel.',
+                ],
             ];
             $guias['cobranca'] = [
                 'passos' => ['Na página Cobrança, filtre e priorize as facturas vencidas.', 'Registe o contacto e o resultado, incluindo uma promessa de pagamento quando existir.', 'Actualize o acompanhamento depois de receber o pagamento.'],
+            ];
+        }
+
+        if ($user->hasRole('administrador')) {
+            $guias['zonas'] = [
+                'accao' => 'Criar zona',
+                'passos' => [
+                    'Na página Zonas, seleccione Nova zona.',
+                    'Escreva o nome da zona e seleccione Guardar.',
+                    'Para mudar o nome, use o botão de editar da zona. Para apagar, use o botão de apagar e confirme.',
+                ],
+                'nota' => 'As rondas de leitura seguem a divisão por zonas.',
             ];
         }
 

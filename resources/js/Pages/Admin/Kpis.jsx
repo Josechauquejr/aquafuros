@@ -119,7 +119,65 @@ function SinalVital({ titulo, valor, estado, detalhe, texto, link, progresso, ma
     );
 }
 
+const ROTULOS_FUNCIONALIDADE = {
+    chat_assistente: "Perguntas à Aqua",
+    chat_assistente_resultado: "Respostas com dados da Aqua",
+    transcricao_audio: "Transcrição de voz",
+    explicar_erro: "Explicação de erros",
+};
+
+function UsoIa({ uso }) {
+    const linhas = uso.porFuncionalidade ?? [];
+    const utilizadores = uso.porUtilizador ?? [];
+    const taxaFalhas = uso.total > 0 ? Math.round((uso.falhas / uso.total) * 100) : 0;
+
+    return (
+        <section aria-labelledby="uso-ia" className="flex flex-col gap-4">
+            <h2 id="uso-ia" className="text-lg font-bold text-ink dark:text-[#F2F5FB]">Uso da Aqua (últimos 30 dias)</h2>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <KpiCard label="Pedidos hoje" value={String(uso.hoje)} detail={`${uso.total} nos últimos 30 dias`} />
+                <KpiCard label="Falhas" value={String(uso.falhas)} detail={`${taxaFalhas}% dos pedidos`} tone={uso.falhas > 0 ? "amber" : "emerald"} />
+                <KpiCard label="Tokens usados" value={uso.tokens.toLocaleString("pt-PT")} detail="entrada + saída" />
+                <KpiCard label="Utilizadores que pedem" value={String(utilizadores.length)} detail="top 5 abaixo" />
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-xl border border-border bg-white p-5 dark:bg-slate-900">
+                    <h3 className="mb-3 text-sm font-semibold text-ink dark:text-[#F2F5FB]">Por funcionalidade</h3>
+                    {linhas.length === 0 ? (
+                        <p className="text-sm text-slate-500">Ainda não há pedidos à Aqua neste período.</p>
+                    ) : (
+                        <ul className="space-y-2 text-sm">
+                            {linhas.map((linha) => (
+                                <li key={linha.funcionalidade} className="flex justify-between gap-4">
+                                    <span className="text-slate-600 dark:text-slate-300">{ROTULOS_FUNCIONALIDADE[linha.funcionalidade] ?? linha.funcionalidade}</span>
+                                    <strong className="tabular-nums">{linha.total}</strong>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+                <div className="rounded-xl border border-border bg-white p-5 dark:bg-slate-900">
+                    <h3 className="mb-3 text-sm font-semibold text-ink dark:text-[#F2F5FB]">Quem mais pede</h3>
+                    {utilizadores.length === 0 ? (
+                        <p className="text-sm text-slate-500">Sem pedidos identificados neste período.</p>
+                    ) : (
+                        <ul className="space-y-2 text-sm">
+                            {utilizadores.map((item, indice) => (
+                                <li key={`${item.nome}-${indice}`} className="flex justify-between gap-4">
+                                    <span className="text-slate-600 dark:text-slate-300">{item.nome}</span>
+                                    <strong className="tabular-nums">{item.total}</strong>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            </div>
+        </section>
+    );
+}
+
 export default function Kpis({
+    usoIa = null,
     mes,
     anterior,
     homologo,
@@ -284,6 +342,8 @@ export default function Kpis({
 
             <div>
                 <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 sm:px-6 lg:px-8">
+                    {usoIa && <UsoIa uso={usoIa} />}
+
                     <section aria-labelledby="sinais" className="flex flex-col gap-4">
                         <h2 id="sinais" className="text-lg font-bold text-ink dark:text-[#F2F5FB]">Sinais vitais</h2>
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

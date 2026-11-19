@@ -7,6 +7,7 @@ use App\Models\Cliente;
 use App\Models\Factura;
 use App\Models\Leitura;
 use App\Models\Pagamento;
+use App\Models\PedidoIa;
 use App\Models\User;
 use App\Support\Alertas;
 use App\Support\AnaliseFinanceira;
@@ -50,9 +51,50 @@ class DashboardController extends Controller
         return Inertia::render('Admin/Kpis', [
             ...$this->dadosKpis($mesRef, $request->user()->hasRole('administrador')),
             'ehAdministrador' => $request->user()->hasRole('administrador'),
+            'usoIa' => $request->user()->hasRole('administrador') ? $this->usoIa() : null,
             'mesReferencia' => MesReferencia::paraSeletor($mesRef),
             'filtros' => MesReferencia::foiPedido($request) ? ['mes' => $mesRef->format('Y-m')] : [],
         ]);
+    }
+
+    /** Uso da Aqua/IA nos últimos 30 dias: volume, falhas, tokens e quem mais pede (para custos e diagnóstico). */
+    private function usoIa(): array
+    {
+        $base = PedidoIa::where('created_at', '>=', now()->subDays(30));
+
+        $totais = (clone $base)
+            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN sucesso = false THEN 1 ELSE 0 END) as falhas, COALESCE(SUM(tokens_entrada + tokens_saida), 0) as tokens')
+            ->first();
+
+        $porFuncionalidade = (clone $base)
+            ->selectRaw('funcionalidade, COUNT(*) as total')
+            ->groupBy('funcionalidade')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($linha) => ['funcionalidade' => $linha->funcionalidade, 'total' => (int) $linha->total])
+            ->values()
+            ->all();
+
+        $porUtilizador = (clone $base)
+            ->whereNotNull('user_id')
+            ->selectRaw('user_id, COUNT(*) as total')
+            ->groupBy('user_id')
+            ->orderByDesc('total')
+            ->limit(5)
+            ->with('user:id,name')
+            ->get()
+            ->map(fn ($linha) => ['nome' => $linha->user?->name ?? 'Utilizador removido', 'total' => (int) $linha->total])
+            ->values()
+            ->all();
+
+        return [
+            'total' => (int) ($totais->total ?? 0),
+            'hoje' => PedidoIa::where('created_at', '>=', now()->startOfDay())->count(),
+            'falhas' => (int) ($totais->falhas ?? 0),
+            'tokens' => (int) ($totais->tokens ?? 0),
+            'porFuncionalidade' => $porFuncionalidade,
+            'porUtilizador' => $porUtilizador,
+        ];
     }
 
     /** CSV da análise do mês — as mesmas secções da página de KPIs, pronto a abrir no Excel. */

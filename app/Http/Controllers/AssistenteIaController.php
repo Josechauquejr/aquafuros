@@ -122,9 +122,13 @@ class AssistenteIaController extends Controller
             'cliente_id' => ['sometimes', 'integer', 'exists:clientes,id'],
             'historico' => ['sometimes', 'array', 'max:8'],
             'historico.*.papel' => ['required', 'string', 'in:user,assistant'],
-            'historico.*.mensagem' => ['required', 'string', 'max:1200'],
+            // Mensagens que são só cartões podem chegar vazias: ignoram-se em vez de falhar.
+            'historico.*.mensagem' => ['nullable', 'string', 'max:1200'],
             'pagina' => ['sometimes', 'nullable', 'string', 'max:80'],
         ]);
+        $dados['historico'] = collect($dados['historico'] ?? [])
+            ->filter(fn (array $item) => filled($item['mensagem'] ?? null))
+            ->values()->all();
 
         if (isset($dados['cliente_id'])) {
             abort_unless($request->user()->hasAnyRole(['administrador', 'gestor']), 403);

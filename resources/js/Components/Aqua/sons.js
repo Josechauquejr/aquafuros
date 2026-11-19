@@ -69,6 +69,36 @@ export const somInicioVoz = () =>
         tom(audio, { de: 990, para: 1010, inicio: t + 0.11, duracao: 0.14, volume: 0.1 });
     });
 
+/** A Aqua lê a resposta em voz alta (síntese de voz do browser, em português). */
+export function falar(texto, aoTerminar) {
+    const sintese = window.speechSynthesis;
+    if (!sintese || !texto || !sonsLigados()) {
+        aoTerminar?.();
+        return;
+    }
+    sintese.cancel();
+    const frase = new SpeechSynthesisUtterance(texto);
+    const vozes = sintese.getVoices();
+    frase.voice = vozes.find((voz) => voz.lang === "pt-PT") ?? vozes.find((voz) => voz.lang?.startsWith("pt")) ?? null;
+    frase.lang = frase.voice?.lang ?? "pt-PT";
+    frase.rate = 1.05;
+    let terminou = false;
+    const fim = () => {
+        if (terminou) return;
+        terminou = true;
+        aoTerminar?.();
+    };
+    frase.onend = fim;
+    frase.onerror = fim;
+    // Alguns browsers nunca disparam "onend": a conversa não pode ficar presa.
+    window.setTimeout(fim, 2000 + texto.length * 85);
+    sintese.speak(frase);
+}
+
+export function pararDeFalar() {
+    window.speechSynthesis?.cancel();
+}
+
 /** Parou de ouvir: dois toques a descer. */
 export const somFimVoz = () =>
     tocar((audio, t) => {

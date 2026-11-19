@@ -323,7 +323,7 @@ function BarraInferiorMovel({ casa }) {
             temporizador.current = window.setTimeout(() => {
                 longo.current = true;
                 window.dispatchEvent(new CustomEvent("aqua:voz"));
-            }, 450);
+            }, 900);
         },
         onPointerUp: () => window.clearTimeout(temporizador.current),
         onPointerLeave: () => window.clearTimeout(temporizador.current),

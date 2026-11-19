@@ -477,3 +477,7 @@ html.dark .documento-papel [class~="text-slate-600"] {
 @media (prefers-reduced-motion: reduce){
     .mq *,.aqua-barra-voz,.aqua-girar{animation:none !important}
 }
+
+/* Anel que enche ao manter premida a mascote (abre a conversa por voz). */
+.aqua-anel{stroke-dashoffset:100;animation:aqua-anel .9s linear forwards}
+@keyframes aqua-anel{to{stroke-dashoffset:0}}

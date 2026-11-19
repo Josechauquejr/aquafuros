@@ -109,23 +109,45 @@ const FASES_VOZ = {
     ouvir: { humor: "ouvir", rotulo: "A OUVIR" },
     transcrever: { humor: "processar", rotulo: "A TRANSCREVER…" },
     pensar: { humor: "pensar", rotulo: "A PENSAR…" },
-    resposta: { humor: "ola", rotulo: "" },
+    falar: { humor: "ola", rotulo: "A RESPONDER…" },
+    resposta: { humor: "ola", rotulo: "TOQUE PARA FALAR" },
 };
 
+function OndaVoz({ aOuvir, nivel, pequena = false }) {
+    // As barras crescem com o volume da voz; fora da escuta ondulam suavemente.
+    const escala = (aOuvir ? 0.18 + Math.min(1, nivel) * 1.1 : 0.35) * (pequena ? 0.6 : 1);
+    return (
+        <div className={`flex items-center gap-1 ${pequena ? "h-8" : "h-12"}`} aria-hidden="true">
+            {(pequena ? ONDA_BASE.slice(4, 22) : ONDA_BASE).map((altura, indice) => (
+                <span
+                    key={indice}
+                    className={`w-1 rounded-full transition-[height] duration-75 ${aOuvir ? "" : "aqua-barra-voz"} ${indice < 20 ? "bg-[#6EA2FF]" : "bg-[#9DBBFF]/35"}`}
+                    style={{ height: Math.max(4, Math.round(altura * escala * (0.75 + ((indice * 37) % 10) / 20))), animationDelay: `${(indice % 7) * 0.12}s` }}
+                />
+            ))}
+        </div>
+    );
+}
+
 /**
- * Canvas "6 · Voz": uma conversa por voz no mesmo ecrã. A mascote ouve e as
- * ondas seguem o som real do microfone; ao silêncio pára sozinha, transcreve,
- * mostra o que percebeu e a resposta. O botão grande (76 px, lei de Fitts)
- * pára ou volta a ouvir.
+ * Canvas "6 · Voz": uma conversa por voz completa no mesmo ecrã. A mascote ouve
+ * (as ondas seguem o som real do microfone), pára ao silêncio, transcreve,
+ * responde aqui — em texto, cartões e em voz alta — e volta a ouvir. As trocas
+ * ficam encadeadas como uma conversa. O botão grande (76 px) pára ou fala.
  */
-export function EcraVoz({ fase, segundos, nivel = 0, titulo, subtitulo, transcricao, resposta, humorResposta, aviso, onParar, onFalar, onCancelar, onEscrever }) {
+export function EcraVoz({ fase, segundos, nivel = 0, titulo, subtitulo, conversa, humorResposta, aviso, onParar, onFalar, onCancelar, onEscrever }) {
     const config = FASES_VOZ[fase] ?? FASES_VOZ.ouvir;
     const minutos = Math.floor(segundos / 60);
     const resto = String(segundos % 60).padStart(2, "0");
     const aOuvir = fase === "ouvir";
-    const humor = fase === "resposta" ? (humorResposta ?? "ola") : config.humor;
-    // As barras crescem com o volume da voz; as da direita ficam mais suaves.
-    const escala = aOuvir ? 0.18 + Math.min(1, nivel) * 1.1 : 0.35;
+    const humor = ["resposta", "falar"].includes(fase) ? (humorResposta ?? "ola") : config.humor;
+    const lista = useRef(null);
+    const temConversa = Boolean(conversa?.length);
+
+    // A conversa desce sozinha para a troca mais recente.
+    useEffect(() => {
+        lista.current?.scrollTo({ top: lista.current.scrollHeight, behavior: "smooth" });
+    }, [conversa?.length, fase]);
 
     return (
         <div className="absolute inset-0 z-20 flex flex-col overflow-hidden bg-[#041A53] text-white dark:bg-[#0B0D12]">
@@ -139,36 +161,40 @@ export function EcraVoz({ fase, segundos, nivel = 0, titulo, subtitulo, transcri
                 </button>
             </div>
 
-            <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center gap-3.5 overflow-y-auto px-5 pb-4">
-                {!transcricao && (
+            {temConversa ? (
+                <>
+                    {/* As trocas da conversa por voz, como num chat. */}
+                    <div ref={lista} className="relative z-10 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-2 pt-1" aria-live="polite">
+                        {conversa}
+                        {aviso && <p className="rounded-2xl bg-[#FCEFD9] px-3.5 py-3 text-sm text-[#8A4F00]">{aviso}</p>}
+                    </div>
+                    <div className="relative z-10 flex shrink-0 items-center justify-center gap-3 px-5 pb-1 pt-2">
+                        <Mascote humor={humor} tamanho={56} sobreEscuro />
+                        <div className="flex flex-col items-start gap-0.5">
+                            <OndaVoz aOuvir={aOuvir} nivel={nivel} pequena />
+                            <span className="text-[11px] font-bold tracking-wide text-[#9DBBFF]">
+                                {config.rotulo}
+                                {aOuvir && ` · ${minutos}:${resto}`}
+                            </span>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center gap-3.5 overflow-y-auto px-5 pb-4">
                     <p className="self-stretch rounded-2xl bg-white/[0.08] px-3.5 py-3 text-sm leading-relaxed text-[#D6E2FF] dark:bg-[#161A22]">
-                        Pergunte ou diga o que aconteceu. Eu oiço, transcrevo e respondo aqui.
+                        Pergunte ou diga o que aconteceu. Eu oiço, respondo aqui e continuo a ouvir.
                     </p>
-                )}
-                <div className={fase === "resposta" ? "mt-1" : "mt-3"}>
-                    <Mascote humor={humor} tamanho={fase === "resposta" ? 96 : 168} sobreEscuro />
+                    <div className="mt-3">
+                        <Mascote humor={humor} tamanho={168} sobreEscuro />
+                    </div>
+                    <OndaVoz aOuvir={aOuvir} nivel={nivel} />
+                    <div className="text-[13px] font-bold tracking-wide text-[#9DBBFF]" aria-live="polite">
+                        {config.rotulo}
+                        {aOuvir && ` · ${minutos}:${resto}`}
+                    </div>
+                    {aviso && <p className="self-stretch rounded-2xl bg-[#FCEFD9] px-3.5 py-3 text-sm text-[#8A4F00]">{aviso}</p>}
                 </div>
-                {fase !== "resposta" && (
-                    <>
-                        <div className="flex h-12 items-center gap-1" aria-hidden="true">
-                            {ONDA_BASE.map((altura, indice) => (
-                                <span
-                                    key={indice}
-                                    className={`w-1 rounded-full transition-[height] duration-75 ${aOuvir ? "" : "aqua-barra-voz"} ${indice < 20 ? "bg-[#6EA2FF]" : "bg-[#9DBBFF]/35"}`}
-                                    style={{ height: Math.max(4, Math.round(altura * escala * (0.75 + ((indice * 37) % 10) / 20))), animationDelay: `${(indice % 7) * 0.12}s` }}
-                                />
-                            ))}
-                        </div>
-                        <div className="text-[13px] font-bold tracking-wide text-[#9DBBFF]" aria-live="polite">
-                            {config.rotulo}
-                            {aOuvir && ` · ${minutos}:${resto}`}
-                        </div>
-                    </>
-                )}
-                {transcricao && <p className="self-stretch text-center text-[19px] font-semibold leading-snug">“{transcricao}”</p>}
-                {aviso && <p className="self-stretch rounded-2xl bg-[#FCEFD9] px-3.5 py-3 text-sm text-[#8A4F00]">{aviso}</p>}
-                {fase === "resposta" && resposta && <div className="w-full rounded-[22px] bg-[#F4F6FB] p-3 text-left dark:bg-[#0B0D12]">{resposta}</div>}
-            </div>
+            )}
 
             <svg viewBox="0 0 390 120" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 bottom-0 h-[120px] w-full" aria-hidden="true">
                 <path d="M0 50 Q49 30 98 50 T195 50 T293 50 T390 50 V120 H0 Z" className="fill-[#0A2A78] dark:fill-[#10204A]" />
@@ -183,7 +209,7 @@ export function EcraVoz({ fase, segundos, nivel = 0, titulo, subtitulo, transcri
                         type="button"
                         onClick={onParar}
                         aria-label="Parar de ouvir"
-                        className="flex h-[76px] w-[76px] items-center justify-center rounded-full border-4 border-white/25 bg-white bg-clip-padding text-[#041A53] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6EA2FF]"
+                        className="flex h-[76px] w-[76px] items-center justify-center rounded-full border-4 border-white/25 bg-[#FFFFFF] bg-clip-padding text-[#041A53] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6EA2FF]"
                     >
                         <span className="h-6 w-6 rounded-[6px] bg-current" />
                     </button>
@@ -191,9 +217,9 @@ export function EcraVoz({ fase, segundos, nivel = 0, titulo, subtitulo, transcri
                     <button
                         type="button"
                         onClick={onFalar}
-                        disabled={fase !== "resposta"}
+                        disabled={!["resposta", "falar"].includes(fase)}
                         aria-label="Falar outra vez"
-                        className="flex h-[76px] w-[76px] items-center justify-center rounded-full border-4 border-white/25 bg-white bg-clip-padding text-[#041A53] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6EA2FF]"
+                        className="flex h-[76px] w-[76px] items-center justify-center rounded-full border-4 border-white/25 bg-[#FFFFFF] bg-clip-padding text-[#041A53] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6EA2FF]"
                     >
                         <Mic className="h-7 w-7" aria-hidden="true" />
                     </button>
@@ -206,22 +232,34 @@ export function EcraVoz({ fase, segundos, nivel = 0, titulo, subtitulo, transcri
     );
 }
 
+/** Tempo a manter premida a mascote para abrir a conversa por voz. */
+export const TEMPO_PREMIR_VOZ = 900;
+
 /**
- * Botão flutuante com a mascote (desktop). Mostra no máximo uma sugestão
- * contextual de cada vez, sempre dispensável — nunca pressão nem urgência.
+ * Botão flutuante com a mascote (desktop). Tocar abre o chat; manter premido
+ * (0,9 s, com um anel a encher) abre a conversa por voz em ecrã inteiro.
+ * A mascote mostra o estado — a processar enquanto espera uma resposta e a
+ * expressão da resposta quando há uma notificação por ver.
+ * Mostra no máximo uma sugestão contextual, sempre dispensável.
  */
-export function Lancador({ aberto, onAbrir, onFalar, sugestao, onAceitar, onDispensar, accionadorRef, pendente = false }) {
-    // Toque abre o chat; manter premido (0,45 s) abre a conversa por voz em ecrã inteiro.
+export function Lancador({ aberto, onAbrir, onFalar, sugestao, onAceitar, onDispensar, accionadorRef, pendente = false, humor = "ola" }) {
     const temporizador = useRef(null);
     const longo = useRef(false);
-    const premir = () => {
+    const [aPremir, setAPremir] = useState(false);
+    const premir = (evento) => {
+        if (evento.button !== undefined && evento.button !== 0) return;
         longo.current = false;
+        setAPremir(true);
         temporizador.current = window.setTimeout(() => {
             longo.current = true;
+            setAPremir(false);
             onFalar?.();
-        }, 450);
+        }, TEMPO_PREMIR_VOZ);
     };
-    const largar = () => window.clearTimeout(temporizador.current);
+    const largar = () => {
+        window.clearTimeout(temporizador.current);
+        setAPremir(false);
+    };
     return (
         <div className="pointer-events-none fixed bottom-6 right-6 z-[64] hidden items-end gap-3.5 md:flex">
             {sugestao && !aberto && (
@@ -248,6 +286,7 @@ export function Lancador({ aberto, onAbrir, onFalar, sugestao, onAceitar, onDisp
                 onPointerDown={premir}
                 onPointerUp={largar}
                 onPointerLeave={largar}
+                onPointerCancel={largar}
                 onContextMenu={(evento) => evento.preventDefault()}
                 onClick={() => {
                     if (longo.current) {
@@ -256,13 +295,18 @@ export function Lancador({ aberto, onAbrir, onFalar, sugestao, onAceitar, onDisp
                     }
                     onAbrir();
                 }}
-                aria-label={aberto ? "Fechar a Aqua" : "Abrir a Aqua (Ctrl + K). Mantenha premido para falar"}
+                aria-label={aberto ? "Fechar a Aqua" : pendente ? "Abrir a Aqua (tem uma resposta por ver). Mantenha premido para falar" : "Abrir a Aqua. Mantenha premido para falar"}
                 aria-expanded={aberto}
                 aria-controls="aqua-guia"
                 title="Toque para abrir · mantenha premido para falar"
-                className="pointer-events-auto relative flex h-[72px] w-[72px] items-center justify-center rounded-3xl bg-[#041A53] shadow-[0_14px_32px_rgba(4,26,83,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6EA2FF] dark:shadow-[0_14px_32px_rgba(0,0,0,0.5)]"
+                className="pointer-events-auto relative flex h-[72px] w-[72px] select-none [-webkit-touch-callout:none] items-center justify-center rounded-3xl bg-[#041A53] shadow-[0_14px_32px_rgba(4,26,83,0.35)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#6EA2FF] dark:shadow-[0_14px_32px_rgba(0,0,0,0.5)]"
             >
-                <Mascote humor={sugestao && !aberto ? "ideia" : "ola"} tamanho={64} sobreEscuro />
+                <Mascote humor={aPremir ? "ouvir" : humor} tamanho={64} sobreEscuro />
+                {aPremir && (
+                    <svg className="pointer-events-none absolute -inset-[5px] h-[82px] w-[82px]" viewBox="0 0 82 82" aria-hidden="true">
+                        <rect x="2.5" y="2.5" width="77" height="77" rx="27" fill="none" stroke="#6EA2FF" strokeWidth="4" pathLength="100" strokeDasharray="100" className="aqua-anel" />
+                    </svg>
+                )}
                 {(sugestao || pendente) && !aberto && <span className="absolute -right-1 -top-1 flex h-[22px] min-w-[22px] items-center justify-center rounded-full border-[3px] border-[#EDF1F8] bg-[#D98A00] px-1 text-[11px] font-extrabold text-white dark:border-[#0B0D12]">1</span>}
             </button>
         </div>

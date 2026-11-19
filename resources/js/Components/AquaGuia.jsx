@@ -1,5 +1,5 @@
 import { ArrowUp, Expand, History, MessageSquarePlus, Mic, Shrink, Trash2, Volume2, VolumeX, X } from "lucide-react";
-import { definirSons, somFimVoz, somGota, somInicioVoz, sonsLigados } from "@/Components/Aqua/sons";
+import { definirSons, falar, pararDeFalar, somFimVoz, somGota, somInicioVoz, sonsLigados } from "@/Components/Aqua/sons";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
@@ -50,8 +50,58 @@ const SUGESTOES_DE_PAGINA = {
     "/ocorrencias": { texto: "Posso registar uma ocorrência consigo, até por voz.", tarefa: "nova_ocorrencia", aceitar: "Começar" },
 };
 
+/** Resumo em texto de um cartão de tarefa, para o histórico enviado à IA. */
+function resumoDoCartao(cartao) {
+    if (!cartao) return "";
+    switch (cartao.tipo) {
+        case "contexto_leitura":
+            return `Leitura de ${cartao.contexto?.cliente?.nome ?? "cliente"}; leitura anterior ${cartao.contexto?.ultima?.valor ?? cartao.contexto?.leitura_inicial ?? 0} m³.`;
+        case "distribuicao_pagamento":
+            return `Pagamento de ${formatMoney(cartao.distribuicao?.valor ?? 0)} repartido por ${cartao.distribuicao?.parcelas?.length ?? 0} facturas; fica em aberto ${formatMoney(cartao.distribuicao?.fica_em_aberto ?? 0)}.`;
+        case "previa_pagamento":
+            return `Prévia do pagamento de ${formatMoney(cartao.previa?.valor_pago ?? 0)}.`;
+        case "previa_leitura":
+            return `Prévia da leitura: consumo de ${cartao.previa?.plano?.consumo_novo ?? 0} m³.`;
+        case "factura":
+            return `Leitura gravada e factura ${cartao.factura?.numero ?? ""} emitida.`;
+        case "pagamento":
+            return `Pagamento registado (recibo ${cartao.pagamento?.numero_recibo ?? ""}).`;
+        case "ocorrencia_previa":
+            return `Prévia da ocorrência: ${cartao.descricao ?? ""}`;
+        case "escolher_mes":
+            return "A escolher o mês.";
+        default:
+            return "";
+    }
+}
+
+/** O que a Aqua diz em voz alta numa resposta (curto e sem símbolos). */
+function textoParaFalar(mensagem) {
+    const cartao = mensagem.resposta?.cartao;
+    let texto;
+    if (cartao?.tipo === "numero") {
+        const unidade = cartao.unidade === "MT" ? "meticais" : (cartao.unidade ?? "");
+        texto = `${cartao.titulo}: ${cartao.valor} ${unidade}. ${cartao.variacao?.texto ?? ""}`;
+    } else if (cartao?.tipo === "lista") {
+        texto = cartao.intro ?? `${cartao.titulo}: ${cartao.itens.slice(0, 3).map((item) => item.titulo).join(", ")}.`;
+    } else if (cartao?.tipo === "vazio") {
+        texto = `${cartao.titulo}. ${cartao.texto ?? ""}`;
+    } else {
+        texto = textoDoAssistente(mensagem);
+    }
+    return String(texto)
+        .replace(/·/g, ",")
+        .replace(/%/g, " por cento")
+        .replace(/\bMT\b/g, "meticais")
+        .replace(/m³/g, "metros cúbicos")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 400);
+}
+
 function textoDoAssistente(mensagem) {
-    if (typeof mensagem.texto === "string") return mensagem.texto;
+    if (typeof mensagem.texto === "string" && mensagem.texto.trim()) return mensagem.texto;
+    if (mensagem.tarefaCard) return resumoDoCartao(mensagem.tarefaCard);
     const resposta = mensagem.resposta;
     const destaque = resposta?.destaque ? `${resposta.destaque.rotulo}: ${resposta.destaque.valor}${resposta.destaque.variacao ? ` (${resposta.destaque.variacao})` : ""}` : null;
     return [destaque, resposta?.mensagem, ...(resposta?.evidencias ?? []), ...(resposta?.passos ?? [])]
@@ -170,6 +220,12 @@ export default function AquaGuia({ groups = [] }) {
     vozAbertaRef.current = vozAberta;
     // Resposta que chegou com o chat fechado (cartão junto ao botão flutuante).
     const [notificacao, setNotificacao] = useState(null);
+    // Conversa por voz contínua: onde começou, o que já foi lido e se está a falar.
+    const [aFalarVoz, setAFalarVoz] = useState(false);
+    const vozInicioRef = useRef(0);
+    const faladoRef = useRef(null);
+    const tarefaRef = useRef(null);
+    tarefaRef.current = tarefa;
 
     const fechar = () => {
         setAberto(false);
@@ -893,15 +949,15 @@ export default function AquaGuia({ groups = [] }) {
     const enviar = async (texto = pergunta) => {
         const mensagem = texto.trim();
         if (!mensagem || aEnviar) return;
+        // Só entradas com texto: mensagens que são só cartões ficam resumidas ou de fora.
         const historico = mensagens
-            .filter(
-                (item) => item.papel === "user" || item.papel === "assistant",
-            )
-            .slice(-8)
+            .filter((item) => item.papel === "user" || item.papel === "assistant")
             .map((item) => ({
                 papel: item.papel === "user" ? "user" : "assistant",
-                mensagem: textoDoAssistente(item).slice(0, 1200),
-            }));
+                mensagem: String(textoDoAssistente(item) ?? "").trim().slice(0, 1200),
+            }))
+            .filter((item) => item.mensagem !== "")
+            .slice(-8);
         const utilizador = {
             id: `${Date.now()}-user`,
             papel: "user",
@@ -1306,7 +1362,14 @@ export default function AquaGuia({ groups = [] }) {
                 }
             };
             gravador.start();
+            pararDeFalar();
+            setAFalarVoz(false);
             somInicioVoz();
+            // Nova conversa por voz: só as trocas a partir daqui aparecem e são lidas.
+            if (!vozAbertaRef.current) {
+                vozInicioRef.current = mensagens.length;
+                faladoRef.current = mensagens.at(-1)?.id ?? null;
+            }
             setAGravar(true);
             setVozAberta(true);
             setVozTranscricao("");
@@ -1528,10 +1591,35 @@ export default function AquaGuia({ groups = [] }) {
     // Uma resposta por voz que arranca uma tarefa (ex.: pagamento) mostra o fluxo no chat.
     useEffect(() => {
         if (vozAberta && tarefa && !aGravar && !aTranscrever && !aEnviar) {
+            pararDeFalar();
+            setAFalarVoz(false);
             setVozAberta(false);
             setAberto(true);
         }
     }, [vozAberta, tarefa, aGravar, aTranscrever, aEnviar]);
+
+    // Conversa por voz contínua: lê a resposta nova em voz alta e volta a ouvir.
+    useEffect(() => {
+        if (!vozAberta || aEnviar || aGravar || aTranscrever || tarefa) return;
+        const recente = mensagens.at(-1);
+        if (!recente || recente.papel !== "assistant" || recente.id === faladoRef.current) return;
+        if (mensagens.length - 1 < vozInicioRef.current) return;
+        faladoRef.current = recente.id;
+        setAFalarVoz(true);
+        falar(textoParaFalar(recente), () => {
+            setAFalarVoz(false);
+            window.setTimeout(() => {
+                if (vozAbertaRef.current && !tarefaRef.current) iniciarVozRef.current?.();
+            }, 350);
+        });
+    }, [vozAberta, mensagens, aEnviar, aGravar, aTranscrever, tarefa]);
+
+    const fecharVoz = () => {
+        pararDeFalar();
+        setAFalarVoz(false);
+        if (aGravar) cancelarAudio();
+        setVozAberta(false);
+    };
 
     // Abrir o chat apaga a notificação pendente.
     useEffect(() => {
@@ -1576,6 +1664,18 @@ export default function AquaGuia({ groups = [] }) {
                   : ultimaDaAqua
                     ? humorDaMensagem(ultimaDaAqua)
                     : "ola";
+    // Mascote do botão flutuante: processa enquanto espera, e com uma resposta
+    // por ver mostra a expressão dela (uma resposta simples acende a ideia).
+    const humorNotificacao = notificacao ? humorDaMensagem(notificacao.item) : null;
+    const humorLancador = notificacao
+        ? humorNotificacao === "ola"
+            ? "ideia"
+            : humorNotificacao
+        : aEnviar || aTranscrever
+          ? "processar"
+          : sugestaoVisivel
+            ? "ideia"
+            : "ola";
     const tituloCabecalho = concluido ? (concluido.tipo === "leitura" ? "Registar leitura" : "Registar pagamento") : (fluxo?.titulo ?? "Aqua");
     const [estadoTexto, estadoPonto, estadoCor] = concluido
         ? ["Concluído", "bg-[#2EA063]", "text-[#1E7148] dark:text-[#7DD3A3]"]
@@ -1701,6 +1801,7 @@ export default function AquaGuia({ groups = [] }) {
                 onAbrir={() => (aberto ? fechar() : setAberto(true))}
                 onFalar={() => iniciarVozRef.current?.()}
                 pendente={Boolean(notificacao)}
+                humor={humorLancador}
                 sugestao={notificacao ? null : sugestaoVisivel}
                 onAceitar={aceitarSugestao}
                 onDispensar={marcarSugestaoVista}
@@ -1738,16 +1839,7 @@ export default function AquaGuia({ groups = [] }) {
                         <header className={`shrink-0 ${cor.superficie} ${fluxo ? "" : `border-b ${cor.borda}`} pt-[env(safe-area-inset-top)] md:pt-0`}>
                             <span className="mx-auto mt-2 block h-[5px] w-10 rounded-full bg-[#C9D2E3] md:hidden dark:bg-[#363E51]" aria-hidden="true" />
                             <div className="flex items-center gap-2.5 py-2.5 pl-4 pr-3">
-                                <button
-                                    type="button"
-                                    onClick={() => iniciarVozRef.current?.()}
-                                    disabled={aEnviar || aTranscrever}
-                                    aria-label="Falar com a Aqua por voz"
-                                    title="Toque na Aqua para falar"
-                                    className="shrink-0 rounded-full transition hover:scale-105 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0059FF]/25 disabled:hover:scale-100"
-                                >
-                                    <Mascote humor={humorCabecalho} tamanho={40} />
-                                </button>
+                                <Mascote humor={humorCabecalho} tamanho={40} />
                                 <div className="min-w-0 flex-1">
                                     <div className="truncate text-base font-extrabold">{tituloCabecalho}</div>
                                     <div className={`flex items-center gap-1.5 text-xs font-semibold ${estadoCor}`}>
@@ -2014,7 +2106,7 @@ export default function AquaGuia({ groups = [] }) {
                         aria-label="Conversa por voz com a Aqua"
                         className="fixed inset-0 z-[90] flex items-stretch justify-center bg-[rgba(3,9,35,0.45)] backdrop-blur-xl md:items-center md:p-6 dark:bg-black/60"
                         onKeyDown={(evento) => {
-                            if (evento.key === "Escape") (aGravar ? cancelarAudio() : setVozAberta(false));
+                            if (evento.key === "Escape") fecharVoz();
                         }}
                     >
                         <motion.div
@@ -2024,21 +2116,36 @@ export default function AquaGuia({ groups = [] }) {
                             className="relative h-full w-full overflow-hidden md:h-[min(860px,100%)] md:max-w-[460px] md:rounded-[32px] md:shadow-[0_30px_80px_rgba(0,0,0,0.45)]"
                         >
                             <EcraVoz
-                                fase={aGravar ? "ouvir" : aTranscrever ? "transcrever" : aEnviar ? "pensar" : "resposta"}
+                                fase={aGravar ? "ouvir" : aTranscrever ? "transcrever" : aEnviar ? "pensar" : aFalarVoz ? "falar" : "resposta"}
                                 segundos={segundosGravacao}
                                 nivel={nivelVoz}
                                 titulo="Falar com a Aqua"
                                 subtitulo={`A ver ${paginaActual}`}
-                                transcricao={vozTranscricao}
+                                conversa={mensagens
+                                    .slice(vozInicioRef.current)
+                                    .filter((item) => item.id !== "boas-vindas")
+                                    .map((item) =>
+                                        item.papel === "user" ? (
+                                            <p key={item.id} className="ml-auto max-w-[85%] rounded-[18px] rounded-br-md bg-white/15 px-3.5 py-2.5 text-[15px] leading-snug text-white">
+                                                {item.texto}
+                                            </p>
+                                        ) : (
+                                            <div key={item.id} className="rounded-[22px] bg-[#F4F6FB] p-3 text-left text-[#030923] dark:bg-[#161A22] dark:text-[#F4F6FB]">
+                                                <Mensagem item={item} ctx={ctx} />
+                                            </div>
+                                        ),
+                                    )}
                                 aviso={vozAviso || (!aGravar && !aTranscrever && !aEnviar ? erro : "")}
-                                resposta={vozTranscricao && ultima?.papel === "assistant" ? <Mensagem item={ultima} ctx={ctx} /> : null}
                                 humorResposta={ultima?.papel === "assistant" ? humorDaMensagem(ultima) : "ola"}
                                 onParar={iniciarOuPararAudio}
-                                onFalar={iniciarOuPararAudio}
-                                onCancelar={() => (aGravar ? cancelarAudio() : setVozAberta(false))}
+                                onFalar={() => {
+                                    pararDeFalar();
+                                    setAFalarVoz(false);
+                                    iniciarOuPararAudio();
+                                }}
+                                onCancelar={fecharVoz}
                                 onEscrever={() => {
-                                    if (aGravar) cancelarAudio();
-                                    setVozAberta(false);
+                                    fecharVoz();
                                     setAberto(true);
                                     requestAnimationFrame(() => campoRef.current?.focus());
                                 }}

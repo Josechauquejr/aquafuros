@@ -424,3 +424,56 @@ html.dark .documento-papel [class~="border-[#E8ECF4]"] {
 html.dark .documento-papel [class~="text-slate-600"] {
     color: #475569 !important;
 }
+
+/* ── Aqua: mascote animada e chat ─────────────────────────────────────────
+   Cada expressão tem um gesto próprio (ver canvas "Aqua — Mascote e Chat").
+   Com "reduzir movimento" activo, tudo pára e fica só a expressão. */
+.mq .m-corpo,.mq .m-olhos,.mq .m-bolha,.mq .m-lampada,.mq .m-badge,.mq .m-onda,.mq .m-suor,.mq .m-brilho{transform-box:fill-box;transform-origin:center}
+.mq .m-corpo{transform-origin:50% 100%}
+.mq .m-orbita{transform-box:view-box;transform-origin:70px 84px}
+.mq.anim .m-olhos{animation:mq-pisca 4.6s infinite}
+.mq.anim .m-agua1{animation:mq-fluir 3.2s linear infinite}
+.mq.anim .m-agua2{animation:mq-fluir-inv 4.4s linear infinite}
+.mq.anim.h-ola .m-corpo{animation:mq-flutua 3.4s ease-in-out infinite}
+.mq.anim.h-pensar .m-corpo{animation:mq-flutua 2.6s ease-in-out infinite}
+.mq.anim.h-pensar .m-pupilas{animation:mq-olhar 3.2s ease-in-out infinite}
+.mq.anim .m-bolha{animation:mq-bolha 2.4s ease-out infinite}
+.mq.anim .m-bolha.b2{animation-delay:.6s}
+.mq.anim .m-bolha.b3{animation-delay:1.2s}
+.mq.anim.h-ideia .m-corpo{animation:mq-ideia-corpo 2.8s ease-in-out infinite}
+.mq.anim .m-lampada{animation:mq-lampada 2.8s cubic-bezier(.3,1.4,.5,1) infinite}
+.mq.anim .m-raios{animation:mq-raios 1.4s ease-in-out infinite}
+.mq.anim.h-processar .m-nivel{animation:mq-encher 2.4s ease-in-out infinite}
+.mq.anim .m-orbita{animation:mq-girar 1.8s linear infinite}
+.mq.anim.h-feliz .m-corpo{animation:mq-salta 1s cubic-bezier(.3,.7,.4,1) infinite}
+.mq.anim .m-brilho{animation:mq-cintila 1.6s ease-in-out infinite}
+.mq.anim .m-brilho.b2{animation-delay:.8s}
+.mq.anim .m-badge{animation:mq-pulso 1.4s ease-in-out infinite}
+.mq.anim .m-onda{animation:mq-som 1.1s ease-in-out infinite}
+.mq.anim .m-onda.o2{animation-delay:.25s}
+.mq.anim .m-suor{animation:mq-suor 2.2s ease-in infinite}
+@keyframes mq-pisca{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes mq-flutua{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes mq-olhar{0%,100%{transform:translate(0,0)}30%{transform:translate(2px,-3px)}65%{transform:translate(-2px,-3px)}}
+@keyframes mq-bolha{0%{opacity:0;transform:translateY(8px) scale(.5)}30%{opacity:1}100%{opacity:0;transform:translateY(-10px) scale(1.1)}}
+@keyframes mq-ideia-corpo{0%,100%{transform:translateY(0)}20%{transform:translateY(-6px) scaleY(1.03)}40%{transform:translateY(0)}}
+@keyframes mq-lampada{0%,8%{opacity:0;transform:scale(.4) translateY(6px)}22%,85%{opacity:1;transform:scale(1) translateY(0)}100%{opacity:0;transform:scale(.9)}}
+@keyframes mq-raios{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes mq-encher{0%,100%{transform:translateY(22px)}50%{transform:translateY(-18px)}}
+@keyframes mq-girar{to{transform:rotate(360deg)}}
+@keyframes mq-fluir{to{transform:translateX(-40px)}}
+@keyframes mq-fluir-inv{from{transform:translateX(-40px)}to{transform:translateX(0)}}
+@keyframes mq-salta{0%,100%{transform:translateY(0) scale(1,1)}30%{transform:translateY(-10px) scale(.97,1.04)}55%{transform:translateY(0) scale(1.05,.95)}70%{transform:scale(1,1)}}
+@keyframes mq-cintila{0%,100%{opacity:.2;transform:scale(.6) rotate(0)}50%{opacity:1;transform:scale(1.1) rotate(20deg)}}
+@keyframes mq-pulso{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+@keyframes mq-som{0%,100%{opacity:.3;transform:scale(.92)}50%{opacity:1;transform:scale(1.05)}}
+@keyframes mq-suor{0%{opacity:0;transform:translateY(-4px)}25%{opacity:1}100%{opacity:0;transform:translateY(12px)}}
+
+/* Onda de voz e indicador "a carregar" do chat. */
+.aqua-barra-voz{animation:aqua-voz 1s ease-in-out infinite;transform-origin:center}
+@keyframes aqua-voz{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+.aqua-girar{animation:mq-girar .9s linear infinite}
+
+@media (prefers-reduced-motion: reduce){
+    .mq *,.aqua-barra-voz,.aqua-girar{animation:none !important}
+}

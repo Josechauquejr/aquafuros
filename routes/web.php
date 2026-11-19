@@ -83,6 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/clientes', [AssistenteTarefasController::class, 'pesquisarClientes'])->name('assistente.tarefas.clientes');
             Route::post('/cliente/facturas', [AssistenteTarefasController::class, 'facturasDoCliente'])->name('assistente.tarefas.cliente.facturas');
             Route::post('/pagamento/prever', [AssistenteTarefasController::class, 'preverPagamento'])->name('assistente.tarefas.pagamento.prever');
+            Route::post('/pagamento/distribuir', [AssistenteTarefasController::class, 'distribuirPagamento'])->name('assistente.tarefas.pagamento.distribuir');
         });
         Route::post('/cliente/resumo', [AssistenteTarefasController::class, 'resumoCliente'])
             ->middleware('role:administrador|gestor')->name('assistente.tarefas.cliente.resumo');
@@ -98,6 +99,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/zona/confirmar', [AssistenteTarefasController::class, 'criarZona'])->name('assistente.tarefas.zona.confirmar');
         });
         Route::middleware('role:administrador|gestor')->group(function () {
+            Route::post('/leitura/contexto', [AssistenteTarefasController::class, 'contextoLeitura'])->name('assistente.tarefas.leitura.contexto');
             Route::post('/leitura/prever', [AssistenteTarefasController::class, 'preverLeitura'])->name('assistente.tarefas.leitura.prever');
             Route::post('/leitura/confirmar', [AssistenteTarefasController::class, 'confirmarLeitura'])->name('assistente.tarefas.leitura.confirmar');
         });

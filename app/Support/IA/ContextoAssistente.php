@@ -161,6 +161,7 @@ class ContextoAssistente
                 ->groupBy('ano', 'mes')->get()
                 ->mapWithKeys(fn ($item) => [sprintf('%04d-%02d', $item->ano, $item->mes) => round((float) $item->total_facturado_mzn, 2)])
                 ->all();
+            $resultadoGlobal['facturas_por_mes'] = self::facturasPorMes($mes);
         }
         if ($user->hasAnyRole(['administrador', 'gestor', 'tecnico'])) {
             $resultadoGlobal['leituras'] = self::leituras($mes);
@@ -183,7 +184,13 @@ class ContextoAssistente
 
     private static function ciclo(Carbon $mes): array
     {
+        $resumo = \App\Support\CicloMes::resumo();
+
         return [
+            'mes_do_ciclo' => $resumo['mes'],
+            'leituras_ate' => $resumo['leiturasAte'],
+            'dias_para_limite_das_leituras' => $resumo['diasParaLimite'],
+            'facturas_do_ciclo_vencem' => $resumo['vence'],
             'clientes_activos' => Cliente::where('estado', 'ativo')->count(),
             'leituras_registadas' => Leitura::where('mes', $mes->month)->where('ano', $mes->year)
                 ->whereHas('cliente', fn ($q) => $q->where('estado', 'ativo'))
@@ -213,6 +220,37 @@ class ContextoAssistente
             'facturas_parciais' => (clone $query)->where('estado', 'parcial')->count(),
             'total_facturado_mzn' => round((float) (clone $query)->sum('total_pagar'), 2),
         ];
+    }
+
+    /**
+     * Emitido, pago e em aberto dos últimos seis meses — para a Aqua poder
+     * decompor um total ("Já pago", "Em aberto", "Facturas emitidas").
+     */
+    private static function facturasPorMes(Carbon $mes): array
+    {
+        $inicio = $mes->copy()->startOfMonth()->subMonths(5);
+
+        return Factura::query()
+            ->where('estado', '!=', 'anulada')
+            ->where(fn ($q) => $q->where('ano', '>', $inicio->year)->orWhere(fn ($q) => $q->where('ano', $inicio->year)->where('mes', '>=', $inicio->month)))
+            ->where(fn ($q) => $q->where('ano', '<', $mes->year)->orWhere(fn ($q) => $q->where('ano', $mes->year)->where('mes', '<=', $mes->month)))
+            ->withSum('pagamentos', 'valor_pago')
+            ->get(['id', 'mes', 'ano', 'total_pagar', 'estado'])
+            ->groupBy(fn (Factura $factura) => sprintf('%04d-%02d', $factura->ano, $factura->mes))
+            ->sortKeys()
+            ->map(function ($facturas) {
+                $emitido = (float) $facturas->sum('total_pagar');
+                $pago = (float) $facturas->sum(fn (Factura $factura) => min((float) $factura->total_pagar, (float) ($factura->pagamentos_sum_valor_pago ?? 0)));
+
+                return [
+                    'facturas_emitidas' => $facturas->count(),
+                    'emitido_mzn' => round($emitido, 2),
+                    'pago_mzn' => round($pago, 2),
+                    'em_aberto_mzn' => round(max(0, $emitido - $pago), 2),
+                    'facturas_pagas' => $facturas->where('estado', 'paga')->count(),
+                ];
+            })
+            ->all();
     }
 
     private static function cobranca(): array
@@ -251,9 +289,16 @@ class ContextoAssistente
             return ['referencia' => $referencia, ...$item];
         });
 
+        // Atraso de cada cliente = dias desde a factura vencida mais antiga.
+        $atrasos = $vencidas->groupBy('cliente_id')->map(fn ($facturas) => (int) Carbon::parse($facturas->min('data_vencimento'))->startOfDay()->diffInDays(today()->startOfDay()));
+
         return [
             'facturas_vencidas' => $vencidas->count(),
             'clientes_com_factura_vencida' => $vencidas->unique('cliente_id')->count(),
+            'dias_em_atraso_maximo' => (int) ($atrasos->max() ?? 0),
+            'clientes_com_atraso_30_dias_ou_mais' => $atrasos->filter(fn ($dias) => $dias >= 30)->count(),
+            'clientes_com_atraso_60_dias_ou_mais' => $atrasos->filter(fn ($dias) => $dias >= 60)->count(),
+            'clientes_com_atraso_90_dias_ou_mais' => $atrasos->filter(fn ($dias) => $dias >= 90)->count(),
             'saldo_vencido_mzn' => round((float) $vencidas->sum(
                 fn (Factura $factura) => max(0, (float) $factura->total_pagar - (float) ($factura->pagamentos_sum_valor_pago ?? 0)),
             ), 2),

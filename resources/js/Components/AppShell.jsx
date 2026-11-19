@@ -1,10 +1,11 @@
 import { Link, router, useForm, usePage } from "@inertiajs/react";
-import { ChevronsUpDown, Download, LogOut, Moon, Plus, QrCode, Search, Sun, User, WifiOff } from "lucide-react";
+import { ChevronsUpDown, Download, House, LogOut, Menu, Moon, Plus, QrCode, Search, Sun, User, WifiOff } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import PageHelp from "@/Components/PageHelp";
 import AquaGuia from "@/Components/AquaGuia";
+import Mascote from "@/Components/Aqua/Mascote";
 import {
     Sidebar,
     SidebarContent,
@@ -272,10 +273,95 @@ function MenuLateral({ groups, casa }) {
                 </nav>
             </SidebarContent>
 
-            <SidebarFooter className="mx-3.5 mb-2 !border-t-0 px-0 pt-3">
+            <SidebarFooter className="mx-3.5 mb-2 gap-2 !border-t-0 px-0 pt-3">
+                <BotaoAquaMenu />
                 <MenuConta />
             </SidebarFooter>
         </Sidebar>
+    );
+}
+
+const abrirAqua = () => window.dispatchEvent(new CustomEvent("aqua:abrir"));
+
+/** Entrada para a Aqua no fundo do menu lateral (abre o painel; Ctrl + K abre a paleta). */
+function BotaoAquaMenu() {
+    const { assistenteDisponivel = false } = usePage().props;
+    const { setOpenMobile } = useSidebar();
+    if (!assistenteDisponivel) return null;
+    return (
+        <button
+            type="button"
+            onClick={() => {
+                setOpenMobile(false);
+                abrirAqua();
+            }}
+            title="Perguntar à Aqua (Ctrl + K)"
+            className="flex min-h-[52px] w-full items-center gap-2.5 rounded-[14px] border border-[#D6E2FF] bg-[#F0F4FF] px-2.5 text-left transition hover:border-[#9DBBFF] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:px-0 dark:border-[#1B2F66] dark:bg-[#0E1C3F]"
+        >
+            <Mascote humor="ola" tamanho={32} />
+            <span className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
+                <span className="text-sm font-extrabold text-[#0A2A78] dark:text-[#D6E2FF]">Perguntar à Aqua</span>
+                <span className="text-[11px] font-semibold text-[#5B6478] dark:text-[#8C97B0]">Ctrl + K</span>
+            </span>
+        </button>
+    );
+}
+
+/** Barra inferior no telemóvel: Início, a Aqua ao centro (botão elevado) e o menu. */
+function BarraInferiorMovel({ casa }) {
+    const { props, url } = usePage();
+    const assistenteDisponivel = props.assistenteDisponivel ?? false;
+    const { setOpenMobile } = useSidebar();
+    // Toque abre o chat; manter premido abre a conversa por voz em ecrã inteiro.
+    const temporizador = useRef(null);
+    const longo = useRef(false);
+    if (!assistenteDisponivel) return null;
+    const noInicio = url.split(/[?#]/, 1)[0] === casa;
+    const premirParaFalar = {
+        onPointerDown: () => {
+            longo.current = false;
+            temporizador.current = window.setTimeout(() => {
+                longo.current = true;
+                window.dispatchEvent(new CustomEvent("aqua:voz"));
+            }, 450);
+        },
+        onPointerUp: () => window.clearTimeout(temporizador.current),
+        onPointerLeave: () => window.clearTimeout(temporizador.current),
+        onContextMenu: (evento) => evento.preventDefault(),
+        onClick: () => {
+            if (longo.current) {
+                longo.current = false;
+                return;
+            }
+            abrirAqua();
+        },
+    };
+    const item = "flex min-h-[52px] flex-col items-center justify-end gap-1 pb-1 text-[11px] font-bold";
+    return (
+        <nav
+            aria-label="Navegação rápida"
+            className="fixed inset-x-0 bottom-0 z-[60] grid grid-cols-3 items-end border-t border-[#E1E7F3] bg-white px-6 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden dark:border-[#262C38] dark:bg-[#161A22]"
+        >
+            <Link href={casa} aria-current={noInicio ? "page" : undefined} className={`${item} ${noInicio ? "text-[#0047CC] dark:text-[#6EA2FF]" : "text-[#5B6478] dark:text-[#8C97B0]"}`}>
+                <House className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden="true" />
+                Início
+            </Link>
+            <button
+                type="button"
+                {...premirParaFalar}
+                aria-label="Abrir a Aqua. Mantenha premido para falar"
+                className="flex -translate-y-3.5 select-none flex-col items-center gap-1 text-[11px] font-extrabold text-[#041A53] [-webkit-touch-callout:none] dark:text-[#D6E2FF]"
+            >
+                <span className="flex h-[68px] w-[68px] items-center justify-center rounded-3xl border-4 border-white bg-[#041A53] shadow-[0_10px_24px_rgba(4,26,83,0.35)] dark:border-[#161A22]">
+                    <Mascote humor="ola" tamanho={64} sobreEscuro />
+                </span>
+                Aqua
+            </button>
+            <button type="button" onClick={() => setOpenMobile(true)} className={`${item} text-[#5B6478] dark:text-[#8C97B0]`}>
+                <Menu className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden="true" />
+                Menu
+            </button>
+        </nav>
     );
 }
 
@@ -517,13 +603,14 @@ export default function AppShell({ groups, casa, header, children, accoesNovo = 
                     </div>
                 </header>
 
-                <div className="shell-conteudo flex-1 pb-10 pt-8">
+                <div className={`shell-conteudo flex-1 pt-8 ${pagina.props.assistenteDisponivel ? "pb-32 md:pb-10" : "pb-10"}`}>
                     <CabecalhoContext.Provider value={cabecalho}>
                         {urlCarregamento ? <PageLoadingSkeleton url={urlCarregamento} bodyOnly /> : children}
                     </CabecalhoContext.Provider>
                 </div>
             </SidebarInset>
-            <AquaGuia />
+            <BarraInferiorMovel casa={casa} />
+            <AquaGuia groups={groups} />
         </SidebarProvider>
     );
 }

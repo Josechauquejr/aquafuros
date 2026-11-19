@@ -261,6 +261,11 @@ class PagamentoController extends Controller
     public function storeMultiplo(Request $request)
     {
         if ($this->caixaFechadaHoje($request->user()->id)) {
+            // A Aqua chama em JSON: devolve o erro como 422 em vez de redireccionar.
+            if ($request->expectsJson()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['caixa' => 'Já fechou a caixa hoje — não é possível registar mais pagamentos.']);
+            }
+
             return back()->with('error', 'Já fechou a caixa hoje — não é possível registar mais pagamentos.');
         }
 
@@ -291,6 +296,10 @@ class PagamentoController extends Controller
             ->keyBy('id');
 
         if ($facturas->pluck('cliente_id')->unique()->count() > 1) {
+            if ($request->expectsJson()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['parcelas' => 'Todas as facturas têm de ser do mesmo cliente.']);
+            }
+
             return back()->with('error', 'Todas as facturas têm de ser do mesmo cliente.');
         }
 
@@ -298,6 +307,10 @@ class PagamentoController extends Controller
             $factura = $facturas[$parcela['factura_id']];
 
             if (! in_array($factura->estado, ['pendente', 'parcial'], true)) {
+                if ($request->expectsJson()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['parcelas' => "A factura {$factura->numero_factura} já não aceita pagamentos."]);
+                }
+
                 return back()->with('error', "A factura {$factura->numero_factura} já não aceita pagamentos.");
             }
 
@@ -379,6 +392,21 @@ class PagamentoController extends Controller
         });
 
         $pagamentos->each(fn (Pagamento $pagamento) => $pagamento->load(['cliente', 'factura']));
+
+        // Pedido da Aqua (JSON): devolve o lote em vez de redireccionar.
+        if ($request->expectsJson()) {
+            return response()->json([
+                'lote' => $lote,
+                'total' => round((float) $pagamentos->sum('valor_pago'), 2),
+                'pagamentos' => $pagamentos->map(fn (Pagamento $pagamento) => [
+                    'numero_recibo' => $pagamento->numero_recibo,
+                    'valor_pago' => (float) $pagamento->valor_pago,
+                    'factura' => $pagamento->factura?->numero_factura,
+                    'estado_factura' => $pagamento->factura?->estado,
+                ])->values(),
+                'recibo_url' => route('pagamentos.recibo-lote', ['lote' => $lote]),
+            ]);
+        }
 
         // Um só recibo com todas as facturas (os recibos individuais continuam a existir).
         return redirect()

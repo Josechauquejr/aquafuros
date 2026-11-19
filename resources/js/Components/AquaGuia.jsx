@@ -1,66 +1,64 @@
-import {
-    ArrowUp,
-    CalendarDays,
-    Check,
-    CheckCircle2,
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight,
-    Droplet,
-    Expand,
-    ExternalLink,
-    Factory,
-    FileText,
-    History,
-    LoaderCircle,
-    MapPinned,
-    MessageSquarePlus,
-    Mic,
-    Plus,
-    Shrink,
-    Sparkles,
-    Square,
-    Trash2,
-    TriangleAlert,
-    UsersRound,
-    WalletCards,
-    X,
-} from "lucide-react";
+import { ArrowUp, Expand, History, MessageSquarePlus, Mic, Shrink, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { definirSons, somFimVoz, somGota, somInicioVoz, sonsLigados } from "@/Components/Aqua/sons";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
-import MascoteAqua from "@/Components/MascoteAqua";
-import { formatMoney, formatNumero } from "@/lib/utils";
+import Mascote from "@/Components/Aqua/Mascote";
+import Mensagem, { humorDaMensagem } from "@/Components/Aqua/Mensagem";
+import { APensar, CartaoErro, ProgressoTarefa, cor, infoFluxo } from "@/Components/Aqua/Partes";
+import { EcraInicial, EcraVoz, Lancador, NotificacaoAqua, Paleta } from "@/Components/Aqua/Ecras";
+import { BarraAccoes, FolhaPagamento, LeituraActual, SucessoLeitura, SucessoPagamento, lerNumero } from "@/Components/Aqua/Fluxos";
+import { formatMoney } from "@/lib/utils";
 import { previewPost } from "@/lib/previewPost";
-import PrimaryButton from "@/Components/PrimaryButton";
-import SecondaryButton from "@/Components/SecondaryButton";
 
-function iconeDaAccao(acao) {
-    if (acao.tarefa === "nova_leitura") return Plus;
-    if (acao.tarefa === "registar_pagamento") return WalletCards;
-    const caminho = acao.url?.split("?")[0] ?? "";
-    if (caminho.startsWith("/clientes")) return UsersRound;
-    if (caminho.startsWith("/facturas")) return FileText;
-    if (caminho.startsWith("/pagamentos")) return WalletCards;
-    if (caminho.startsWith("/ocorrencias")) return TriangleAlert;
-    if (caminho.startsWith("/producao")) return Factory;
-    if (caminho.startsWith("/zonas")) return MapPinned;
-    return ExternalLink;
-}
+const NOMES_MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+/** Tarefas guiadas e os papéis que as podem fazer (iguais às do servidor). */
+const TAREFAS = [
+    { tarefa: "nova_leitura", rotulo: "Registar leitura", papeis: ["administrador", "gestor"] },
+    { tarefa: "registar_pagamento", rotulo: "Registar pagamento", papeis: ["administrador", "gestor", "caixa"] },
+    { tarefa: "nova_ocorrencia", rotulo: "Registar ocorrência", papeis: ["administrador", "gestor", "tecnico"] },
+    { tarefa: "registar_producao", rotulo: "Registar produção", papeis: ["administrador", "gestor", "tecnico"] },
+    { tarefa: "nova_zona", rotulo: "Criar zona", papeis: ["administrador"] },
+];
+
+/** Três sugestões no ecrã inicial, conforme o papel (lei de Hick). */
+const SUGESTOES_POR_PAPEL = {
+    gestao: [
+        { titulo: "Facturação deste mês", ilustracao: "grafico", pergunta: "Quanto foi facturado este mês?" },
+        { titulo: "Registar um pagamento", ilustracao: "carteira", tarefa: "registar_pagamento" },
+        { titulo: "Comunicar uma ocorrência", ilustracao: "fuga", tarefa: "nova_ocorrencia" },
+    ],
+    caixa: [
+        { titulo: "Registar um pagamento", ilustracao: "carteira", tarefa: "registar_pagamento" },
+        { titulo: "Quanto foi recebido hoje?", ilustracao: "grafico", pergunta: "Quanto foi recebido hoje?" },
+        { titulo: "Clientes com saldo vencido", ilustracao: "ocorrencia", pergunta: "Que clientes têm saldo vencido?" },
+    ],
+    tecnico: [
+        { titulo: "Comunicar uma fuga", ilustracao: "fuga", tarefa: "nova_ocorrencia" },
+        { titulo: "Registar produção", ilustracao: "grafico", tarefa: "registar_producao" },
+        { titulo: "Ocorrências em aberto", ilustracao: "ocorrencia", pergunta: "Quantas ocorrências estão em aberto?" },
+    ],
+};
+
+/** Uma sugestão por página, oferecida uma vez por sessão e sempre dispensável. */
+const SUGESTOES_DE_PAGINA = {
+    "/dashboard": { texto: "Quer um resumo rápido da situação de hoje?", pergunta: "Resume a situação geral do sistema.", aceitar: "Resumir" },
+    "/facturas": { texto: "Quer um resumo das facturas deste mês: emitido, pago e em aberto?", pergunta: "Resume as facturas deste mês: emitido, pago e em aberto.", aceitar: "Sim, resumir" },
+    "/cobranca": { texto: "Quer saber por onde começar a cobrança?", pergunta: "Que clientes têm o maior saldo vencido?", aceitar: "Mostrar" },
+    "/pagamentos": { texto: "Posso registar um pagamento consigo, passo a passo.", tarefa: "registar_pagamento", aceitar: "Começar" },
+    "/ocorrencias": { texto: "Posso registar uma ocorrência consigo, até por voz.", tarefa: "nova_ocorrencia", aceitar: "Começar" },
+};
 
 function textoDoAssistente(mensagem) {
     if (typeof mensagem.texto === "string") return mensagem.texto;
     const resposta = mensagem.resposta;
-    return [resposta?.mensagem, ...(resposta?.passos ?? [])]
+    const destaque = resposta?.destaque ? `${resposta.destaque.rotulo}: ${resposta.destaque.valor}${resposta.destaque.variacao ? ` (${resposta.destaque.variacao})` : ""}` : null;
+    return [destaque, resposta?.mensagem, ...(resposta?.evidencias ?? []), ...(resposta?.passos ?? [])]
         .filter(Boolean)
         .join("\n");
 }
 
-const SUGESTOES = [
-    "Resume a situação geral do sistema.",
-    "Quanto foi facturado em Setembro?",
-    "Quantos clientes estão cortados?",
-];
 const BOAS_VINDAS =
     "Aqua aqui. Como posso ajudar?";
 
@@ -107,7 +105,7 @@ function carregarConversas(chave, chaveAntiga) {
     }
 }
 
-export default function AquaGuia() {
+export default function AquaGuia({ groups = [] }) {
     const pagina = usePage();
     const { assistenteDisponivel = false, auth } = pagina.props;
     const reduzirMovimento = useReducedMotion();
@@ -146,6 +144,32 @@ export default function AquaGuia() {
     const streamAudioRef = useRef(null);
     const partesAudioRef = useRef([]);
     const limiteGravacaoRef = useRef(null);
+    const audioCanceladoRef = useRef(false);
+    const ultimaPerguntaRef = useRef(null);
+    const [paleta, setPaleta] = useState(false);
+    const [segundosGravacao, setSegundosGravacao] = useState(0);
+    const [sugestaoVisivel, setSugestaoVisivel] = useState(null);
+    // Ecrã "Concluído" (canvas "4 · Sucesso") depois de gravar uma leitura ou pagamento.
+    const [concluido, setConcluido] = useState(null);
+    // Campo grande "Leitura actual" (canvas "3 · Leitura").
+    const [leituraDigitada, setLeituraDigitada] = useState("");
+    // Folha "Confirma o pagamento?" (canvas "5 · Pagamento").
+    const [metodoFolha, setMetodoFolha] = useState("dinheiro");
+    const [referenciaFolha, setReferenciaFolha] = useState("");
+    // Conversa por voz (canvas "6 · Voz"): ouvir → transcrever → responder no mesmo ecrã.
+    const [vozAberta, setVozAberta] = useState(false);
+    const [vozTranscricao, setVozTranscricao] = useState("");
+    const [vozAviso, setVozAviso] = useState("");
+    const [nivelVoz, setNivelVoz] = useState(0);
+    const medidorRef = useRef(null);
+    const audioContextoRef = useRef(null);
+    const [somAtivo, setSomAtivo] = useState(() => sonsLigados());
+    const abertoRef = useRef(false);
+    abertoRef.current = aberto;
+    const vozAbertaRef = useRef(false);
+    vozAbertaRef.current = vozAberta;
+    // Resposta que chegou com o chat fechado (cartão junto ao botão flutuante).
+    const [notificacao, setNotificacao] = useState(null);
 
     const fechar = () => {
         setAberto(false);
@@ -279,30 +303,56 @@ export default function AquaGuia() {
         }
     };
 
-    const iniciarRegistoLeitura = () => {
-        setErro("");
-        setTarefa({ tipo: "nova_leitura", etapa: "cliente" });
-        setMensagens((anteriores) => [
-            ...anteriores,
-            {
-                id: `${Date.now()}-assistant`,
-                papel: "assistant",
-                texto: "Vamos preparar a leitura e a prévia da factura. Qual é o nome ou número do cliente?",
-            },
-        ]);
+    const acrescentar = (mensagem) =>
+        setMensagens((anteriores) => [...anteriores, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}-assistant`, papel: "assistant", ...mensagem }]);
+
+    /**
+     * Procura o cliente da tarefa. Com um só resultado segue logo para o passo
+     * seguinte (canvas: "Encontrei o contador"); com vários mostra as opções.
+     */
+    const procurarClientes = async (termo, base) => {
+        const resultado = await previewPost("/assistente/tarefas/clientes", { pesquisa: termo });
+        const clientes = resultado.clientes ?? [];
+        if (clientes.length === 1) return escolherClienteInterno(clientes[0], resultado.periodo_actual, base);
+        setTarefa({ ...base, etapa: clientes.length ? "escolher_cliente" : "cliente", periodoActual: resultado.periodo_actual });
+        acrescentar(
+            clientes.length
+                ? { texto: "Encontrei mais de um. Qual é o cliente?", tarefaCard: { tipo: "clientes", clientes, periodoActual: resultado.periodo_actual } }
+                : { texto: `Não encontrei um cliente activo com "${termo}". Escreva o nome ou o número de cliente.` },
+        );
     };
 
-    const iniciarRegistoPagamento = () => {
+    const comEspera = async (accao, mensagemErro) => {
+        setAEnviar(true);
         setErro("");
-        setTarefa({ tipo: "registar_pagamento", etapa: "cliente" });
-        setMensagens((anteriores) => [
-            ...anteriores,
-            {
-                id: `${Date.now()}-assistant`,
-                papel: "assistant",
-                texto: "Vamos registar o pagamento. Qual é o nome ou número do cliente?",
-            },
-        ]);
+        try {
+            await accao();
+        } catch (falha) {
+            setErro(falha.message || mensagemErro);
+        } finally {
+            setAEnviar(false);
+        }
+    };
+
+    const iniciarRegistoLeitura = (dados = {}) => {
+        setErro("");
+        setConcluido(null);
+        setLeituraDigitada(dados.leitura ? String(dados.leitura).replace(".", ",") : "");
+        const base = { tipo: "nova_leitura", etapa: "cliente" };
+        setTarefa(base);
+        if (dados.cliente) return comEspera(() => procurarClientes(dados.cliente, base), "Não consegui procurar o cliente.");
+        acrescentar({ texto: "Vamos registar a leitura. Qual é o nome ou número do cliente?" });
+    };
+
+    const iniciarRegistoPagamento = (dados = {}) => {
+        setErro("");
+        setConcluido(null);
+        setMetodoFolha("dinheiro");
+        setReferenciaFolha("");
+        const base = { tipo: "registar_pagamento", etapa: "cliente", valorPrevisto: dados.valor ?? null };
+        setTarefa(base);
+        if (dados.cliente) return comEspera(() => procurarClientes(dados.cliente, base), "Não consegui procurar o cliente.");
+        acrescentar({ texto: dados.valor ? `Vamos registar o pagamento de ${formatMoney(dados.valor)}. Qual é o cliente?` : "Vamos registar o pagamento. Qual é o nome ou número do cliente?" });
     };
 
     const iniciarCriacaoZona = () => {
@@ -317,17 +367,13 @@ export default function AquaGuia() {
         ]);
     };
 
-    const iniciarOcorrencia = () => {
-        setTarefa({ tipo: "nova_ocorrencia", etapa: "tipo" });
-        setMensagens((anteriores) => [
-            ...anteriores,
-            {
-                id: `${Date.now()}-assistant`,
-                papel: "assistant",
-                texto: "Que tipo de ocorrência pretende registar?",
-                tarefaCard: { tipo: "tipos_ocorrencia" },
-            },
-        ]);
+    const iniciarOcorrencia = (dados = {}) => {
+        setConcluido(null);
+        setTarefa({ tipo: "nova_ocorrencia", etapa: "tipo", descricaoPrevista: dados.descricao || null });
+        acrescentar({
+            texto: dados.descricao ? "Vou registar esta ocorrência. Que tipo é?" : "Que tipo de ocorrência pretende registar?",
+            tarefaCard: { tipo: "tipos_ocorrencia" },
+        });
     };
 
     const iniciarProducao = async () => {
@@ -365,93 +411,125 @@ export default function AquaGuia() {
         }
     };
 
-    const escolherCliente = async (cliente, periodoActual) => {
-        if (tarefa?.tipo === "registar_pagamento") {
-            setAEnviar(true);
-            try {
-                const resultado = await previewPost(
-                    "/assistente/tarefas/cliente/facturas",
-                    { cliente_id: cliente.id },
-                );
-                setTarefa({
-                    ...tarefa,
-                    etapa: "factura",
-                    cliente,
-                    facturas: resultado.facturas,
-                });
-                setMensagens((anteriores) => [
-                    ...anteriores,
-                    {
-                        id: `${Date.now()}-assistant`,
-                        papel: "assistant",
-                        texto: resultado.facturas.length
-                            ? `Encontrei facturas em aberto de ${cliente.nome}. Qual delas está a ser paga?`
-                            : `${cliente.nome} não tem facturas pendentes ou parciais para pagar.`,
-                        ...(resultado.facturas.length
-                            ? {
-                                  tarefaCard: {
-                                      tipo: "facturas_pagamento",
-                                      facturas: resultado.facturas,
-                                  },
-                              }
-                            : {}),
-                    },
-                ]);
-                if (!resultado.facturas.length) setTarefa(null);
-            } catch (falha) {
-                setErro(
-                    falha.message ||
-                        "Não consegui consultar as facturas deste cliente.",
-                );
-            } finally {
-                setAEnviar(false);
+    // Passo seguinte depois de saber o cliente. `base` evita ler um `tarefa` ainda por actualizar.
+    const escolherClienteInterno = async (cliente, periodoActual, base) => {
+        if (base?.tipo === "registar_pagamento") {
+            const resultado = await previewPost("/assistente/tarefas/cliente/facturas", { cliente_id: cliente.id });
+            const facturas = resultado.facturas ?? [];
+            if (!facturas.length) {
+                setTarefa(null);
+                acrescentar({ texto: `${cliente.nome} não tem facturas por pagar. Não registei nada.` });
+                return;
             }
+            const seguinte = { ...base, etapa: "valor", cliente, facturas };
+            // Valor já dito: reparte logo pelas facturas mais antigas (canvas "5 · Pagamento").
+            if (base.valorPrevisto) return distribuirPagamento(base.valorPrevisto, seguinte);
+            setTarefa(seguinte);
+            const total = facturas.reduce((soma, factura) => soma + Number(factura.em_falta) + Number(factura.multa_prevista), 0);
+            acrescentar({ texto: `${cliente.nome} tem ${formatMoney(total)} em falta em ${facturas.length === 1 ? "1 factura" : `${facturas.length} facturas`}. Quanto recebeu?` });
             return;
         }
-        setTarefa({
-            tipo: "nova_leitura",
-            etapa: "periodo",
-            cliente,
-            periodoActual,
-        });
-        setMensagens((anteriores) => [
-            ...anteriores,
-            {
-                id: `${Date.now()}-assistant`,
-                papel: "assistant",
-                texto: `Encontrei ${cliente.nome}. A leitura é do ciclo actual ou de outro mês?`,
-                tarefaCard: { tipo: "periodo", periodoActual },
-            },
-        ]);
+        // Leitura (canvas "3 · Leitura"): o cliente, a última leitura e o campo grande.
+        const contexto = await previewPost("/assistente/tarefas/leitura/contexto", { cliente_id: cliente.id });
+        const [ano, mes] = (contexto.periodo_actual ?? periodoActual ?? "").split("-").map(Number);
+        setTarefa({ ...base, tipo: "nova_leitura", etapa: "contador", cliente, contexto, periodoActual: contexto.periodo_actual, mes, ano });
+        acrescentar({ tarefaCard: { tipo: "contexto_leitura", contexto } });
     };
 
-    const escolherFacturaPagamento = (factura) => {
-        setTarefa((actual) => ({ ...actual, etapa: "valor", factura }));
-        setMensagens((anteriores) => [
-            ...anteriores,
-            {
-                id: `${Date.now()}-assistant`,
-                papel: "assistant",
-                texto: `Factura ${factura.numero} seleccionada. Quanto recebeu? O saldo em falta é ${formatMoney(factura.em_falta + factura.multa_prevista)}.`,
-            },
-        ]);
+    const escolherCliente = (cliente, periodoActual, base = tarefa) =>
+        comEspera(() => escolherClienteInterno(cliente, periodoActual, base), "Não consegui abrir os dados deste cliente.");
+
+    const escolherFacturaInterno = async (factura, base) => {
+        const seguinte = { ...base, etapa: "valor", factura };
+        if (base.valorPrevisto) return preverPagamento({ factura_id: factura.id, valor_pago: base.valorPrevisto, metodo_pagamento: "dinheiro" }, seguinte);
+        setTarefa(seguinte);
+        acrescentar({ texto: `Quanto recebeu? A factura ${factura.numero} tem ${formatMoney(factura.em_falta + factura.multa_prevista)} em falta.` });
     };
 
+    const escolherFacturaPagamento = (factura) => comEspera(() => escolherFacturaInterno(factura, tarefa), "Não consegui preparar o pagamento.");
+
+    // Prévia sempre calculada como numerário; o método escolhe-se na folha de confirmação.
     const preverPagamento = async (payload, tarefaActual = tarefa) => {
-        const previa = await previewPost(
-            "/assistente/tarefas/pagamento/prever",
-            payload,
-        );
-        setTarefa({ ...tarefaActual, etapa: "confirmar", payload, previa });
-        setMensagens((anteriores) => [
-            ...anteriores,
-            {
-                id: `${Date.now()}-assistant`,
-                papel: "assistant",
-                texto: "Confira os dados. O pagamento só será registado depois de confirmar.",
-                tarefaCard: { tipo: "previa_pagamento", previa },
-            },
-        ]);
+        const previa = await previewPost("/assistente/tarefas/pagamento/prever", { ...payload, metodo_pagamento: "dinheiro", referencia_pagamento: null });
+        setTarefa({ ...tarefaActual, etapa: "confirmar", payload: { ...payload, metodo_pagamento: "dinheiro" }, previa, valor: payload.valor_pago });
+        setMetodoFolha("dinheiro");
+        setReferenciaFolha("");
+        acrescentar({ tarefaCard: { tipo: "previa_pagamento", previa, factura: tarefaActual.factura, facturas: tarefaActual.facturas } });
+    };
+
+    // Reparte o valor pelas facturas em aberto, da mais antiga para a mais recente.
+    const distribuirPagamento = async (valor, base) => {
+        const distribuicao = await previewPost("/assistente/tarefas/pagamento/distribuir", { cliente_id: base.cliente.id, valor });
+        setTarefa({ ...base, etapa: "confirmar", distribuicao, valor, previa: null });
+        setMetodoFolha("dinheiro");
+        setReferenciaFolha("");
+        acrescentar({ tarefaCard: { tipo: "distribuicao_pagamento", distribuicao } });
+    };
+
+    const confirmarPagamentoRepartido = async () => {
+        const { distribuicao } = tarefa;
+        const referencia = metodoFolha === "dinheiro" ? null : referenciaFolha.trim();
+        if (distribuicao.parcelas.length === 1) {
+            const parcela = distribuicao.parcelas[0];
+            return confirmarTarefaPagamento({ factura_id: parcela.factura_id, valor_pago: parcela.aplicado, metodo_pagamento: metodoFolha, referencia_pagamento: referencia });
+        }
+        setAEnviar(true);
+        setErro("");
+        try {
+            const resultado = await previewPost("/pagamentos/multiplo", {
+                parcelas: distribuicao.parcelas.map((parcela) => ({ factura_id: parcela.factura_id, valor_pago: parcela.aplicado })),
+                metodo_pagamento: metodoFolha,
+                referencia_pagamento: referencia,
+                valor_recebido: distribuicao.valor,
+            });
+            acrescentar({ texto: `Pagamento de ${formatMoney(resultado.total)} registado em ${resultado.pagamentos.length} facturas.` });
+            setConcluido({ tipo: "pagamento", multiplo: true, ...resultado, cliente: tarefa.cliente, fica: distribuicao.fica_em_aberto, metodo: metodoFolha, hora: new Date().toISOString() });
+            setTarefa(null);
+        } catch (falha) {
+            setErro(falha.message || "Não foi possível registar o pagamento. Confirme os dados e tente novamente.");
+        } finally {
+            setAEnviar(false);
+        }
+    };
+
+    // "Editar" na folha: volta a pedir o valor.
+    const editarPagamento = () => {
+        setTarefa((actual) => ({ ...actual, etapa: "valor", valorPrevisto: null }));
+        acrescentar({ texto: "Qual é o valor recebido?" });
+    };
+
+    // "Rever e confirmar" no campo grande: calcula a prévia sem criar uma bolha de mensagem.
+    const reverLeitura = () =>
+        comEspera(async () => {
+            const valor = lerNumero(leituraDigitada);
+            if (valor === null || valor < 0) throw new Error("Indique o valor do contador, como 1 312.");
+            const payload = { cliente_id: tarefa.cliente.id, mes: tarefa.mes, ano: tarefa.ano, leitura_actual: valor };
+            const previa = await previewPost("/assistente/tarefas/leitura/prever", payload);
+            if (previa.plano.retroactiva && !previa.plano.pode_aplicar) {
+                setTarefa(null);
+                acrescentar({ texto: "Esta leitura retroactiva afectaria uma factura que já não pode ser recalculada. Não fiz alterações; regularize na página de Leituras." });
+                return;
+            }
+            setTarefa({ ...tarefa, etapa: previa.plano.retroactiva ? "motivo" : "confirmar", payload, previa });
+            acrescentar({
+                texto: previa.plano.retroactiva ? "Esta leitura altera a sequência de um mês seguinte. Indique o motivo para continuar." : "Confira antes de gravar.",
+                tarefaCard: { tipo: "previa_leitura", previa },
+            });
+        }, "Não consegui calcular a prévia da leitura.");
+
+    const voltarAoCliente = () => {
+        setTarefa({ tipo: "nova_leitura", etapa: "cliente" });
+        setLeituraDigitada("");
+        acrescentar({ texto: "Qual é o nome ou número do cliente?" });
+    };
+
+    const confirmarFolhaPagamento = () => {
+        if (metodoFolha !== "dinheiro" && !referenciaFolha.trim()) {
+            setErro("Indique a referência da transacção.");
+            return;
+        }
+        if (tarefa.distribuicao) return confirmarPagamentoRepartido();
+        confirmarTarefaPagamento({ ...tarefa.payload, metodo_pagamento: metodoFolha, referencia_pagamento: metodoFolha === "dinheiro" ? null : referenciaFolha.trim() });
     };
 
     const escolherMetodoPagamento = async (metodo) => {
@@ -499,7 +577,7 @@ export default function AquaGuia() {
                 {
                     id: `${Date.now()}-assistant`,
                     papel: "assistant",
-                    texto: `Qual é a zona da produção de ${String(mes).padStart(2, "0")}/${ano}?`,
+                    texto: `Qual é a zona da produção de ${NOMES_MESES[mes - 1]} ${ano}?`,
                     tarefaCard: { tipo: "zonas_producao", zonas: tarefa.zonas },
                 },
             ]);
@@ -511,7 +589,7 @@ export default function AquaGuia() {
             {
                 id: `${Date.now()}-assistant`,
                 papel: "assistant",
-                texto: `Certo, ${String(mes).padStart(2, "0")}/${ano}. Qual é a leitura actual indicada no contador?`,
+                texto: `Leitura de ${NOMES_MESES[mes - 1]} ${ano}. Qual é o valor que o contador mostra?`,
             },
         ]);
     };
@@ -529,19 +607,14 @@ export default function AquaGuia() {
     };
 
     const escolherTipoOcorrencia = (tipo, rotulo) => {
-        setTarefa((actual) => ({
-            ...actual,
-            etapa: "descricao",
-            tipoOcorrencia: tipo,
-        }));
-        setMensagens((anteriores) => [
-            ...anteriores,
-            {
-                id: `${Date.now()}-assistant`,
-                papel: "assistant",
-                texto: `Descreva a ${rotulo.toLocaleLowerCase()} com pelo menos cinco caracteres. Se souber, inclua onde e o que aconteceu.`,
-            },
-        ]);
+        // A descrição já foi dita ("Há uma fuga no ramal…"): segue para a prévia.
+        if (tarefa?.descricaoPrevista && tarefa.descricaoPrevista.length >= 5) {
+            setTarefa({ ...tarefa, etapa: "confirmar", tipoOcorrencia: tipo, descricao: tarefa.descricaoPrevista });
+            acrescentar({ tarefaCard: { tipo: "ocorrencia_previa", tipoOcorrencia: tipo, descricao: tarefa.descricaoPrevista } });
+            return;
+        }
+        setTarefa((actual) => ({ ...actual, etapa: "descricao", tipoOcorrencia: tipo }));
+        acrescentar({ texto: `Descreva a ${rotulo.toLocaleLowerCase()} com pelo menos cinco caracteres. Se souber, inclua onde e o que aconteceu.` });
     };
 
     const cancelarTarefa = () => {
@@ -554,6 +627,20 @@ export default function AquaGuia() {
                 texto: "Está bem. Não registei nem alterei nada.",
             },
         ]);
+    };
+
+    // "Outro mês": escolhe-se num seletor (últimos meses + campo de mês), sem escrever MM/AAAA.
+    const pedirOutroMes = () => {
+        setTarefa((actual) => ({ ...actual, etapa: "periodo_manual" }));
+        acrescentar({ texto: "De que mês é?", tarefaCard: { tipo: "escolher_mes", periodoActual: tarefa?.periodoActual } });
+    };
+
+    // Repete a última pergunta que falhou, sem duplicar a bolha do utilizador.
+    const tentarDeNovo = () => {
+        const texto = ultimaPerguntaRef.current;
+        if (!texto) return;
+        setMensagens((anteriores) => (anteriores.at(-1)?.papel === "user" && anteriores.at(-1)?.texto === texto ? anteriores.slice(0, -1) : anteriores));
+        enviar(texto);
     };
 
     const seleccionarResumoCliente = async (
@@ -617,7 +704,11 @@ export default function AquaGuia() {
                     },
                 },
             ]);
+            setConcluido({ tipo: "leitura", leitura: resultado.leitura, factura: resultado.factura, cliente: tarefa?.cliente, hora: new Date().toISOString() });
+            setLeituraDigitada("");
             setTarefa(null);
+            // O progresso do ciclo ("13 de 264") vem actualizado do servidor.
+            router.reload({ only: ["ciclo"], preserveState: true, preserveScroll: true });
         } catch (falha) {
             setErro(
                 falha.message ||
@@ -642,6 +733,7 @@ export default function AquaGuia() {
                     tarefaCard: { tipo: "pagamento", ...resultado },
                 },
             ]);
+            setConcluido({ tipo: "pagamento", ...resultado, cliente: tarefa?.cliente, fica: tarefa?.distribuicao?.fica_em_aberto, metodo: payload.metodo_pagamento, hora: new Date().toISOString() });
             setTarefa(null);
         } catch (falha) {
             setErro(
@@ -726,12 +818,13 @@ export default function AquaGuia() {
     };
 
     const executarAccao = (acao) => {
+        if (acao.tipo === "pergunta") return enviar(acao.pergunta);
         if (acao.tipo !== "workflow") return router.visit(acao.url);
-        if (acao.tarefa === "nova_leitura") return iniciarRegistoLeitura();
-        if (acao.tarefa === "registar_pagamento")
-            return iniciarRegistoPagamento();
+        const dados = acao.dados ?? {};
+        if (acao.tarefa === "nova_leitura") return iniciarRegistoLeitura(dados);
+        if (acao.tarefa === "registar_pagamento") return iniciarRegistoPagamento(dados);
         if (acao.tarefa === "nova_zona") return iniciarCriacaoZona();
-        if (acao.tarefa === "nova_ocorrencia") return iniciarOcorrencia();
+        if (acao.tarefa === "nova_ocorrencia") return iniciarOcorrencia(dados);
         if (acao.tarefa === "registar_producao") return iniciarProducao();
     };
 
@@ -818,32 +911,18 @@ export default function AquaGuia() {
         setPergunta("");
         setErro("");
         setAEnviar(true);
+        ultimaPerguntaRef.current = null;
 
         try {
-            if (tarefa?.tipo === "registar_pagamento") {
+            // Com uma tarefa à espera do cliente, uma frase longa é um pedido novo, não um nome.
+            let activa = tarefa;
+            if (["cliente", "escolher_cliente"].includes(activa?.etapa) && mensagem.split(/\s+/).length > 4) {
+                activa = null;
+                setTarefa(null);
+            }
+            if (activa?.tipo === "registar_pagamento") {
                 if (tarefa.etapa === "cliente") {
-                    const resultado = await previewPost(
-                        "/assistente/tarefas/clientes",
-                        { pesquisa: mensagem },
-                    );
-                    const clientes = resultado.clientes ?? [];
-                    setTarefa({
-                        ...tarefa,
-                        etapa: clientes.length ? "escolher_cliente" : "cliente",
-                    });
-                    setMensagens((anteriores) => [
-                        ...anteriores,
-                        {
-                            id: `${Date.now()}-assistant`,
-                            papel: "assistant",
-                            texto: clientes.length
-                                ? "Escolha o cliente correcto:"
-                                : "Não encontrei esse cliente activo. Tente o nome ou número de cliente.",
-                            ...(clientes.length
-                                ? { tarefaCard: { tipo: "clientes", clientes } }
-                                : {}),
-                        },
-                    ]);
+                    await procurarClientes(mensagem, tarefa);
                 } else if (tarefa.etapa === "valor") {
                     const valor = Number(
                         mensagem
@@ -855,16 +934,9 @@ export default function AquaGuia() {
                         throw new Error(
                             "Indique um valor pago superior a zero, como 500,00.",
                         );
-                    setTarefa({ ...tarefa, etapa: "metodo", valor });
-                    setMensagens((anteriores) => [
-                        ...anteriores,
-                        {
-                            id: `${Date.now()}-assistant`,
-                            papel: "assistant",
-                            texto: "Como foi feito o pagamento?",
-                            tarefaCard: { tipo: "metodos_pagamento" },
-                        },
-                    ]);
+                    // Reparte já, e o método escolhe-se na folha "Confirma o pagamento?".
+                    if (tarefa.factura) await preverPagamento({ factura_id: tarefa.factura.id, valor_pago: valor, metodo_pagamento: "dinheiro" }, { ...tarefa, valor });
+                    else await distribuirPagamento(valor, tarefa);
                 } else if (tarefa.etapa === "referencia") {
                     const payload = {
                         factura_id: tarefa.factura.id,
@@ -878,7 +950,7 @@ export default function AquaGuia() {
             }
             if (
                 ["nova_zona", "nova_ocorrencia", "registar_producao"].includes(
-                    tarefa?.tipo,
+                    activa?.tipo,
                 )
             ) {
                 if (tarefa.tipo === "nova_zona" && tarefa.etapa === "nome") {
@@ -985,38 +1057,9 @@ export default function AquaGuia() {
                 }
                 return;
             }
-            if (tarefa?.tipo === "nova_leitura") {
+            if (activa?.tipo === "nova_leitura") {
                 if (tarefa.etapa === "cliente") {
-                    const resultado = await previewPost(
-                        "/assistente/tarefas/clientes",
-                        { pesquisa: mensagem },
-                    );
-                    const clientes = resultado.clientes ?? [];
-                    setTarefa({
-                        ...tarefa,
-                        etapa: clientes.length ? "escolher_cliente" : "cliente",
-                        periodoActual: resultado.periodo_actual,
-                    });
-                    setMensagens((anteriores) => [
-                        ...anteriores,
-                        {
-                            id: `${Date.now()}-assistant`,
-                            papel: "assistant",
-                            texto: clientes.length
-                                ? "Escolha o cliente correcto nos resultados:"
-                                : "Não encontrei esse cliente activo. Tente o nome ou número de cliente.",
-                            ...(clientes.length
-                                ? {
-                                      tarefaCard: {
-                                          tipo: "clientes",
-                                          clientes,
-                                          periodoActual:
-                                              resultado.periodo_actual,
-                                      },
-                                  }
-                                : {}),
-                        },
-                    ]);
+                    await procurarClientes(mensagem, tarefa);
                 } else if (tarefa.etapa === "periodo_manual") {
                     const valor = mensagem.match(
                         /^(?:(0?[1-9]|1[0-2])[/.\-](20\d{2})|(20\d{2})-(0?[1-9]|1[0-2]))$/,
@@ -1111,18 +1154,29 @@ export default function AquaGuia() {
                 }
                 return;
             }
+            ultimaPerguntaRef.current = mensagem;
             const resultado = await previewPost("/assistente/perguntar", {
                 mensagem,
                 historico,
+                pagina: paginaActual,
             });
-            setMensagens((anteriores) => [
-                ...anteriores,
-                {
-                    id: `${Date.now()}-assistant`,
-                    papel: "assistant",
-                    resposta: resultado.resposta,
-                },
-            ]);
+            ultimaPerguntaRef.current = null;
+            // Relato de uma operação com dados ("a Maria Langa veio pagar 4 500 MT"):
+            // a tarefa começa já, sem um passo intermédio (canvas "5 · Pagamento").
+            const primeira = resultado.resposta?.acoes?.[0];
+            if (primeira?.iniciar && primeira.tipo === "workflow") {
+                await executarAccao(primeira);
+                return;
+            }
+            const novaResposta = { id: `${Date.now()}-assistant`, papel: "assistant", resposta: resultado.resposta };
+            setMensagens((anteriores) => [...anteriores, novaResposta]);
+            // Chat fechado entretanto: notificação com a resposta e som de gota.
+            if (!abertoRef.current && !vozAbertaRef.current) {
+                setNotificacao({ pergunta: mensagem, item: novaResposta });
+                somGota();
+            } else if (document.hidden) {
+                somGota();
+            }
         } catch (falha) {
             setErro(
                 falha.message ||
@@ -1178,9 +1232,16 @@ export default function AquaGuia() {
             };
             gravador.onstop = async () => {
                 window.clearTimeout(limiteGravacaoRef.current);
+                pararMedidor();
+                somFimVoz();
                 stream.getTracks().forEach((track) => track.stop());
                 streamAudioRef.current = null;
                 setAGravar(false);
+                if (audioCanceladoRef.current) {
+                    audioCanceladoRef.current = false;
+                    partesAudioRef.current = [];
+                    return;
+                }
                 const audio = new Blob(partesAudioRef.current, {
                     type: gravador.mimeType || "audio/webm",
                 });
@@ -1224,7 +1285,17 @@ export default function AquaGuia() {
                             mensagem || "Não foi possível transcrever o áudio.",
                         );
                     }
-                    await enviar(resultado.texto);
+                    // No passo "Leitura actual" o ditado preenche o campo grande.
+                    if (tarefa?.tipo === "nova_leitura" && tarefa.etapa === "contador") {
+                        const valorDitado = lerNumero(String(resultado.texto).replace(/[^\d.,\s]/g, "").trim());
+                        setVozAberta(false);
+                        if (valorDitado === null) throw new Error("Não percebi um número no áudio. Diga só o valor do contador.");
+                        setLeituraDigitada(String(valorDitado).replace(".", ","));
+                    } else {
+                        // Conversa por voz: a transcrição e a resposta ficam no ecrã de audição.
+                        setVozTranscricao(resultado.texto);
+                        await enviar(resultado.texto);
+                    }
                 } catch (falha) {
                     setErro(
                         falha.message ||
@@ -1235,10 +1306,15 @@ export default function AquaGuia() {
                 }
             };
             gravador.start();
+            somInicioVoz();
             setAGravar(true);
+            setVozAberta(true);
+            setVozTranscricao("");
+            setVozAviso("");
             limiteGravacaoRef.current = window.setTimeout(() => {
                 if (gravador.state === "recording") gravador.stop();
             }, 60000);
+            iniciarMedidor(stream, gravador);
         } catch (falha) {
             streamAudioRef.current
                 ?.getTracks()
@@ -1253,6 +1329,69 @@ export default function AquaGuia() {
         }
     };
 
+    /**
+     * Mede o som do microfone: move as ondas do ecrã de voz e pára sozinho
+     * depois de 1,6 s de silêncio (ou aos 8 s se ninguém falar).
+     */
+    function iniciarMedidor(stream, gravador) {
+        const Contexto = window.AudioContext || window.webkitAudioContext;
+        if (!Contexto) return;
+        const contexto = new Contexto();
+        const analisador = contexto.createAnalyser();
+        analisador.fftSize = 1024;
+        contexto.createMediaStreamSource(stream).connect(analisador);
+        audioContextoRef.current = contexto;
+        const amostras = new Uint8Array(analisador.fftSize);
+        const inicio = performance.now();
+        let ultimoSom = inicio;
+        let falou = false;
+        let ultimaPintura = 0;
+        const medir = (agora) => {
+            analisador.getByteTimeDomainData(amostras);
+            let soma = 0;
+            for (const amostra of amostras) {
+                const valor = (amostra - 128) / 128;
+                soma += valor * valor;
+            }
+            const rms = Math.sqrt(soma / amostras.length);
+            if (agora - ultimaPintura > 60) {
+                setNivelVoz(Math.min(1, rms * 7));
+                ultimaPintura = agora;
+            }
+            if (rms > 0.035) {
+                falou = true;
+                ultimoSom = agora;
+            }
+            const semFala = !falou && agora - inicio > 8000;
+            if ((falou && agora - ultimoSom > 1600) || semFala) {
+                if (semFala) {
+                    audioCanceladoRef.current = true;
+                    setVozAviso("Não ouvi nada. Toque no microfone e fale perto do telefone.");
+                }
+                if (gravador.state === "recording") gravador.stop();
+                return;
+            }
+            medidorRef.current = requestAnimationFrame(medir);
+        };
+        medidorRef.current = requestAnimationFrame(medir);
+    }
+
+    function pararMedidor() {
+        cancelAnimationFrame(medidorRef.current);
+        audioContextoRef.current?.close?.().catch(() => {});
+        audioContextoRef.current = null;
+        setNivelVoz(0);
+    }
+
+    // Cancelar o ditado: pára o microfone e descarta o áudio sem enviar.
+    const cancelarAudio = () => {
+        audioCanceladoRef.current = true;
+        window.clearTimeout(limiteGravacaoRef.current);
+        setVozAberta(false);
+        if (gravadorAudioRef.current?.state === "recording") gravadorAudioRef.current.stop();
+        else audioCanceladoRef.current = false;
+    };
+
     const placeholder =
         tarefa?.etapa === "cliente"
             ? "Escreva o nome ou número do cliente…"
@@ -1261,7 +1400,7 @@ export default function AquaGuia() {
               : tarefa?.etapa === "descricao"
                 ? "Descreva o que aconteceu…"
                 : tarefa?.etapa === "periodo_manual"
-                  ? "Mês e ano (MM/AAAA)…"
+                  ? "Ou escreva o mês, ex.: 09/2026"
                   : tarefa?.etapa === "contador"
                     ? "Valor actual do contador…"
                     : tarefa?.etapa === "volume"
@@ -1275,7 +1414,7 @@ export default function AquaGuia() {
                             ? "Motivo da leitura retroactiva…"
                             : tarefa
                               ? "Escolha uma opção acima…"
-                              : "Pergunta à Aqua sobre qualquer área…";
+                              : "Pergunte ou peça uma tarefa…";
     const entradaDisponivel = ![
         "escolher_cliente",
         "factura",
@@ -1286,1678 +1425,502 @@ export default function AquaGuia() {
         "confirmar",
     ].includes(tarefa?.etapa);
 
+    // ── Contexto da página, papéis e pontos de acesso ──────────────────────
+    const papeis = pagina.props.auth?.roles ?? [];
+    const caminho = (pagina.url ?? "/").split(/[?#]/, 1)[0];
+    // O Painel vive em /admin/dashboard, /gestor/… — o menu usa /dashboard.
+    const caminhoMenu = caminho.replace(/^\/(admin|gestor|tecnico|caixa)(?=\/dashboard)/, "");
+    const destinos = groups.flatMap((grupo) => grupo.subgrupos?.flatMap((sub) => sub.items) ?? grupo.items ?? []);
+    const paginaActual =
+        destinos
+            .flatMap((item) => [item.href, ...(item.activoEm ?? [])].filter(Boolean).map((prefixo) => ({ prefixo, label: item.label })))
+            .filter(({ prefixo }) => caminhoMenu === prefixo || caminhoMenu.startsWith(`${prefixo}/`))
+            .sort((a, b) => b.prefixo.length - a.prefixo.length)[0]?.label ?? "esta página";
+    const tarefasPermitidas = TAREFAS.filter((item) => item.papeis.some((papel) => papeis.includes(papel)));
+    const podeTarefa = (id) => tarefasPermitidas.some((item) => item.tarefa === id);
+    const sugestaoDaPagina = Object.entries(SUGESTOES_DE_PAGINA).find(([prefixo]) => caminhoMenu === prefixo || caminhoMenu.startsWith(`${prefixo}/`))?.[1];
+    const sugestaoValida = sugestaoDaPagina && (!sugestaoDaPagina.tarefa || podeTarefa(sugestaoDaPagina.tarefa)) ? sugestaoDaPagina : null;
+    const chaveSugestao = `aqua-sugestao-vista:${caminho}`;
+
+    const enviarRef = useRef(null);
+    enviarRef.current = enviar;
+    const executarRef = useRef(null);
+    executarRef.current = executarAccao;
+
+    const abrirComPergunta = (texto) => {
+        setAberto(true);
+        if (texto) enviarRef.current?.(texto);
+    };
+
+    // Ctrl + K abre a paleta em qualquer página; o menu e a barra inferior
+    // disparam "aqua:abrir" para abrir o painel (opcionalmente com pergunta).
+    useEffect(() => {
+        if (!assistenteDisponivel) return undefined;
+        const atalho = (evento) => {
+            if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === "k") {
+                evento.preventDefault();
+                setPaleta((valor) => !valor);
+            }
+        };
+        const abrir = (evento) => {
+            setAberto(true);
+            if (evento.detail?.pergunta) enviarRef.current?.(evento.detail.pergunta);
+        };
+        const abrirPaleta = () => setPaleta(true);
+        window.addEventListener("keydown", atalho);
+        window.addEventListener("aqua:abrir", abrir);
+        window.addEventListener("aqua:paleta", abrirPaleta);
+        return () => {
+            window.removeEventListener("keydown", atalho);
+            window.removeEventListener("aqua:abrir", abrir);
+            window.removeEventListener("aqua:paleta", abrirPaleta);
+        };
+    }, [assistenteDisponivel]);
+
+    // Cronómetro do ditado (limite de 60 s já existe no gravador).
+    useEffect(() => {
+        if (!aGravar) {
+            setSegundosGravacao(0);
+            return undefined;
+        }
+        const inicio = Date.now();
+        const temporizador = window.setInterval(() => setSegundosGravacao(Math.floor((Date.now() - inicio) / 1000)), 250);
+        return () => window.clearInterval(temporizador);
+    }, [aGravar]);
+
+    // Sugestão contextual: uma por página e por sessão, só depois de a
+    // pessoa estar uns segundos na página, e nunca enquanto o chat está aberto.
+    useEffect(() => {
+        setSugestaoVisivel(null);
+        if (!assistenteDisponivel || !sugestaoValida) return undefined;
+        try {
+            if (window.sessionStorage.getItem(chaveSugestao)) return undefined;
+        } catch {
+            /* armazenamento opcional */
+        }
+        const temporizador = window.setTimeout(() => {
+            setSugestaoVisivel(sugestaoValida);
+            // Notificação da Aqua: som de gota (só com o painel fechado).
+            if (!abertoRef.current) somGota();
+        }, 8000);
+        return () => window.clearTimeout(temporizador);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [caminho, assistenteDisponivel]);
+
+    const marcarSugestaoVista = () => {
+        setSugestaoVisivel(null);
+        try {
+            window.sessionStorage.setItem(chaveSugestao, "1");
+        } catch {
+            /* armazenamento opcional */
+        }
+    };
+
+    const aceitarSugestao = () => {
+        const sugestao = sugestaoVisivel;
+        marcarSugestaoVista();
+        if (!sugestao) return;
+        setAberto(true);
+        if (sugestao.tarefa) executarRef.current?.({ tipo: "workflow", tarefa: sugestao.tarefa });
+        else enviarRef.current?.(sugestao.pergunta);
+    };
+
+    // Uma resposta por voz que arranca uma tarefa (ex.: pagamento) mostra o fluxo no chat.
+    useEffect(() => {
+        if (vozAberta && tarefa && !aGravar && !aTranscrever && !aEnviar) {
+            setVozAberta(false);
+            setAberto(true);
+        }
+    }, [vozAberta, tarefa, aGravar, aTranscrever, aEnviar]);
+
+    // Abrir o chat apaga a notificação pendente.
+    useEffect(() => {
+        if (aberto) setNotificacao(null);
+    }, [aberto]);
+
+    // Manter premida a mascote (ou o evento "aqua:voz") abre a conversa por voz em ecrã inteiro.
+    const iniciarVozRef = useRef(null);
+    iniciarVozRef.current = () => {
+        setNotificacao(null);
+        if (!aGravar && !aTranscrever && !aEnviar) iniciarOuPararAudio();
+    };
+    useEffect(() => {
+        if (!assistenteDisponivel) return undefined;
+        const abrirVoz = () => iniciarVozRef.current?.();
+        window.addEventListener("aqua:voz", abrirVoz);
+        return () => window.removeEventListener("aqua:voz", abrirVoz);
+    }, [assistenteDisponivel]);
+
     if (!assistenteDisponivel) return null;
 
+    // Ecrãs especiais dos fluxos (canvas "3 · Leitura", "4 · Sucesso", "5 · Pagamento").
+    const confirmaPagamento = tarefa?.tipo === "registar_pagamento" && tarefa.etapa === "confirmar" && (tarefa.previa || tarefa.distribuicao);
+    const ficaEmAberto = Number(tarefa?.distribuicao?.fica_em_aberto ?? tarefa?.previa?.saldo_depois ?? 0);
+    const escreveLeitura = tarefa?.tipo === "nova_leitura" && tarefa.etapa === "contador" && tarefa.contexto;
+    const confirmaLeitura = tarefa?.tipo === "nova_leitura" && tarefa.etapa === "confirmar" && tarefa.payload;
+    const fluxo = confirmaPagamento ? null : infoFluxo(tarefa);
+    const ultimaDaAqua = [...mensagens].reverse().find((item) => item.papel === "assistant");
+    const erroDePergunta = Boolean(erro && !tarefa && ultimaPerguntaRef.current);
+    const humorCabecalho = concluido
+        ? "feliz"
+        : aGravar
+          ? "ouvir"
+          : aTranscrever
+            ? "processar"
+            : aEnviar
+              ? "pensar"
+              : erroDePergunta
+                ? "ops"
+                : confirmaPagamento && ficaEmAberto > 0
+                  ? "atencao"
+                  : ultimaDaAqua
+                    ? humorDaMensagem(ultimaDaAqua)
+                    : "ola";
+    const tituloCabecalho = concluido ? (concluido.tipo === "leitura" ? "Registar leitura" : "Registar pagamento") : (fluxo?.titulo ?? "Aqua");
+    const [estadoTexto, estadoPonto, estadoCor] = concluido
+        ? ["Concluído", "bg-[#2EA063]", "text-[#1E7148] dark:text-[#7DD3A3]"]
+        : confirmaPagamento && !aEnviar
+          ? ["Precisa da sua confirmação", "bg-[#D98A00]", "text-[#8A4F00] dark:text-[#F3C77A]"]
+          : aGravar
+        ? ["A ouvir…", "bg-[#0059FF]", cor.ligacao]
+        : aTranscrever
+          ? ["A transcrever o áudio…", "bg-[#0059FF]", cor.ligacao]
+          : aEnviar
+            ? ["A pensar…", "bg-[#0059FF]", cor.ligacao]
+            : erroDePergunta
+              ? ["Em pausa por instantes", "bg-[#8C97B0]", cor.texto3]
+              : fluxo
+                ? [`Com a Aqua · passo ${fluxo.actual + 1} de ${fluxo.passos.length}`, "bg-[#0059FF]", cor.texto3]
+                : humorCabecalho === "atencao"
+                  ? ["Precisa da sua atenção", "bg-[#D98A00]", "text-[#8A4F00] dark:text-[#F3C77A]"]
+                  : [`Pronta · a ver ${paginaActual}`, "bg-[#2EA063]", cor.texto3];
+    // Ecrã inicial enquanto não há perguntas nesta conversa (também depois de
+    // cancelar uma tarefa começada por um botão).
+    const inicio = !mensagens.some((item) => item.papel === "user") && !aEnviar && !tarefa && !erro && !concluido;
+    const visiveis = mensagens.filter((item) => item.id !== "boas-vindas");
+    const ultima = mensagens.at(-1);
+    const seguimentos = !tarefa && !aEnviar && !aTranscrever && !erro && ultima?.papel === "assistant" ? (ultima.resposta?.seguimentos ?? []) : [];
+
+    // Cartão "Hoje": só dados reais (ciclo do mês e alertas do Painel).
+    const { ciclo, alertasPendentes = 0 } = pagina.props;
+    const gestao = papeis.some((papel) => ["administrador", "gestor"].includes(papel));
+    const hoje = [];
+    if (ciclo && ciclo.clientes > 0 && ciclo.lidas < ciclo.clientes && papeis.some((papel) => ["administrador", "gestor", "tecnico"].includes(papel))) {
+        const prazo = ciclo.diasParaLimite > 1 ? ` · faltam ${ciclo.diasParaLimite} dias` : ciclo.diasParaLimite === 1 ? " · falta 1 dia" : ciclo.diasParaLimite === 0 ? " · termina hoje" : " · prazo passou";
+        hoje.push({
+            valor: `${Math.floor((ciclo.lidas / ciclo.clientes) * 100)}%`,
+            tom: ciclo.diasParaLimite < 0 ? "vermelho" : "azul",
+            titulo: `Leituras de ${ciclo.mes}${prazo}`,
+            progresso: (ciclo.lidas / ciclo.clientes) * 100,
+            onClick: () => router.visit("/leituras"),
+        });
+    }
+    if (gestao && alertasPendentes > 0) {
+        hoje.push({ valor: String(alertasPendentes), tom: "ambar", titulo: alertasPendentes === 1 ? "Alerta no Painel por resolver" : "Alertas no Painel por resolver", onClick: () => router.visit("/dashboard") });
+    }
+    if (ciclo && !ciclo.producaoRegistada && podeTarefa("registar_producao")) {
+        hoje.push({ valor: "!", tom: "vermelho", titulo: `Produção de ${ciclo.mes} por registar`, onClick: () => executarAccao({ tipo: "workflow", tarefa: "registar_producao" }) });
+    }
+    const anterior = conversas.find((conversa) => conversa.id !== conversaActiva && conversa.mensagens?.some((item) => item.papel === "user"));
+    const sugestoesIniciais = (papeis.some((papel) => ["administrador", "gestor"].includes(papel))
+        ? SUGESTOES_POR_PAPEL.gestao
+        : papeis.includes("caixa")
+          ? SUGESTOES_POR_PAPEL.caixa
+          : SUGESTOES_POR_PAPEL.tecnico
+    )
+        .filter((sugestao) => !sugestao.tarefa || podeTarefa(sugestao.tarefa))
+        .slice(0, 3)
+        .map((sugestao) => ({
+            ...sugestao,
+            onClick: () => (sugestao.tarefa ? executarAccao({ tipo: "workflow", tarefa: sugestao.tarefa }) : enviar(sugestao.pergunta)),
+        }));
+
+    const ctx = {
+        tarefa,
+        aEnviar,
+        irPara: (url) => router.visit(url),
+        executarAccao,
+        carregarPaginaConsulta,
+        seleccionarResumoCliente,
+        escolherCliente,
+        escolherPeriodo,
+        pedirOutroMes,
+        escolherTipoOcorrencia,
+        escolherZonaProducao,
+        escolherFacturaPagamento,
+        escolherMetodoPagamento,
+        confirmarTarefaLeitura,
+        confirmarTarefaPagamento,
+        confirmarTarefaOperacional,
+        cancelarTarefa,
+        iniciarRegistoLeitura,
+        iniciarRegistoPagamento,
+        enviar,
+        podeTarefa,
+    };
+
+    const terminarConcluido = () => {
+        setConcluido(null);
+        novaConversa();
+    };
+
+    const painel = expandido
+        ? "inset-0 h-dvh md:left-auto md:w-[min(640px,92vw)] md:rounded-l-3xl md:border-l shadow-[-18px_0_55px_rgba(4,26,83,0.2)] dark:shadow-[-18px_0_55px_rgba(0,0,0,0.45)]"
+        : "inset-x-0 bottom-0 h-[88dvh] rounded-t-[28px] shadow-[0_-12px_40px_rgba(3,9,35,0.2)] md:inset-x-auto md:bottom-6 md:right-6 md:h-[min(800px,calc(100dvh-3rem))] md:w-[400px] md:rounded-3xl md:border md:shadow-[0_24px_60px_rgba(4,26,83,0.18)] dark:md:shadow-[0_24px_60px_rgba(0,0,0,0.55)]";
+
     return (
-        <div
-            className={
-                aberto && expandido
-                    ? "fixed inset-0 z-[65] flex justify-end bg-slate-950/25"
-                    : "fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-[65] flex flex-col items-end gap-3 sm:bottom-6 sm:right-6"
-            }
-            onClick={aberto && expandido ? fechar : undefined}
-        >
+        <>
+            {paleta && (
+                <Paleta
+                    onFechar={() => setPaleta(false)}
+                    onPerguntar={(texto) => {
+                        setPaleta(false);
+                        abrirComPergunta(texto);
+                    }}
+                    onAbrirNoPainel={(texto) => {
+                        setPaleta(false);
+                        setAberto(true);
+                        setPergunta(texto);
+                    }}
+                    destinos={destinos}
+                    tarefas={tarefasPermitidas}
+                    onTarefa={(id) => {
+                        setPaleta(false);
+                        setAberto(true);
+                        executarAccao({ tipo: "workflow", tarefa: id });
+                    }}
+                    onIrPara={(href) => {
+                        setPaleta(false);
+                        router.visit(href);
+                    }}
+                />
+            )}
+
+            <Lancador
+                aberto={aberto}
+                onAbrir={() => (aberto ? fechar() : setAberto(true))}
+                onFalar={() => iniciarVozRef.current?.()}
+                pendente={Boolean(notificacao)}
+                sugestao={notificacao ? null : sugestaoVisivel}
+                onAceitar={aceitarSugestao}
+                onDispensar={marcarSugestaoVista}
+                accionadorRef={accionadorRef}
+            />
+
             <AnimatePresence>
+                {aberto && (
+                    <motion.div
+                        key="aqua-fundo"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className={`fixed inset-0 z-[65] bg-[rgba(3,9,35,0.38)] dark:bg-black/60 ${expandido ? "" : "md:hidden"}`}
+                        onClick={fechar}
+                        aria-hidden="true"
+                    />
+                )}
                 {aberto && (
                     <motion.aside
                         id="aqua-guia"
                         key="aqua-guia"
-                        initial={
-                            reduzirMovimento
-                                ? false
-                                : {
-                                      opacity: 0,
-                                      transform: "translateY(8px) scale(0.985)",
-                                  }
-                        }
-                        animate={{
-                            opacity: 1,
-                            transform: "translateY(0) scale(1)",
-                        }}
-                        exit={
-                            reduzirMovimento
-                                ? { opacity: 0 }
-                                : {
-                                      opacity: 0,
-                                      transform: "translateY(8px) scale(0.99)",
-                                  }
-                        }
-                        transition={{
-                            duration: 0.18,
-                            ease: [0.23, 1, 0.32, 1],
-                        }}
-                        className={
-                            expandido
-                                ? "flex h-dvh w-full flex-col overflow-hidden border-l border-slate-200 bg-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-[-18px_0_55px_rgba(4,26,83,0.2)] sm:w-[min(640px,92vw)] sm:rounded-l-[18px] dark:border-slate-800 dark:bg-[#161A22] dark:shadow-[-18px_0_55px_rgba(0,0,0,0.42)]"
-                                : "flex h-[min(72dvh,680px)] max-h-[calc(100dvh-6.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-[min(420px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_18px_55px_rgba(4,26,83,0.2)] dark:border-slate-800 dark:bg-[#161A22] dark:shadow-[0_18px_55px_rgba(0,0,0,0.42)] sm:w-[min(420px,calc(100vw-2rem))]"
-                        }
-                        aria-label="Conversa global com a Aqua"
-                        onClick={(evento) => evento.stopPropagation()}
+                        initial={reduzirMovimento ? false : { opacity: 0, y: 24, scale: 0.985 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={reduzirMovimento ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.99 }}
+                        transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                        className={`fixed z-[66] flex flex-col overflow-hidden border-[#E1E7F3] leading-normal dark:border-[#262C38] ${cor.fundo} ${cor.texto} ${painel}`}
+                        aria-label="Conversa com a Aqua"
+                        role="dialog"
                         onKeyDown={(evento) => {
-                            if (evento.key === "Escape") fechar();
+                            if (evento.key === "Escape" && !aGravar) fechar();
                         }}
                     >
-                        <header className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
-                            <MascoteAqua pequeno />
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 text-sm font-bold text-ink dark:text-[#F2F5FB]">
-                                    Aqua{" "}
-                                    <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                                        Disponível
-                                    </span>
+                        <header className={`shrink-0 ${cor.superficie} ${fluxo ? "" : `border-b ${cor.borda}`} pt-[env(safe-area-inset-top)] md:pt-0`}>
+                            <span className="mx-auto mt-2 block h-[5px] w-10 rounded-full bg-[#C9D2E3] md:hidden dark:bg-[#363E51]" aria-hidden="true" />
+                            <div className="flex items-center gap-2.5 py-2.5 pl-4 pr-3">
+                                <button
+                                    type="button"
+                                    onClick={() => iniciarVozRef.current?.()}
+                                    disabled={aEnviar || aTranscrever}
+                                    aria-label="Falar com a Aqua por voz"
+                                    title="Toque na Aqua para falar"
+                                    className="shrink-0 rounded-full transition hover:scale-105 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0059FF]/25 disabled:hover:scale-100"
+                                >
+                                    <Mascote humor={humorCabecalho} tamanho={40} />
+                                </button>
+                                <div className="min-w-0 flex-1">
+                                    <div className="truncate text-base font-extrabold">{tituloCabecalho}</div>
+                                    <div className={`flex items-center gap-1.5 text-xs font-semibold ${estadoCor}`}>
+                                        <span className={`h-[7px] w-[7px] shrink-0 rounded-full ${estadoPonto}`} />
+                                        <span className="truncate">{estadoTexto}</span>
+                                    </div>
                                 </div>
-                                <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
-                                    Conversa única · indicadores de várias áreas
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={novaConversa}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#262C38]"
-                                aria-label="Criar nova conversa"
-                                title="Nova conversa"
-                            >
-                                <MessageSquarePlus
-                                    className="h-4 w-4"
-                                    aria-hidden="true"
-                                />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setMenuConversas((aberta) => !aberta)
-                                }
-                                className={`flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#262C38] ${menuConversas ? "bg-slate-100 dark:bg-[#262C38]" : ""}`}
-                                aria-label="Ver conversas anteriores"
-                                aria-expanded={menuConversas}
-                                title="Conversas anteriores"
-                            >
-                                <History
-                                    className="h-4 w-4"
-                                    aria-hidden="true"
-                                />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => apagarConversa(conversaActiva)}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-700 dark:text-slate-300 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
-                                aria-label="Apagar esta conversa"
-                                title="Apagar conversa"
-                            >
-                                <Trash2
-                                    className="h-4 w-4"
-                                    aria-hidden="true"
-                                />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setExpandido((valor) => !valor)}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#262C38]"
-                                aria-label={
-                                    expandido
-                                        ? "Voltar ao chat flutuante"
-                                        : "Expandir conversa em painel lateral"
-                                }
-                                title={
-                                    expandido
-                                        ? "Reduzir conversa"
-                                        : "Expandir conversa"
-                                }
-                            >
-                                {expandido ? (
-                                    <Shrink
-                                        className="h-4 w-4"
-                                        aria-hidden="true"
-                                    />
-                                ) : (
-                                    <Expand
-                                        className="h-4 w-4"
-                                        aria-hidden="true"
-                                    />
+                                {!fluxo && !concluido && !confirmaPagamento && (
+                                    <BotaoIcone rotulo="Conversas anteriores" onClick={() => setMenuConversas((valor) => !valor)} activo={menuConversas} expandido={menuConversas}>
+                                        <History className="h-5 w-5" />
+                                    </BotaoIcone>
                                 )}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={fechar}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#262C38]"
-                                aria-label="Fechar ajuda"
-                            >
-                                <X className="h-4 w-4" aria-hidden="true" />
-                            </button>
+                                <BotaoIcone rotulo="Fechar a Aqua" onClick={fechar}>
+                                    <X className="h-[18px] w-[18px]" />
+                                </BotaoIcone>
+                            </div>
                         </header>
 
-                        {menuConversas && (
-                            <div
-                                className="max-h-48 shrink-0 overflow-y-auto border-b border-slate-100 bg-white p-2 dark:border-slate-800 dark:bg-[#161A22]"
-                                aria-label="Conversas anteriores"
-                            >
-                                {conversas.length > 0 && (
+                        {fluxo && !concluido && <ProgressoTarefa tarefa={tarefa} />}
+
+                        {menuConversas && !fluxo && (
+                            <div className={`max-h-72 shrink-0 overflow-y-auto border-b p-2 ${cor.borda} ${cor.superficie}`} aria-label="Conversas anteriores">
+                                <div className="mb-1 flex gap-2">
+                                    <button type="button" onClick={novaConversa} className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[14px] text-sm font-bold ${cor.primario}`}>
+                                        <MessageSquarePlus className="h-4 w-4" aria-hidden="true" />
+                                        Nova conversa
+                                    </button>
                                     <button
                                         type="button"
-                                        onClick={limparConversas}
-                                        className="mb-1 flex min-h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                                        onClick={() => {
+                                            setExpandido((valor) => !valor);
+                                            setMenuConversas(false);
+                                        }}
+                                        className={`hidden min-h-11 items-center justify-center gap-2 rounded-[14px] px-3.5 text-sm font-bold md:flex ${cor.suave}`}
                                     >
-                                        <Trash2
-                                            className="h-3.5 w-3.5"
-                                            aria-hidden="true"
-                                        />
+                                        {expandido ? <Shrink className="h-4 w-4" aria-hidden="true" /> : <Expand className="h-4 w-4" aria-hidden="true" />}
+                                        {expandido ? "Reduzir" : "Painel largo"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const ligar = !somAtivo;
+                                            definirSons(ligar);
+                                            setSomAtivo(ligar);
+                                            if (ligar) somGota();
+                                        }}
+                                        aria-pressed={somAtivo}
+                                        aria-label={somAtivo ? "Desligar os sons da Aqua" : "Ligar os sons da Aqua"}
+                                        title={somAtivo ? "Sons ligados" : "Sons desligados"}
+                                        className={`flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[14px] ${cor.suave}`}
+                                    >
+                                        {somAtivo ? <Volume2 className="h-4 w-4" aria-hidden="true" /> : <VolumeX className="h-4 w-4" aria-hidden="true" />}
+                                    </button>
+                                </div>
+                                {conversas.map((conversa) => (
+                                    <div key={conversa.id} className={`flex items-center gap-1 rounded-[14px] ${conversa.id === conversaActiva ? "bg-[#F0F4FF] dark:bg-[#0E1C3F]" : "hover:bg-[#F4F6FB] dark:hover:bg-[#1E232D]"}`}>
+                                        <button type="button" onClick={() => abrirConversa(conversa)} className="min-h-11 min-w-0 flex-1 px-3 py-2 text-left">
+                                            <span className={`block truncate text-sm font-bold ${cor.texto}`}>{conversa.titulo || "Nova conversa"}</span>
+                                            <span className={`block text-[11px] ${cor.texto3}`}>
+                                                {new Date(conversa.actualizada ?? Date.now()).toLocaleString("pt-MZ", { dateStyle: "short", timeStyle: "short" })}
+                                            </span>
+                                        </button>
+                                        <BotaoIcone rotulo={`Apagar conversa ${conversa.titulo || "sem título"}`} onClick={() => apagarConversa(conversa.id)} perigo>
+                                            <Trash2 className="h-4 w-4" />
+                                        </BotaoIcone>
+                                    </div>
+                                ))}
+                                {conversas.length > 1 && (
+                                    <button type="button" onClick={limparConversas} className="mt-1 flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-xs font-bold text-[#B42318] hover:bg-[#FDF1F0] dark:text-[#F4A39A] dark:hover:bg-[#2D1714]">
+                                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                                         Limpar todas as conversas
                                     </button>
                                 )}
-                                {conversas.length === 0 ? (
-                                    <p className="px-2 py-3 text-xs text-slate-500">
-                                        Ainda não há conversas guardadas.
-                                    </p>
+                            </div>
+                        )}
+
+                        <div ref={listaRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4" aria-live="polite" aria-relevant="additions text">
+                            <div className="flex flex-col gap-3.5">
+                                {concluido ? (
+                                    concluido.tipo === "leitura" ? (
+                                        <SucessoLeitura concluido={concluido} ciclo={ciclo} irPara={(url) => router.visit(url)} />
+                                    ) : (
+                                        <SucessoPagamento concluido={concluido} irPara={(url) => router.visit(url)} />
+                                    )
+                                ) : inicio ? (
+                                    <EcraInicial
+                                        nome={auth?.user?.name}
+                                        hoje={hoje.slice(0, 3)}
+                                        conversaAnterior={anterior ? { titulo: anterior.titulo, onAbrir: () => abrirConversa(anterior) } : null}
+                                        sugestoes={sugestoesIniciais}
+                                    />
                                 ) : (
-                                    conversas.map((conversa) => (
-                                        <div
-                                            key={conversa.id}
-                                            className={`flex items-center gap-1 rounded-lg ${conversa.id === conversaActiva ? "bg-blue-50 dark:bg-blue-950/30" : "hover:bg-slate-50 dark:hover:bg-white/[0.04]"}`}
-                                        >
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    abrirConversa(conversa)
-                                                }
-                                                className="min-w-0 flex-1 px-2.5 py-2 text-left text-xs text-slate-700 dark:text-slate-200"
-                                            >
-                                                <span className="block truncate font-semibold">
-                                                    {conversa.titulo ||
-                                                        "Nova conversa"}
-                                                </span>
-                                                <span className="block text-[10px] text-slate-400">
-                                                    {new Date(
-                                                        conversa.actualizada ??
-                                                            Date.now(),
-                                                    ).toLocaleString("pt-MZ", {
-                                                        dateStyle: "short",
-                                                        timeStyle: "short",
-                                                    })}
-                                                </span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    apagarConversa(conversa.id)
-                                                }
-                                                className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
-                                                aria-label={`Apagar conversa ${conversa.titulo || "sem título"}`}
-                                                title="Apagar conversa"
-                                            >
-                                                <Trash2
-                                                    className="h-3.5 w-3.5"
-                                                    aria-hidden="true"
-                                                />
-                                            </button>
-                                        </div>
-                                    ))
+                                    visiveis.map((item) => <Mensagem key={item.id} item={item} ctx={ctx} />)
                                 )}
-                            </div>
-                        )}
-
-                        <div className="flex items-center gap-2 border-b border-slate-100 bg-[#F7F9FD] px-4 py-2 text-[11px] text-slate-600 dark:border-slate-800 dark:bg-[#1E232D] dark:text-slate-300">
-                            <Sparkles
-                                className="h-3.5 w-3.5 text-brand dark:text-cyan-300"
-                                aria-hidden="true"
-                            />
-                            <span className="truncate">
-                                Contexto geral · indicadores e procedimentos
-                            </span>
-                            <Check
-                                className="ml-auto h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-300"
-                                aria-hidden="true"
-                            />
-                        </div>
-
-                        <div
-                            ref={listaRef}
-                            className="min-h-24 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4"
-                            aria-live="polite"
-                            aria-relevant="additions text"
-                        >
-                            {mensagens.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className={`flex gap-2.5 ${item.papel === "user" ? "justify-end" : "items-start"}`}
-                                >
-                                    {item.papel === "assistant" && (
-                                        <MascoteAqua pequeno />
-                                    )}
-                                    <div
-                                        className={`max-w-[92%] rounded-[13px] px-3.5 py-2.5 text-[clamp(0.75rem,0.9vw,0.875rem)] leading-relaxed sm:max-w-[87%] ${item.papel === "user" ? "rounded-tr-[4px] bg-brand text-white shadow-sm dark:bg-[#1B3A85]" : "rounded-tl-[4px] border border-slate-200 bg-white text-slate-800 shadow-sm dark:border-[#3A4352] dark:bg-[#242B38] dark:text-slate-100"}`}
-                                    >
-                                        <p className="whitespace-pre-wrap">
-                                            {item.texto ??
-                                                item.resposta?.mensagem}
+                                {escreveLeitura && !concluido && (
+                                    <LeituraActual
+                                        contexto={tarefa.contexto}
+                                        valor={leituraDigitada}
+                                        onValor={setLeituraDigitada}
+                                        onDitar={iniciarOuPararAudio}
+                                        onOutroMes={pedirOutroMes}
+                                        desactivado={aEnviar || aTranscrever}
+                                    />
+                                )}
+                                {(aEnviar || aTranscrever) &&<APensar modo={aTranscrever ? "transcrever" : tarefa ? "tarefa" : "pergunta"} />}
+                                {erro &&
+                                    !aEnviar &&
+                                    (erroDePergunta ? (
+                                        <CartaoErro mensagem={erro} podeTentar onTentar={tentarDeNovo} />
+                                    ) : (
+                                        <p role="alert" className={`rounded-2xl px-3.5 py-3 text-sm ${tarefa ? cor.ambar : cor.vermelho}`}>
+                                            {erro}
                                         </p>
-                                        {item.resposta?.acoes?.length > 0 && (
-                                            <div className="mt-3 flex flex-wrap gap-2">
-                                                {item.resposta.acoes.map(
-                                                    (acao) => {
-                                                        const Icone =
-                                                            iconeDaAccao(acao);
-                                                        return (
-                                                            <PrimaryButton
-                                                                key={`${item.id}-${acao.tarefa ?? acao.url}`}
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    executarAccao(
-                                                                        acao,
-                                                                    )
-                                                                }
-                                                                className="min-h-9 px-3 text-xs"
-                                                            >
-                                                                <Icone
-                                                                    className="h-4 w-4"
-                                                                    aria-hidden="true"
-                                                                />
-                                                                {acao.rotulo}
-                                                            </PrimaryButton>
-                                                        );
-                                                    },
-                                                )}
-                                            </div>
-                                        )}
-                                        {item.resposta?.consulta_card &&
-                                            (() => {
-                                                const card =
-                                                    item.resposta.consulta_card;
-                                                const temAccaoAbrir = item.resposta.acoes?.some(
-                                                    (acao) => acao.url?.split("?")[0] === card.url,
-                                                );
-                                                const resumo = Object.entries(
-                                                    card.resumo ?? {},
-                                                )
-                                                    .filter(([, valor]) => valor !== 0 && valor !== null)
-                                                    .map(
-                                                        ([chave, valor]) =>
-                                                            `${chave.replaceAll("_", " ")}: ${typeof valor === "number" ? new Intl.NumberFormat("pt-MZ", { maximumFractionDigits: 2 }).format(valor) : valor}`,
-                                                    )
-                                                    .join(" · ");
-                                                return (
-                                                    <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-xs shadow-sm dark:border-slate-700 dark:bg-[#252B36]">
-                                                        <p className="font-semibold">
-                                                            {card.titulo}
-                                                            {resumo ? (
-                                                                <span className="ml-1 font-normal text-slate-500">
-                                                                    · {resumo}
-                                                                </span>
-                                                            ) : null}
-                                                        </p>
-                                                        {card.registos
-                                                            ?.length ? (
-                                                            <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                                                                {card.registos.map(
-                                                                    (
-                                                                        registo,
-                                                                        indice,
-                                                                    ) => (
-                                                                        <button
-                                                                            key={`${registo.url}-${indice}`}
-                                                                            type="button"
-                                                                            onClick={() =>
-                                                                                router.visit(
-                                                                                    registo.url,
-                                                                                )
-                                                                            }
-                                                                            className="flex w-full items-start gap-2 py-2 text-left hover:text-brand dark:hover:text-cyan-300"
-                                                                        >
-                                                                            <span className="min-w-0 flex-1">
-                                                                                <strong className="block">
-                                                                                    {
-                                                                                        registo.titulo
-                                                                                    }
-                                                                                </strong>
-                                                                                <span className="text-[10px] text-slate-500">
-                                                                                    {
-                                                                                        registo.detalhe
-                                                                                    }
-                                                                                </span>
-                                                                            </span>
-                                                                            <ExternalLink
-                                                                                className="mt-0.5 h-3.5 w-3.5 shrink-0"
-                                                                                aria-hidden="true"
-                                                                            />
-                                                                        </button>
-                                                                    ),
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <p className="text-slate-500">
-                                                                Não encontrei
-                                                                registos para
-                                                                estes critérios.
-                                                            </p>
-                                                        )}
-                                                        {card.total_paginas > 1 && (
-                                                            <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
-                                                            <SecondaryButton
-                                                                type="button"
-                                                                disabled={
-                                                                    aEnviar ||
-                                                                    card.pagina <=
-                                                                        1
-                                                                }
-                                                                onClick={() =>
-                                                                    carregarPaginaConsulta(
-                                                                        card,
-                                                                        card.pagina -
-                                                                            1,
-                                                                    )
-                                                                }
-                                                                className="min-h-8 px-2 text-[11px]"
-                                                            >
-                                                                <ChevronLeft className="h-3.5 w-3.5" />
-                                                                Anterior
-                                                            </SecondaryButton>
-                                                            <span className="text-[10px] text-slate-500">
-                                                                Página{" "}
-                                                                {card.pagina} /{" "}
-                                                                {
-                                                                    card.total_paginas
-                                                                }
-                                                            </span>
-                                                            <SecondaryButton
-                                                                type="button"
-                                                                disabled={
-                                                                    aEnviar ||
-                                                                    card.pagina >=
-                                                                        card.total_paginas
-                                                                }
-                                                                onClick={() =>
-                                                                    carregarPaginaConsulta(
-                                                                        card,
-                                                                        card.pagina +
-                                                                            1,
-                                                                    )
-                                                                }
-                                                                className="min-h-8 px-2 text-[11px]"
-                                                            >
-                                                                Seguinte
-                                                                <ChevronRight className="h-3.5 w-3.5" />
-                                                            </SecondaryButton>
-                                                            </div>
-                                                        )}
-                                                        {!temAccaoAbrir && <PrimaryButton
-                                                            type="button"
-                                                            onClick={() =>
-                                                                router.visit(
-                                                                    card.url,
-                                                                )
-                                                            }
-                                                            className="min-h-9 px-3 text-xs"
-                                                        >
-                                                            <ExternalLink
-                                                                className="h-4 w-4"
-                                                                aria-hidden="true"
-                                                            />
-                                                            Abrir{" "}
-                                                            {card.titulo.toLocaleLowerCase()}
-                                                        </PrimaryButton>}
-                                                    </div>
-                                                );
-                                            })()}
-                                        {item.tarefaCard?.tipo ===
-                                            "escolher_resumo_cliente" && (
-                                            <div className="mt-3 flex flex-col gap-2">
-                                                {item.tarefaCard.clientes.map(
-                                                    (cliente) => (
-                                                        <SecondaryButton
-                                                            key={cliente.id}
-                                                            type="button"
-                                                            onClick={() =>
-                                                                seleccionarResumoCliente(
-                                                                    cliente,
-                                                                    item
-                                                                        .tarefaCard
-                                                                        .pergunta,
-                                                                    item
-                                                                        .tarefaCard
-                                                                        .historico,
-                                                                )
-                                                            }
-                                                            className="min-h-10 justify-start px-3 text-xs"
-                                                        >
-                                                            <UsersRound
-                                                                className="h-4 w-4"
-                                                                aria-hidden="true"
-                                                            />
-                                                            {cliente.nome}
-                                                            <span className="ml-1 font-normal text-slate-500">
-                                                                {
-                                                                    cliente.numero_cliente
-                                                                }
-                                                            </span>
-                                                        </SecondaryButton>
-                                                    ),
-                                                )}
-                                            </div>
-                                        )}
-                                        {item.tarefaCard?.tipo ===
-                                            "resumo_cliente" && (
-                                            <div className="mt-3 space-y-3 rounded-lg border border-slate-200 bg-white p-3 text-xs shadow-sm dark:border-slate-700 dark:bg-[#252B36]">
-                                                <p>
-                                                    <strong>
-                                                        {
-                                                            item.tarefaCard
-                                                                .cliente.nome
-                                                        }
-                                                    </strong>{" "}
-                                                    ·{" "}
-                                                    {
-                                                        item.tarefaCard.cliente
-                                                            .numero_cliente
-                                                    }{" "}
-                                                    ·{" "}
-                                                    {
-                                                        item.tarefaCard.cliente
-                                                            .estado
-                                                    }
-                                                </p>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <p>
-                                                        Saldo em aberto:{" "}
-                                                        <strong>
-                                                            {formatMoney(
-                                                                item.tarefaCard
-                                                                    .cliente
-                                                                    .calculos
-                                                                    .saldo_em_aberto,
-                                                            )}
-                                                        </strong>
-                                                    </p>
-                                                    <p>
-                                                        Saldo vencido:{" "}
-                                                        <strong>
-                                                            {formatMoney(
-                                                                item.tarefaCard
-                                                                    .cliente
-                                                                    .calculos
-                                                                    .saldo_vencido,
-                                                            )}
-                                                        </strong>
-                                                    </p>
-                                                    <p>
-                                                        Multas registadas em
-                                                        falta:{" "}
-                                                        <strong>
-                                                            {formatMoney(
-                                                                item.tarefaCard
-                                                                    .cliente
-                                                                    .calculos
-                                                                    .multas_registadas_em_falta,
-                                                            )}
-                                                        </strong>
-                                                    </p>
-                                                    <p>
-                                                        Multas previstas:{" "}
-                                                        <strong>
-                                                            {formatMoney(
-                                                                item.tarefaCard
-                                                                    .cliente
-                                                                    .calculos
-                                                                    .multas_previstas,
-                                                            )}
-                                                        </strong>
-                                                    </p>
-                                                </div>
-                                                {item.tarefaCard.cliente
-                                                    .ultima_factura ? (
-                                                    <p>
-                                                        Última factura:{" "}
-                                                        <strong>
-                                                            {
-                                                                item.tarefaCard
-                                                                    .cliente
-                                                                    .ultima_factura
-                                                                    .numero
-                                                            }
-                                                        </strong>{" "}
-                                                        ·{" "}
-                                                        {
-                                                            item.tarefaCard
-                                                                .cliente
-                                                                .ultima_factura
-                                                                .periodo
-                                                        }{" "}
-                                                        · total{" "}
-                                                        {formatMoney(
-                                                            item.tarefaCard
-                                                                .cliente
-                                                                .ultima_factura
-                                                                .total,
-                                                        )}{" "}
-                                                        · saldo{" "}
-                                                        {formatMoney(
-                                                            item.tarefaCard
-                                                                .cliente
-                                                                .ultima_factura
-                                                                .saldo,
-                                                        )}{" "}
-                                                        ·{" "}
-                                                        {
-                                                            item.tarefaCard
-                                                                .cliente
-                                                                .ultima_factura
-                                                                .estado
-                                                        }
-                                                    </p>
-                                                ) : (
-                                                    <p>
-                                                        Sem factura registada.
-                                                    </p>
-                                                )}
-                                                {item.tarefaCard.cliente
-                                                    .ultima_leitura ? (
-                                                    <p>
-                                                        Última leitura:{" "}
-                                                        <strong>
-                                                            {
-                                                                item.tarefaCard
-                                                                    .cliente
-                                                                    .ultima_leitura
-                                                                    .periodo
-                                                            }
-                                                        </strong>{" "}
-                                                        · contador{" "}
-                                                        {formatNumero(
-                                                            item.tarefaCard
-                                                                .cliente
-                                                                .ultima_leitura
-                                                                .contador,
-                                                        )}{" "}
-                                                        · consumo{" "}
-                                                        {formatNumero(
-                                                            item.tarefaCard
-                                                                .cliente
-                                                                .ultima_leitura
-                                                                .consumo_m3,
-                                                        )}{" "}
-                                                        m³ ·{" "}
-                                                        {item.tarefaCard.cliente
-                                                            .ultima_leitura
-                                                            .confirmada
-                                                            ? "confirmada"
-                                                            : "por confirmar"}
-                                                    </p>
-                                                ) : (
-                                                    <p>
-                                                        Sem leitura registada.
-                                                    </p>
-                                                )}
-                                                {item.tarefaCard.cliente
-                                                    .ultimo_pagamento && (
-                                                    <p>
-                                                        Último pagamento: recibo{" "}
-                                                        <strong>
-                                                            {
-                                                                item.tarefaCard
-                                                                    .cliente
-                                                                    .ultimo_pagamento
-                                                                    .recibo
-                                                            }
-                                                        </strong>{" "}
-                                                        ·{" "}
-                                                        {formatMoney(
-                                                            item.tarefaCard
-                                                                .cliente
-                                                                .ultimo_pagamento
-                                                                .valor,
-                                                        )}{" "}
-                                                        ·{" "}
-                                                        {
-                                                            item.tarefaCard
-                                                                .cliente
-                                                                .ultimo_pagamento
-                                                                .data
-                                                        }
-                                                    </p>
-                                                )}
-                                                {item.tarefaCard.cliente
-                                                    .facturas_em_aberto.length >
-                                                    0 && (
-                                                    <div className="border-t border-slate-200 pt-2 dark:border-slate-700">
-                                                        <p className="mb-1 font-semibold">
-                                                            Facturas em aberto
-                                                        </p>
-                                                        {item.tarefaCard.cliente.facturas_em_aberto
-                                                            .slice(0, 5)
-                                                            .map((factura) => (
-                                                                <p
-                                                                    key={
-                                                                        factura.numero
-                                                                    }
-                                                                    className="py-0.5"
-                                                                >
-                                                                    {
-                                                                        factura.numero
-                                                                    }{" "}
-                                                                    ·{" "}
-                                                                    {
-                                                                        factura.periodo
-                                                                    }{" "}
-                                                                    · saldo{" "}
-                                                                    {formatMoney(
-                                                                        factura.saldo,
-                                                                    )}
-                                                                    {factura.vencida
-                                                                        ? " · vencida"
-                                                                        : ""}{" "}
-                                                                    · multa em
-                                                                    falta{" "}
-                                                                    {formatMoney(
-                                                                        factura.multa_registada_em_falta +
-                                                                            factura.multa_prevista,
-                                                                    )}
-                                                                </p>
-                                                            ))}
-                                                    </div>
-                                                )}
-                                                <div className="flex flex-wrap gap-2">
-                                                    <PrimaryButton
-                                                        type="button"
-                                                        onClick={() =>
-                                                            router.visit(
-                                                                item.tarefaCard
-                                                                    .cliente
-                                                                    .url,
-                                                            )
-                                                        }
-                                                        className="min-h-9 px-3 text-xs"
-                                                    >
-                                                        <UsersRound
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Abrir cliente
-                                                    </PrimaryButton>
-                                                    {item.tarefaCard.cliente
-                                                        .ultima_factura && (
-                                                        <SecondaryButton
-                                                            type="button"
-                                                            onClick={() =>
-                                                                router.visit(
-                                                                    item
-                                                                        .tarefaCard
-                                                                        .cliente
-                                                                        .ultima_factura
-                                                                        .url,
-                                                                )
-                                                            }
-                                                            className="min-h-9 px-3 text-xs"
-                                                        >
-                                                            <FileText
-                                                                className="h-4 w-4"
-                                                                aria-hidden="true"
-                                                            />
-                                                            Abrir factura
-                                                        </SecondaryButton>
-                                                    )}
-                                                    {item.tarefaCard.cliente
-                                                        .ultima_leitura && (
-                                                        <SecondaryButton
-                                                            type="button"
-                                                            onClick={() =>
-                                                                router.visit(
-                                                                    item
-                                                                        .tarefaCard
-                                                                        .cliente
-                                                                        .ultima_leitura
-                                                                        .url,
-                                                                )
-                                                            }
-                                                            className="min-h-9 px-3 text-xs"
-                                                        >
-                                                            <Droplet
-                                                                className="h-4 w-4"
-                                                                aria-hidden="true"
-                                                            />
-                                                            Abrir leitura
-                                                        </SecondaryButton>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {item.tarefaCard?.tipo === "clientes" &&
-                                            tarefa?.etapa ===
-                                                "escolher_cliente" && (
-                                                <div className="mt-3 flex flex-col gap-2">
-                                                    {item.tarefaCard.clientes.map(
-                                                        (cliente) => (
-                                                            <SecondaryButton
-                                                                key={cliente.id}
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    escolherCliente(
-                                                                        cliente,
-                                                                        item
-                                                                            .tarefaCard
-                                                                            .periodoActual,
-                                                                    )
-                                                                }
-                                                                className="min-h-10 justify-start px-3 text-xs"
-                                                            >
-                                                                <UsersRound
-                                                                    className="h-4 w-4"
-                                                                    aria-hidden="true"
-                                                                />
-                                                                {cliente.nome}
-                                                                <span className="ml-1 font-normal text-slate-500">
-                                                                    {
-                                                                        cliente.numero_cliente
-                                                                    }
-                                                                </span>
-                                                            </SecondaryButton>
-                                                        ),
-                                                    )}
-                                                    <SecondaryButton
-                                                        type="button"
-                                                        onClick={cancelarTarefa}
-                                                        className="min-h-9 self-start px-3 text-xs"
-                                                    >
-                                                        <X
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Cancelar
-                                                    </SecondaryButton>
-                                                </div>
-                                            )}
-                                        {item.tarefaCard?.tipo === "periodo" &&
-                                            tarefa?.etapa === "periodo" && (
-                                                <div className="mt-3 flex flex-wrap gap-2">
-                                                    <PrimaryButton
-                                                        type="button"
-                                                        onClick={() =>
-                                                            escolherPeriodo(
-                                                                tarefa.periodoActual,
-                                                            )
-                                                        }
-                                                        className="min-h-9 px-3 text-xs"
-                                                    >
-                                                        <CalendarDays
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Ciclo actual
-                                                    </PrimaryButton>
-                                                    <SecondaryButton
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setTarefa({
-                                                                ...tarefa,
-                                                                etapa: "periodo_manual",
-                                                            });
-                                                            setMensagens(
-                                                                (
-                                                                    anteriores,
-                                                                ) => [
-                                                                    ...anteriores,
-                                                                    {
-                                                                        id: `${Date.now()}-assistant`,
-                                                                        papel: "assistant",
-                                                                        texto: "Indique o mÃªs e o ano no formato MM/AAAA.",
-                                                                    },
-                                                                ],
-                                                            );
-                                                        }}
-                                                        className="min-h-9 px-3 text-xs"
-                                                    >
-                                                        <CalendarDays
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Outro mÃªs
-                                                    </SecondaryButton>
-                                                    <SecondaryButton
-                                                        type="button"
-                                                        onClick={cancelarTarefa}
-                                                        className="min-h-9 px-3 text-xs"
-                                                    >
-                                                        <X
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Cancelar
-                                                    </SecondaryButton>
-                                                </div>
-                                            )}
-                                        {item.tarefaCard?.tipo ===
-                                            "tipos_ocorrencia" &&
-                                            tarefa?.etapa === "tipo" && (
-                                                <div className="mt-3 flex flex-wrap gap-2">
-                                                    {[
-                                                        [
-                                                            "sem_agua",
-                                                            "Falta de água",
-                                                        ],
-                                                        ["fuga", "Fuga"],
-                                                        ["avaria", "Avaria"],
-                                                        [
-                                                            "contador",
-                                                            "Contador",
-                                                        ],
-                                                        [
-                                                            "reclamacao",
-                                                            "Reclamação",
-                                                        ],
-                                                        ["outro", "Outro"],
-                                                    ].map(([tipo, rotulo]) => (
-                                                        <SecondaryButton
-                                                            key={tipo}
-                                                            type="button"
-                                                            onClick={() =>
-                                                                escolherTipoOcorrencia(
-                                                                    tipo,
-                                                                    rotulo,
-                                                                )
-                                                            }
-                                                            className="min-h-9 px-3 text-xs"
-                                                        >
-                                                            <TriangleAlert
-                                                                className="h-4 w-4"
-                                                                aria-hidden="true"
-                                                            />
-                                                            {rotulo}
-                                                        </SecondaryButton>
-                                                    ))}
-                                                    <SecondaryButton
-                                                        type="button"
-                                                        onClick={cancelarTarefa}
-                                                        className="min-h-9 px-3 text-xs"
-                                                    >
-                                                        <X
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Cancelar
-                                                    </SecondaryButton>
-                                                </div>
-                                            )}
-                                        {item.tarefaCard?.tipo ===
-                                            "zonas_producao" &&
-                                            tarefa?.etapa === "zona" && (
-                                                <div className="mt-3 flex flex-col gap-2">
-                                                    <SecondaryButton
-                                                        type="button"
-                                                        onClick={() =>
-                                                            escolherZonaProducao(
-                                                                null,
-                                                            )
-                                                        }
-                                                        className="min-h-9 justify-start px-3 text-xs"
-                                                    >
-                                                        <Factory
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Sistema todo
-                                                    </SecondaryButton>
-                                                    {item.tarefaCard.zonas.map(
-                                                        (zona) => (
-                                                            <SecondaryButton
-                                                                key={zona.id}
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    escolherZonaProducao(
-                                                                        zona,
-                                                                    )
-                                                                }
-                                                                className="min-h-9 justify-start px-3 text-xs"
-                                                            >
-                                                                <MapPinned
-                                                                    className="h-4 w-4"
-                                                                    aria-hidden="true"
-                                                                />
-                                                                {zona.nome}
-                                                            </SecondaryButton>
-                                                        ),
-                                                    )}
-                                                    <SecondaryButton
-                                                        type="button"
-                                                        onClick={cancelarTarefa}
-                                                        className="min-h-9 self-start px-3 text-xs"
-                                                    >
-                                                        <X
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Cancelar
-                                                    </SecondaryButton>
-                                                </div>
-                                            )}
-                                        {item.tarefaCard?.tipo ===
-                                            "zona_previa" && (
-                                            <div className="mt-3 flex flex-wrap gap-2">
-                                                <PrimaryButton
-                                                    type="button"
-                                                    disabled={
-                                                        aEnviar ||
-                                                        tarefa?.etapa !==
-                                                            "confirmar"
-                                                    }
-                                                    onClick={
-                                                        confirmarTarefaOperacional
-                                                    }
-                                                    className="min-h-9 px-3 text-xs"
-                                                >
-                                                    <CheckCircle2
-                                                        className="h-4 w-4"
-                                                        aria-hidden="true"
-                                                    />
-                                                    Confirmar criação
-                                                </PrimaryButton>
-                                                <SecondaryButton
-                                                    type="button"
-                                                    disabled={aEnviar}
-                                                    onClick={cancelarTarefa}
-                                                    className="min-h-9 px-3 text-xs"
-                                                >
-                                                    <X
-                                                        className="h-4 w-4"
-                                                        aria-hidden="true"
-                                                    />
-                                                    Cancelar
-                                                </SecondaryButton>
-                                            </div>
-                                        )}
-                                        {item.tarefaCard?.tipo ===
-                                            "ocorrencia_previa" && (
-                                            <div className="mt-3 space-y-2">
-                                                <p className="text-xs">
-                                                    Tipo:{" "}
-                                                    <strong>
-                                                        {item.tarefaCard.tipoOcorrencia.replaceAll(
-                                                            "_",
-                                                            " ",
-                                                        )}
-                                                    </strong>
-                                                </p>
-                                                <p className="whitespace-pre-wrap text-xs">
-                                                    {item.tarefaCard.descricao}
-                                                </p>
-                                                <div className="flex flex-wrap gap-2">
-                                                    <PrimaryButton
-                                                        type="button"
-                                                        disabled={
-                                                            aEnviar ||
-                                                            tarefa?.etapa !==
-                                                                "confirmar"
-                                                        }
-                                                        onClick={
-                                                            confirmarTarefaOperacional
-                                                        }
-                                                        className="min-h-9 px-3 text-xs"
-                                                    >
-                                                        <CheckCircle2
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Registar ocorrência
-                                                    </PrimaryButton>
-                                                    <SecondaryButton
-                                                        type="button"
-                                                        disabled={aEnviar}
-                                                        onClick={cancelarTarefa}
-                                                        className="min-h-9 px-3 text-xs"
-                                                    >
-                                                        <X
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Cancelar
-                                                    </SecondaryButton>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {item.tarefaCard?.tipo ===
-                                            "producao_previa" && (
-                                            <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-xs dark:border-slate-700 dark:bg-[#252B36]">
-                                                <p>
-                                                    Período:{" "}
-                                                    <strong>
-                                                        {
-                                                            item.tarefaCard
-                                                                .previa.periodo
-                                                        }
-                                                    </strong>{" "}
-                                                    · zona{" "}
-                                                    <strong>
-                                                        {
-                                                            item.tarefaCard
-                                                                .previa.zona
-                                                        }
-                                                    </strong>
-                                                </p>
-                                                <p>
-                                                    Volume:{" "}
-                                                    <strong>
-                                                        {formatNumero(
-                                                            item.tarefaCard
-                                                                .previa
-                                                                .volume_m3,
-                                                        )}{" "}
-                                                        m³
-                                                    </strong>
-                                                </p>
-                                                {item.tarefaCard.previa
-                                                    .vai_substituir && (
-                                                    <p className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                                                        O valor guardado (
-                                                        {formatNumero(
-                                                            item.tarefaCard
-                                                                .previa
-                                                                .valor_anterior,
-                                                        )}{" "}
-                                                        m³) será substituído.
-                                                    </p>
-                                                )}
-                                                <div className="flex flex-wrap gap-2">
-                                                    <PrimaryButton
-                                                        type="button"
-                                                        disabled={
-                                                            aEnviar ||
-                                                            tarefa?.etapa !==
-                                                                "confirmar"
-                                                        }
-                                                        onClick={
-                                                            confirmarTarefaOperacional
-                                                        }
-                                                        className="min-h-9 px-3 text-xs"
-                                                    >
-                                                        <CheckCircle2
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Confirmar registo
-                                                    </PrimaryButton>
-                                                    <SecondaryButton
-                                                        type="button"
-                                                        disabled={aEnviar}
-                                                        onClick={cancelarTarefa}
-                                                        className="min-h-9 px-3 text-xs"
-                                                    >
-                                                        <X
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Cancelar
-                                                    </SecondaryButton>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {item.tarefaCard?.tipo ===
-                                            "facturas_pagamento" &&
-                                            tarefa?.etapa === "factura" && (
-                                                <div className="mt-3 flex flex-col gap-2">
-                                                    {item.tarefaCard.facturas.map(
-                                                        (factura) => (
-                                                            <SecondaryButton
-                                                                key={factura.id}
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    escolherFacturaPagamento(
-                                                                        factura,
-                                                                    )
-                                                                }
-                                                                className="min-h-10 justify-start px-3 text-xs"
-                                                            >
-                                                                <FileText
-                                                                    className="h-4 w-4"
-                                                                    aria-hidden="true"
-                                                                />
-                                                                Factura{" "}
-                                                                {factura.numero}{" "}
-                                                                ·{" "}
-                                                                {String(
-                                                                    factura.mes,
-                                                                ).padStart(
-                                                                    2,
-                                                                    "0",
-                                                                )}
-                                                                /{factura.ano} ·
-                                                                em falta{" "}
-                                                                {formatMoney(
-                                                                    factura.em_falta +
-                                                                        factura.multa_prevista,
-                                                                )}
-                                                            </SecondaryButton>
-                                                        ),
-                                                    )}
-                                                    <SecondaryButton
-                                                        type="button"
-                                                        onClick={cancelarTarefa}
-                                                        className="min-h-9 self-start px-3 text-xs"
-                                                    >
-                                                        <X
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        Cancelar
-                                                    </SecondaryButton>
-                                                </div>
-                                            )}
-                                        {item.tarefaCard?.tipo ===
-                                            "registos" && (
-                                            <div className="mt-3 flex flex-col gap-2">
-                                                {item.tarefaCard.registos.map(
-                                                    (registo) => {
-                                                        const Icone =
-                                                            iconeDaAccao({
-                                                                url: registo.url,
-                                                            });
-                                                        return (
-                                                            <SecondaryButton
-                                                                key={`${registo.url}-${registo.titulo}`}
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    router.visit(
-                                                                        registo.url,
-                                                                    )
-                                                                }
-                                                                className="min-h-10 justify-start px-3 text-left text-xs"
-                                                            >
-                                                                <Icone
-                                                                    className="h-4 w-4 shrink-0"
-                                                                    aria-hidden="true"
-                                                                />
-                                                                <span className="min-w-0">
-                                                                    <strong className="block truncate">
-                                                                        {
-                                                                            registo.titulo
-                                                                        }
-                                                                    </strong>
-                                                                    <span className="block truncate font-normal text-slate-500">
-                                                                        {
-                                                                            registo.detalhe
-                                                                        }
-                                                                    </span>
-                                                                </span>
-                                                                <ExternalLink
-                                                                    className="ml-auto h-3.5 w-3.5 shrink-0"
-                                                                    aria-hidden="true"
-                                                                />
-                                                            </SecondaryButton>
-                                                        );
-                                                    },
-                                                )}
-                                            </div>
-                                        )}
-                                        {item.tarefaCard?.tipo ===
-                                            "metodos_pagamento" &&
-                                            tarefa?.etapa === "metodo" && (
-                                                <div className="mt-3 flex flex-wrap gap-2">
-                                                    {[
-                                                        [
-                                                            "dinheiro",
-                                                            "Dinheiro",
-                                                        ],
-                                                        ["mpesa", "M-Pesa"],
-                                                        ["e-mola", "E-Mola"],
-                                                        ["banco", "Banco"],
-                                                    ].map(
-                                                        ([metodo, rotulo]) => (
-                                                            <SecondaryButton
-                                                                key={metodo}
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    escolherMetodoPagamento(
-                                                                        metodo,
-                                                                    )
-                                                                }
-                                                                className="min-h-9 px-3 text-xs"
-                                                            >
-                                                                <WalletCards
-                                                                    className="h-4 w-4"
-                                                                    aria-hidden="true"
-                                                                />
-                                                                {rotulo}
-                                                            </SecondaryButton>
-                                                        ),
-                                                    )}
-                                                </div>
-                                            )}
-                                        {item.tarefaCard?.tipo ===
-                                            "previa_leitura" && (
-                                            <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-xs dark:border-slate-700 dark:bg-[#252B36]">
-                                                <p>
-                                                    Período:{" "}
-                                                    <strong>
-                                                        {
-                                                            item.tarefaCard
-                                                                .previa.plano
-                                                                .periodo
-                                                        }
-                                                    </strong>
-                                                </p>
-                                                <p>
-                                                    Contador:{" "}
-                                                    {formatNumero(
-                                                        item.tarefaCard.previa
-                                                            .plano
-                                                            .leitura_anterior,
-                                                    )}{" "}
-                                                    →{" "}
-                                                    <strong>
-                                                        {formatNumero(
-                                                            item.tarefaCard
-                                                                .previa.plano
-                                                                .consumo_novo +
-                                                                item.tarefaCard
-                                                                    .previa
-                                                                    .plano
-                                                                    .leitura_anterior,
-                                                        )}
-                                                    </strong>{" "}
-                                                    · consumo{" "}
-                                                    {formatNumero(
-                                                        item.tarefaCard.previa
-                                                            .plano.consumo_novo,
-                                                    )}{" "}
-                                                    m³
-                                                </p>
-                                                <p>
-                                                    Valor de consumo estimado:{" "}
-                                                    <strong>
-                                                        {formatMoney(
-                                                            item.tarefaCard
-                                                                .previa
-                                                                .previsao_factura
-                                                                .valor_consumo,
-                                                        )}
-                                                    </strong>
-                                                </p>
-                                                <p>
-                                                    Valor próprio estimado da
-                                                    factura:{" "}
-                                                    <strong>
-                                                        {formatMoney(
-                                                            item.tarefaCard
-                                                                .previa
-                                                                .previsao_factura
-                                                                .valor_factura_estimado,
-                                                        )}
-                                                    </strong>
-                                                </p>
-                                                {item.tarefaCard.previa
-                                                    .previsao_factura
-                                                    .divida_anterior > 0 && (
-                                                    <p>
-                                                        Dívida anterior do
-                                                        cliente:{" "}
-                                                        {formatMoney(
-                                                            item.tarefaCard
-                                                                .previa
-                                                                .previsao_factura
-                                                                .divida_anterior,
-                                                        )}
-                                                    </p>
-                                                )}
-                                                <p className="text-slate-500">
-                                                    {
-                                                        item.tarefaCard.previa
-                                                            .previsao_factura
-                                                            .nota
-                                                    }
-                                                </p>
-                                                {item.tarefaCard.previa.avisos.map(
-                                                    (aviso) => (
-                                                        <p
-                                                            key={aviso}
-                                                            className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
-                                                        >
-                                                            {aviso}
-                                                        </p>
-                                                    ),
-                                                )}
-                                                {item.tarefaCard.previa.plano
-                                                    .retroactiva && (
-                                                    <p className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                                                        A inserção altera a
-                                                        leitura e pode
-                                                        recalcular a factura do
-                                                        período seguinte.
-                                                    </p>
-                                                )}
-                                                {tarefa?.etapa ===
-                                                    "confirmar" && (
-                                                    <div className="flex flex-wrap gap-2 pt-1">
-                                                        <PrimaryButton
-                                                            type="button"
-                                                            disabled={aEnviar}
-                                                            onClick={() =>
-                                                                confirmarTarefaLeitura(
-                                                                    tarefa.payload,
-                                                                )
-                                                            }
-                                                            className="min-h-10 px-3 text-xs"
-                                                        >
-                                                            <CheckCircle2
-                                                                className="h-4 w-4"
-                                                                aria-hidden="true"
-                                                            />
-                                                            Registar, confirmar
-                                                            e emitir factura
-                                                        </PrimaryButton>
-                                                        <SecondaryButton
-                                                            type="button"
-                                                            disabled={aEnviar}
-                                                            onClick={
-                                                                cancelarTarefa
-                                                            }
-                                                            className="min-h-10 px-3 text-xs"
-                                                        >
-                                                            <X
-                                                                className="h-4 w-4"
-                                                                aria-hidden="true"
-                                                            />
-                                                            Cancelar
-                                                        </SecondaryButton>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                        {item.tarefaCard?.tipo ===
-                                            "factura" && (
-                                            <div className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-white p-3 text-xs dark:border-emerald-900 dark:bg-[#252B36]">
-                                                <p>
-                                                    Leitura{" "}
-                                                    {
-                                                        item.tarefaCard.leitura
-                                                            .numero
-                                                    }
-                                                    :{" "}
-                                                    {String(
-                                                        item.tarefaCard.leitura
-                                                            .mes,
-                                                    ).padStart(2, "0")}
-                                                    /
-                                                    {
-                                                        item.tarefaCard.leitura
-                                                            .ano
-                                                    }
-                                                </p>
-                                                <p>
-                                                    Consumo registado:{" "}
-                                                    <strong>
-                                                        {formatNumero(
-                                                            item.tarefaCard
-                                                                .leitura
-                                                                .consumo_m3,
-                                                        )}{" "}
-                                                        m³
-                                                    </strong>
-                                                </p>
-                                                <p>
-                                                    Factura{" "}
-                                                    <strong>
-                                                        {
-                                                            item.tarefaCard
-                                                                .factura.numero
-                                                        }
-                                                    </strong>
-                                                    :{" "}
-                                                    <strong>
-                                                        {formatMoney(
-                                                            item.tarefaCard
-                                                                .factura
-                                                                .total_pagar,
-                                                        )}
-                                                    </strong>{" "}
-                                                    ·{" "}
-                                                    {
-                                                        item.tarefaCard.factura
-                                                            .estado
-                                                    }
-                                                </p>
-                                                <PrimaryButton
-                                                    type="button"
-                                                    onClick={() =>
-                                                        router.visit(
-                                                            item.tarefaCard
-                                                                .factura.url,
-                                                        )
-                                                    }
-                                                    className="min-h-9 px-3 text-xs"
-                                                >
-                                                    <FileText
-                                                        className="h-4 w-4"
-                                                        aria-hidden="true"
-                                                    />
-                                                    Abrir factura
-                                                </PrimaryButton>
-                                            </div>
-                                        )}
-                                        {item.tarefaCard?.tipo ===
-                                            "previa_pagamento" && (
-                                            <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-xs dark:border-slate-700 dark:bg-[#252B36]">
-                                                <p>
-                                                    Factura{" "}
-                                                    <strong>
-                                                        {
-                                                            item.tarefaCard
-                                                                .previa.factura
-                                                                .numero
-                                                        }
-                                                    </strong>{" "}
-                                                    ·{" "}
-                                                    {String(
-                                                        item.tarefaCard.previa
-                                                            .factura.mes,
-                                                    ).padStart(2, "0")}
-                                                    /
-                                                    {
-                                                        item.tarefaCard.previa
-                                                            .factura.ano
-                                                    }
-                                                </p>
-                                                <p>
-                                                    Valor recebido:{" "}
-                                                    <strong>
-                                                        {formatMoney(
-                                                            item.tarefaCard
-                                                                .previa
-                                                                .valor_pago,
-                                                        )}
-                                                    </strong>{" "}
-                                                    · método{" "}
-                                                    {
-                                                        item.tarefaCard.previa
-                                                            .metodo_pagamento
-                                                    }
-                                                </p>
-                                                <p>
-                                                    Saldo previsto após
-                                                    pagamento:{" "}
-                                                    <strong>
-                                                        {formatMoney(
-                                                            item.tarefaCard
-                                                                .previa
-                                                                .saldo_depois,
-                                                        )}
-                                                    </strong>
-                                                </p>
-                                                {tarefa?.etapa ===
-                                                    "confirmar" && (
-                                                    <div className="flex flex-wrap gap-2 pt-1">
-                                                        <PrimaryButton
-                                                            type="button"
-                                                            disabled={aEnviar}
-                                                            onClick={() =>
-                                                                confirmarTarefaPagamento(
-                                                                    tarefa.payload,
-                                                                )
-                                                            }
-                                                            className="min-h-10 px-3 text-xs"
-                                                        >
-                                                            <CheckCircle2
-                                                                className="h-4 w-4"
-                                                                aria-hidden="true"
-                                                            />
-                                                            Confirmar pagamento
-                                                        </PrimaryButton>
-                                                        <SecondaryButton
-                                                            type="button"
-                                                            disabled={aEnviar}
-                                                            onClick={
-                                                                cancelarTarefa
-                                                            }
-                                                            className="min-h-10 px-3 text-xs"
-                                                        >
-                                                            <X
-                                                                className="h-4 w-4"
-                                                                aria-hidden="true"
-                                                            />
-                                                            Cancelar
-                                                        </SecondaryButton>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                        {item.tarefaCard?.tipo ===
-                                            "pagamento" && (
-                                            <div className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-white p-3 text-xs dark:border-emerald-900 dark:bg-[#252B36]">
-                                                <p>
-                                                    Recibo{" "}
-                                                    <strong>
-                                                        {
-                                                            item.tarefaCard
-                                                                .pagamento
-                                                                .numero_recibo
-                                                        }
-                                                    </strong>{" "}
-                                                    ·{" "}
-                                                    {formatMoney(
-                                                        item.tarefaCard
-                                                            .pagamento
-                                                            .valor_pago,
-                                                    )}
-                                                </p>
-                                                <p>
-                                                    Saldo da factura depois do
-                                                    pagamento:{" "}
-                                                    {formatMoney(
-                                                        item.tarefaCard.factura
-                                                            .em_falta,
-                                                    )}
-                                                </p>
-                                                <PrimaryButton
-                                                    type="button"
-                                                    onClick={() =>
-                                                        router.visit(
-                                                            item.tarefaCard
-                                                                .recibo_url,
-                                                        )
-                                                    }
-                                                    className="min-h-9 px-3 text-xs"
-                                                >
-                                                    <FileText
-                                                        className="h-4 w-4"
-                                                        aria-hidden="true"
-                                                    />
-                                                    Abrir recibo
-                                                </PrimaryButton>
-                                            </div>
-                                        )}
-                                        {item.resposta?.passos?.length > 0 && (
-                                            <ol className="mt-2.5 list-decimal space-y-1.5 border-t border-slate-200/80 pt-2.5 pl-4 dark:border-slate-700">
-                                                {item.resposta.passos.map(
-                                                    (passo, indice) => (
-                                                        <li
-                                                            key={`${item.id}-passo-${indice}`}
-                                                        >
-                                                            {passo}
-                                                        </li>
-                                                    ),
-                                                )}
-                                            </ol>
-                                        )}
-                                        {item.resposta?.evidencias?.length >
-                                            0 && (
-                                            <details className="mt-2.5 border-t border-slate-200/80 pt-2 dark:border-slate-700">
-                                                <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[11px] font-semibold text-brand dark:text-cyan-300">
-                                                    Dados usados{" "}
-                                                    <ChevronDown
-                                                        className="h-3.5 w-3.5"
-                                                        aria-hidden="true"
-                                                    />
-                                                </summary>
-                                                <ul className="mt-2 list-disc space-y-1 pl-4 text-[11px] text-slate-600 dark:text-slate-300">
-                                                    {item.resposta.evidencias.map(
-                                                        (evidencia, indice) => (
-                                                            <li
-                                                                key={`${item.id}-evidencia-${indice}`}
-                                                            >
-                                                                {evidencia}
-                                                            </li>
-                                                        ),
-                                                    )}
-                                                </ul>
-                                            </details>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                            {aEnviar && (
-                                <div
-                                    className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400"
-                                    role="status"
-                                >
-                                    <MascoteAqua pequeno />
-                                    <span className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-[#1E232D]">
-                                        <LoaderCircle
-                                            className="h-3.5 w-3.5 animate-spin"
-                                            aria-hidden="true"
-                                        />
-                                        Aqua está a analisar o contexto…
-                                    </span>
-                                </div>
-                            )}
+                                    ))}
+                            </div>
                         </div>
 
-                        {mensagens.length === 1 && !aEnviar && (
-                            <div className="flex flex-wrap gap-2 px-4 pb-3">
-                                {SUGESTOES.map((sugestao) => (
-                                    <button
-                                        key={sugestao}
-                                        type="button"
-                                        onClick={() => enviar(sugestao)}
-                                        className="rounded-full border border-[#CBD8F3] bg-white px-3 py-2 text-left text-[11px] font-semibold text-[#173B86] transition-colors hover:bg-[#F0F4FF] dark:border-slate-700 dark:bg-[#1E232D] dark:text-cyan-200 dark:hover:bg-[#262C38]"
-                                    >
-                                        {sugestao}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        {erro && (
-                            <p
-                                role="alert"
-                                className="mx-4 mb-2 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:bg-rose-950/40 dark:text-rose-200"
-                            >
-                                {erro}
-                            </p>
-                        )}
-
+                        {concluido ? (
+                            <BarraAccoes
+                                empilhado
+                                primario={{
+                                    rotulo: concluido.tipo === "leitura" ? "Ler o próximo contador" : "Registar outro pagamento",
+                                    onClick: () => (concluido.tipo === "leitura" ? iniciarRegistoLeitura() : iniciarRegistoPagamento()),
+                                }}
+                                secundario={{ rotulo: "Terminar por agora", onClick: terminarConcluido }}
+                            />
+                        ) : escreveLeitura ? (
+                            <BarraAccoes
+                                secundario={{ rotulo: "Voltar", onClick: voltarAoCliente, disabled: aEnviar }}
+                                primario={{
+                                    rotulo: "Rever e confirmar",
+                                    onClick: reverLeitura,
+                                    disabled: aEnviar || aTranscrever || lerNumero(leituraDigitada) === null,
+                                }}
+                            />
+                        ) : confirmaLeitura ? (
+                            <BarraAccoes
+                                secundario={{ rotulo: "Corrigir", onClick: () => setTarefa({ ...tarefa, etapa: "contador" }), disabled: aEnviar }}
+                                primario={{ rotulo: aEnviar ? "A gravar…" : "Confirmar e emitir", onClick: () => confirmarTarefaLeitura(tarefa.payload), disabled: aEnviar }}
+                            />
+                        ) : (
                         <form
                             onSubmit={(evento) => {
                                 evento.preventDefault();
                                 enviar();
                             }}
-                            className="border-t border-slate-100 p-3 dark:border-slate-800"
+                            className={`shrink-0 border-t px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 ${cor.borda} ${cor.superficie}`}
                         >
-                            <div className="flex items-end gap-2 rounded-xl border border-slate-300 bg-white p-2 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15 dark:border-slate-700 dark:bg-[#1E232D] dark:focus-within:border-cyan-500">
+                            {seguimentos.length > 0 && (
+                                <div className="-mx-3 mb-2.5 flex gap-2 overflow-x-auto px-3 [scrollbar-width:none]" aria-label="Perguntas de seguimento">
+                                    {seguimentos.map((texto) => (
+                                        <button
+                                            key={texto}
+                                            type="button"
+                                            onClick={() => enviar(texto)}
+                                            className="h-9 shrink-0 rounded-full border border-[#D6E2FF] bg-[#F0F4FF] px-3.5 text-[13px] font-semibold text-[#0A2A78] transition hover:border-[#9DBBFF] dark:border-[#1B2F66] dark:bg-[#0E1C3F] dark:text-[#9DBBFF]"
+                                        >
+                                            {texto}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            <div className={`flex items-end gap-1.5 rounded-3xl border p-1 pl-4 transition focus-within:border-[#9DBBFF] dark:focus-within:border-[#1B2F66] ${cor.borda} ${cor.campo}`}>
+                                <label htmlFor="aqua-pergunta" className="sr-only">
+                                    Mensagem para a Aqua
+                                </label>
                                 <textarea
+                                    id="aqua-pergunta"
                                     ref={campoRef}
                                     value={pergunta}
-                                    onChange={(evento) =>
-                                        setPergunta(evento.target.value)
-                                    }
+                                    onChange={(evento) => setPergunta(evento.target.value)}
                                     onKeyDown={(evento) => {
-                                        if (
-                                            evento.key === "Enter" &&
-                                            !evento.shiftKey
-                                        ) {
+                                        if (evento.key === "Enter" && !evento.shiftKey) {
                                             evento.preventDefault();
                                             enviar();
                                         }
@@ -2965,100 +1928,145 @@ export default function AquaGuia() {
                                     rows={1}
                                     maxLength={1200}
                                     placeholder={placeholder}
-                                    aria-label="Pergunta para Aqua sobre qualquer área"
-                                    disabled={
-                                        !entradaDisponivel ||
-                                        aEnviar ||
-                                        aTranscrever ||
-                                        aGravar
-                                    }
-                                    aria-describedby="aqua-guia-composer-hint"
-                                    className="max-h-28 min-h-10 flex-1 resize-y border-0 bg-transparent px-1.5 py-2 text-[13px] text-ink outline-none placeholder:text-slate-400 focus:!border-0 focus:!shadow-none focus:ring-0 dark:text-slate-100"
+                                    disabled={!entradaDisponivel || aEnviar || aTranscrever || aGravar}
+                                    className={`max-h-28 min-h-11 min-w-0 flex-1 resize-none border-0 bg-transparent px-0 py-[11px] text-[15px] leading-snug outline-none placeholder:truncate placeholder:text-[#8C97B0] focus:!border-0 focus:!shadow-none focus:!outline-none focus:ring-0 focus-visible:!shadow-none disabled:cursor-not-allowed ${cor.texto}`}
                                 />
                                 <button
                                     type="button"
                                     onClick={iniciarOuPararAudio}
-                                    disabled={
-                                        !entradaDisponivel ||
-                                        aEnviar ||
-                                        aTranscrever
-                                    }
-                                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-40 ${aGravar ? "bg-rose-600 text-white hover:bg-rose-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-[#303744] dark:text-slate-100 dark:hover:bg-[#3A4352]"}`}
-                                    aria-label={
-                                        aGravar
-                                            ? "Parar gravação de áudio"
-                                            : "Gravar pergunta por áudio"
-                                    }
-                                    title={
-                                        aGravar
-                                            ? "Parar gravação"
-                                            : "Gravar pergunta por áudio"
-                                    }
+                                    disabled={!entradaDisponivel || aEnviar || aTranscrever}
+                                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#E6EEFF] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-[#262C38] ${cor.texto2}`}
+                                    aria-label="Ditar por voz"
+                                    title="Ditar por voz"
                                 >
-                                    {aGravar ? (
-                                        <Square
-                                            className="h-3.5 w-3.5 fill-current"
-                                            aria-hidden="true"
-                                        />
-                                    ) : (
-                                        <Mic
-                                            className="h-4 w-4"
-                                            aria-hidden="true"
-                                        />
-                                    )}
+                                    <Mic className="h-5 w-5" aria-hidden="true" />
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={
-                                        !pergunta.trim() ||
-                                        aEnviar ||
-                                        aTranscrever ||
-                                        aGravar ||
-                                        !entradaDisponivel
-                                    }
-                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
-                                    aria-label="Enviar pergunta"
+                                    disabled={!pergunta.trim() || aEnviar || aTranscrever || aGravar || !entradaDisponivel}
+                                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#041A53] text-white transition hover:bg-[#0A2A78] disabled:cursor-not-allowed disabled:bg-[#C9D2E3] dark:bg-[#0059FF] dark:hover:bg-[#0050E6] dark:disabled:bg-[#363E51]"
+                                    aria-label="Enviar"
                                 >
-                                    <ArrowUp
-                                        className="h-4 w-4"
-                                        aria-hidden="true"
-                                    />
+                                    <ArrowUp className="h-5 w-5" strokeWidth={2.4} aria-hidden="true" />
                                 </button>
                             </div>
-                            <p
-                                id="aqua-guia-composer-hint"
-                                className="px-1 pt-2 text-[10px] leading-relaxed text-slate-400"
-                            >
-                                {aGravar
-                                    ? "A gravar… toque em parar quando terminar (máx. 60 segundos)."
-                                    : aTranscrever
-                                      ? "A transcrever o áudio…"
-                                      : "Enter envia · Shift+Enter quebra a linha · O áudio gravado é enviado ao Gemini para transcrição."}
-                            </p>
                         </form>
+                        )}
+
+                        {confirmaPagamento && (
+                            <FolhaPagamento
+                                tarefa={tarefa}
+                                metodo={metodoFolha}
+                                onMetodo={setMetodoFolha}
+                                referencia={referenciaFolha}
+                                onReferencia={setReferenciaFolha}
+                                onEditar={editarPagamento}
+                                onConfirmar={confirmarFolhaPagamento}
+                                aEnviar={aEnviar}
+                                erro={erro}
+                            />
+                        )}
+
                     </motion.aside>
                 )}
             </AnimatePresence>
 
-            {!expandido && (
-                <button
-                    ref={accionadorRef}
-                    type="button"
-                    onClick={() => setAberto((valor) => !valor)}
-                    className="group flex h-14 items-center gap-2.5 rounded-full bg-brand p-1.5 pr-4 text-white shadow-[0_8px_24px_rgba(4,26,83,0.25)] transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-300 dark:bg-[#0059FF] dark:hover:bg-[#0050E6]"
-                    aria-label={
-                        aberto ? "Fechar ajuda da Aqua" : "Abrir ajuda da Aqua"
-                    }
-                    aria-expanded={aberto}
-                    aria-controls="aqua-guia"
+            {notificacao && !aberto && !vozAberta && (
+                <NotificacaoAqua
+                    notificacao={notificacao}
+                    humor={humorDaMensagem(notificacao.item)}
+                    onAbrir={() => setAberto(true)}
+                    onDispensar={() => setNotificacao(null)}
                 >
-                    <MascoteAqua pequeno />
-                    <span className="text-sm font-bold">Aqua</span>
-                    <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold">
-                        Global
-                    </span>
-                </button>
+                    <Mensagem
+                        item={notificacao.item}
+                        ctx={{
+                            ...ctx,
+                            // Os botões da notificação abrem o chat e seguem a acção lá.
+                            executarAccao: (acao) => {
+                                setAberto(true);
+                                executarAccao(acao);
+                            },
+                            enviar: (texto) => {
+                                setAberto(true);
+                                enviar(texto);
+                            },
+                            irPara: (url) => {
+                                setNotificacao(null);
+                                router.visit(url);
+                            },
+                        }}
+                    />
+                </NotificacaoAqua>
             )}
-        </div>
+
+            {/* Conversa por voz em ecrã inteiro, com o resto da app desfocado. */}
+            <AnimatePresence>
+                {vozAberta && (
+                    <motion.div
+                        key="aqua-voz"
+                        initial={reduzirMovimento ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Conversa por voz com a Aqua"
+                        className="fixed inset-0 z-[90] flex items-stretch justify-center bg-[rgba(3,9,35,0.45)] backdrop-blur-xl md:items-center md:p-6 dark:bg-black/60"
+                        onKeyDown={(evento) => {
+                            if (evento.key === "Escape") (aGravar ? cancelarAudio() : setVozAberta(false));
+                        }}
+                    >
+                        <motion.div
+                            initial={reduzirMovimento ? false : { y: 24, scale: 0.98 }}
+                            animate={{ y: 0, scale: 1 }}
+                            transition={{ duration: 0.24, ease: [0.23, 1, 0.32, 1] }}
+                            className="relative h-full w-full overflow-hidden md:h-[min(860px,100%)] md:max-w-[460px] md:rounded-[32px] md:shadow-[0_30px_80px_rgba(0,0,0,0.45)]"
+                        >
+                            <EcraVoz
+                                fase={aGravar ? "ouvir" : aTranscrever ? "transcrever" : aEnviar ? "pensar" : "resposta"}
+                                segundos={segundosGravacao}
+                                nivel={nivelVoz}
+                                titulo="Falar com a Aqua"
+                                subtitulo={`A ver ${paginaActual}`}
+                                transcricao={vozTranscricao}
+                                aviso={vozAviso || (!aGravar && !aTranscrever && !aEnviar ? erro : "")}
+                                resposta={vozTranscricao && ultima?.papel === "assistant" ? <Mensagem item={ultima} ctx={ctx} /> : null}
+                                humorResposta={ultima?.papel === "assistant" ? humorDaMensagem(ultima) : "ola"}
+                                onParar={iniciarOuPararAudio}
+                                onFalar={iniciarOuPararAudio}
+                                onCancelar={() => (aGravar ? cancelarAudio() : setVozAberta(false))}
+                                onEscrever={() => {
+                                    if (aGravar) cancelarAudio();
+                                    setVozAberta(false);
+                                    setAberto(true);
+                                    requestAnimationFrame(() => campoRef.current?.focus());
+                                }}
+                            />
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </>
+    );
+}
+
+function BotaoIcone({ rotulo, onClick, children, activo = false, expandido, perigo = false, disabled = false }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={rotulo}
+            title={rotulo}
+            aria-expanded={expandido}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] transition disabled:opacity-40 ${
+                perigo
+                    ? "text-[#8C97B0] hover:bg-[#FDF1F0] hover:text-[#B42318] dark:hover:bg-[#2D1714] dark:hover:text-[#F4A39A]"
+                    : `text-[#363E51] hover:bg-[#EDF1F8] dark:text-[#C9D2E3] dark:hover:bg-[#262C38] ${activo ? "bg-[#EDF1F8] dark:bg-[#262C38]" : "bg-[#F4F6FB] dark:bg-[#1E232D]"}`
+            }`}
+        >
+            {children}
+        </button>
     );
 }

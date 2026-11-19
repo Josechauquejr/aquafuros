@@ -104,6 +104,20 @@ class ConsultaDadosAssistente
     {
         $query = Factura::with('cliente:id,nome,numero_cliente')->when($ano, fn ($q) => $q->where('ano', $ano))
             ->when($mes, fn ($q) => $q->where('mes', $mes));
+        // "em aberto", "por pagar", "quem não pagou", "pagas", "vencidas" são
+        // filtros de estado, não nomes de clientes nem números de factura.
+        $estado = mb_strtolower($termo);
+        if (preg_match('/venc/u', $estado)) {
+            $query->whereIn('estado', ['pendente', 'parcial'])->whereDate('data_vencimento', '<', today());
+            $termo = '';
+        } elseif (preg_match('/aberto|pendent|parcia|por pagar|n[ãa]o pag|devedor|d[ií]vida|falta pagar/u', $estado)) {
+            $query->whereIn('estado', ['pendente', 'parcial']);
+            $termo = '';
+        } elseif (preg_match('/^(as )?(facturas )?pagas?$|liquidad/u', $estado)) {
+            $query->where('estado', 'paga');
+            $termo = '';
+        }
+        $query->where('estado', '!=', 'anulada');
         if ($termo !== '') $query->where(fn ($q) => $q->where('numero_factura', 'like', "%{$termo}%")
             ->orWhereIn('cliente_id', self::idsClientes($termo)));
         $facturas = $query->orderByDesc('ano')->orderByDesc('mes')->orderByDesc('id')->get();

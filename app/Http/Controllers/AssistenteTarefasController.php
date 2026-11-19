@@ -331,6 +331,55 @@ class AssistenteTarefasController extends Controller
         return response()->json(['facturas' => $facturas]);
     }
 
+    /**
+     * Canvas "5 · Pagamento": reparte o valor recebido pelas facturas em aberto
+     * do cliente, da mais antiga para a mais recente. Não grava nada.
+     */
+    public function distribuirPagamento(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'cliente_id' => ['required', 'integer', 'exists:clientes,id'],
+            'valor' => ['required', 'numeric', 'gt:0'],
+        ]);
+        $cliente = Cliente::where('estado', 'ativo')->findOrFail($data['cliente_id']);
+        $facturas = Factura::with(['pagamentos', 'cliente.tarifa'])->where('cliente_id', $cliente->id)
+            ->whereIn('estado', ['pendente', 'parcial'])->orderBy('ano')->orderBy('mes')->orderBy('id')->get();
+        if ($facturas->isEmpty()) {
+            throw ValidationException::withMessages(['valor' => "{$cliente->nome} não tem facturas por pagar."]);
+        }
+
+        $restante = round((float) $data['valor'], 2);
+        $linhas = $facturas->map(function (Factura $factura) use (&$restante) {
+            $emFalta = round($factura->emFalta() + $factura->multaAtrasoPrevista(), 2);
+            $aplicado = round(min($restante, $emFalta), 2);
+            $restante = round($restante - $aplicado, 2);
+
+            return [
+                'factura_id' => $factura->id,
+                'numero' => $factura->numero_factura,
+                'mes' => $factura->mes,
+                'ano' => $factura->ano,
+                'vencida' => (bool) $factura->esta_vencida,
+                'em_falta' => $emFalta,
+                'aplicado' => $aplicado,
+                'fica' => round($emFalta - $aplicado, 2),
+            ];
+        });
+        $totalEmFalta = round((float) $linhas->sum('em_falta'), 2);
+        if ($restante > 0.005) {
+            throw ValidationException::withMessages(['valor' => 'O valor é maior do que o total em falta ('.number_format($totalEmFalta, 2, ',', ' ').' MT). Registe o excesso como crédito na página Caixa.']);
+        }
+
+        return response()->json([
+            'cliente' => ['id' => $cliente->id, 'nome' => $cliente->nome, 'numero_cliente' => $cliente->numero_cliente],
+            'valor' => round((float) $data['valor'], 2),
+            'total_em_falta' => $totalEmFalta,
+            'fica_em_aberto' => round($totalEmFalta - (float) $data['valor'], 2),
+            'parcelas' => $linhas->filter(fn (array $linha) => $linha['aplicado'] > 0)->values(),
+            'restantes' => $linhas->filter(fn (array $linha) => $linha['aplicado'] <= 0)->values(),
+        ]);
+    }
+
     public function preverPagamento(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -357,6 +406,44 @@ class AssistenteTarefasController extends Controller
             'metodo_pagamento' => $data['metodo_pagamento'],
             'em_falta' => $emFalta,
             'saldo_depois' => round(max(0, $emFalta - (float) $data['valor_pago']), 2),
+        ]);
+    }
+
+    /**
+     * Dados do ecrã "Registar leitura" da Aqua: o cliente, a última leitura
+     * (valor e data) e a média de consumo, para mostrar o intervalo esperado.
+     */
+    public function contextoLeitura(Request $request): JsonResponse
+    {
+        $data = $request->validate(['cliente_id' => ['required', 'integer', 'exists:clientes,id']]);
+        $cliente = Cliente::with('zona:id,nome')->where('estado', 'ativo')->findOrFail($data['cliente_id']);
+        $periodo = MesReferencia::actual();
+        $recentes = Leitura::where('cliente_id', $cliente->id)->whereNull('anulada_em')
+            ->orderByDesc('ano')->orderByDesc('mes')->orderByDesc('id')->limit(6)->get();
+        $ultima = $recentes->first();
+        // A primeira leitura (desde zero ou desde a leitura inicial) não é um consumo mensal.
+        $consumos = $recentes->filter(fn (Leitura $leitura) => (float) $leitura->leitura_anterior > 0)
+            ->map(fn (Leitura $leitura) => $leitura->consumo())->filter(fn ($consumo) => $consumo > 0);
+        $meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        $dataUltima = $ultima?->confirmado_em ?? $ultima?->created_at;
+
+        return response()->json([
+            'cliente' => [
+                'id' => $cliente->id,
+                'nome' => $cliente->nome,
+                'numero_cliente' => $cliente->numero_cliente,
+                'zona' => $cliente->zona?->nome,
+            ],
+            'ultima' => $ultima ? [
+                'valor' => (float) $ultima->leitura_actual,
+                'periodo' => $meses[$ultima->mes - 1].' '.$ultima->ano,
+                'data' => $dataUltima ? $dataUltima->day.' de '.$meses[$dataUltima->month - 1] : null,
+                'do_periodo_actual' => $ultima->mes === $periodo->month && $ultima->ano === $periodo->year,
+            ] : null,
+            'leitura_inicial' => (float) ($cliente->leitura_inicial ?? 0),
+            'media_m3' => $consumos->isNotEmpty() ? round((float) $consumos->avg(), 1) : null,
+            'periodo_actual' => $periodo->format('Y-m'),
+            'mes_actual' => $meses[$periodo->month - 1],
         ]);
     }
 

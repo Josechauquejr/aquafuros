@@ -16,9 +16,9 @@ export function MeiosPagamentoFactura({ empresa, compacto = false, referencia })
             {meios.length ? <div className={`grid grid-cols-2 ${compacto ? "gap-3" : "gap-3"}`}>
                 {meios.map(([nome, numero, titular]) => (
                     <div key={nome} className={compacto ? "text-[10px] leading-tight" : "rounded-[12px] border border-[#DDE2EE] px-4 py-2"}>
-                        <p className={compacto ? "text-slate-600" : "text-[12px] font-medium text-slate-600"}>{nome}</p>
-                        <p className={`${compacto ? "text-[13px]" : "text-lg"} whitespace-nowrap font-semibold tracking-wide text-ink`}>{telefonePagamento(numero)}</p>
-                        {titular && <p className={`${compacto ? "text-[10px]" : "text-[11px]"} text-slate-600`}>{titular}</p>}
+                        <p className={compacto ? "font-bold text-ink" : "text-[12px] font-bold text-ink"}>{nome}</p>
+                        <p className={`${compacto ? "text-[13px]" : "text-lg"} whitespace-nowrap font-bold tracking-wide text-ink`}>{telefonePagamento(numero)}</p>
+                        {titular && <p className={`${compacto ? "text-[10px]" : "text-[11px]"} text-slate-600`}>Em nome de <strong className="text-ink">{titular}</strong></p>}
                     </div>
                 ))}
             </div> : <p className="text-[12px] text-slate-600">Contacte a empresa para obter os meios de pagamento.</p>}

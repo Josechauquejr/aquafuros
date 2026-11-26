@@ -152,7 +152,7 @@
         <div class="heading">Meios de pagamento</div>
         <table><tr>
             @forelse ($meios as [$nome, $conta, $titular])
-                <td style="width: 49%;"><div class="card"><div class="muted small">{{ $nome }}</div><div style="font-size: 15px; font-weight: bold;">{{ $telefone($conta) }}</div>@if ($titular)<div class="small muted">{{ $titular }}</div>@endif</div></td>
+                <td style="width: 49%;"><div class="card"><div class="small" style="font-weight: bold;">{{ $nome }}</div><div style="font-size: 15px; font-weight: bold;">{{ $telefone($conta) }}</div>@if ($titular)<div class="small muted">Em nome de <strong style="color: #030923;">{{ $titular }}</strong></div>@endif</div></td>
                 @if (! $loop->last)<td style="width: 2%;"></td>@endif
             @empty
                 <td class="muted">Contacte a empresa para obter os meios de pagamento.</td>

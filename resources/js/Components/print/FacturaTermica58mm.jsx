@@ -150,8 +150,8 @@ export default function FacturaTermica58mm({ factura, primeiraLeitura, consumoAn
             <Linha />
 
             <p className="font-bold">Formas de pagamento:</p>
-            {empresa?.mpesa_numero && <p>M-Pesa: {telefonePagamento(empresa.mpesa_numero)}{empresa.mpesa_titular ? ` - ${empresa.mpesa_titular}` : ""}</p>}
-            {empresa?.emola_numero && <p>E-Mola: {telefonePagamento(empresa.emola_numero)}{empresa.emola_titular ? ` - ${empresa.emola_titular}` : ""}</p>}
+            {empresa?.mpesa_numero && <p className="font-bold">M-Pesa: {telefonePagamento(empresa.mpesa_numero)}{empresa.mpesa_titular ? ` - ${empresa.mpesa_titular}` : ""}</p>}
+            {empresa?.emola_numero && <p className="font-bold">E-Mola: {telefonePagamento(empresa.emola_numero)}{empresa.emola_titular ? ` - ${empresa.emola_titular}` : ""}</p>}
             <Linha />
 
             {qrUrl && (

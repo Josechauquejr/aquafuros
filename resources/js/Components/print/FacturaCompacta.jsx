@@ -16,9 +16,11 @@ export default function FacturaCompacta({ factura, empresa, qrUrl }) {
     const leitura = factura.leitura;
     const ligacao = factura.tipo === "ligacao";
     const meios = [
-        ["M-Pesa", empresa?.mpesa_numero],
-        ["E-Mola", empresa?.emola_numero],
+        ["M-Pesa", empresa?.mpesa_numero, empresa?.mpesa_titular],
+        ["E-Mola", empresa?.emola_numero, empresa?.emola_titular],
     ].filter(([, numero]) => numero);
+    // Quando todas as contas têm o mesmo titular, mostra-o uma só vez.
+    const titulares = [...new Set(meios.map(([, , titular]) => titular).filter(Boolean))];
     const linhas = [
         [ligacao ? "Taxa de ligação" : `Consumo ${volumeDocumento(resumo.consumo)}`, resumo.consumoEmitido],
         ...(resumo.acertoLeitura !== 0 ? [["Acerto de leituras", resumo.acertoLeitura]] : []),
@@ -111,7 +113,13 @@ export default function FacturaCompacta({ factura, empresa, qrUrl }) {
                 </div>
                 <div className="flex flex-col gap-[0.4mm] text-[7pt] leading-snug text-slate-600">
                     <p className="font-bold text-black">Como pagar</p>
-                    {meios.length ? meios.map(([nome, numero]) => <p key={nome}>{nome} {telefonePagamento(numero)}</p>) : <p>Contacte a empresa.</p>}
+                    {meios.length ? meios.map(([nome, numero, titular]) => (
+                        <p key={nome} className="font-bold text-black">
+                            {nome} {telefonePagamento(numero)}
+                            {titulares.length > 1 && titular && <span className="block font-normal text-slate-600">{titular}</span>}
+                        </p>
+                    )) : <p>Contacte a empresa.</p>}
+                    {titulares.length === 1 && <p>Em nome de <strong className="text-black">{titulares[0]}</strong></p>}
                     <p>Dinheiro no escritório</p>
                     <p>Ref.: {factura.cliente?.numero_cliente ?? factura.numero_factura}</p>
                 </div>

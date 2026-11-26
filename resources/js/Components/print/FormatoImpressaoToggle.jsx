@@ -1,4 +1,5 @@
 import { Printer, Smartphone } from "lucide-react";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -46,6 +47,8 @@ export default function FormatoImpressaoToggle({ formato, onChange }) {
  * por classe. Só um dos dois formatos está presente no DOM de cada vez.
  */
 export function EstiloPagina({ formato }) {
+    usePapelClaroAoImprimir();
+
     if (formato === "58mm") {
         // Altura fixa generosa (58 × 3) — mais fiável em impressoras/drivers
         // térmicos do que "auto", que nem todos suportam bem.
@@ -53,4 +56,35 @@ export function EstiloPagina({ formato }) {
     }
 
     return <style>{"@page { size: A4; margin: 12mm; }"}</style>;
+}
+
+/**
+ * O papel sai sempre claro: com o tema escuro activo, as regras `html.dark`
+ * pintavam as folhas de preto. Retira a classe `dark` só durante a impressão
+ * e repõe-na logo a seguir.
+ */
+function usePapelClaroAoImprimir() {
+    useEffect(() => {
+        const html = document.documentElement;
+        let estavaEscuro = false;
+        let esquemaAnterior = "";
+        const antes = () => {
+            estavaEscuro = html.classList.contains("dark");
+            esquemaAnterior = html.style.colorScheme;
+            html.classList.remove("dark");
+            html.style.colorScheme = "light";
+        };
+        const depois = () => {
+            if (estavaEscuro) html.classList.add("dark");
+            html.style.colorScheme = esquemaAnterior;
+            estavaEscuro = false;
+        };
+        window.addEventListener("beforeprint", antes);
+        window.addEventListener("afterprint", depois);
+        return () => {
+            window.removeEventListener("beforeprint", antes);
+            window.removeEventListener("afterprint", depois);
+            depois();
+        };
+    }, []);
 }

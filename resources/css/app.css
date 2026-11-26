@@ -401,6 +401,13 @@
     [data-slot="sidebar-inset"] {
         background: #fff !important;
     }
+
+    /* Salvaguarda: o papel nunca sai com o fundo do tema escuro. */
+    html.dark,
+    html.dark body {
+        background: #fff !important;
+        color-scheme: light;
+    }
 }
 
 /* A factura A4 é papel de saída: mantém as cores claras mesmo dentro do tema escuro. */
